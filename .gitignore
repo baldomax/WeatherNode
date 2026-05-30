@@ -43,6 +43,10 @@
 .DS_Store
 Thumbs.db
 
+# FreeFileSync
+sync.ffs_lock
+*.ffs_db
+
 # Local dev infra
 Homestead.json
 Homestead.yaml
