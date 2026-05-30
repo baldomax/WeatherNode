@@ -141,6 +141,18 @@ Navigate to **Admin → Settings → Updates** (`/admin/settings/updates`) to:
 
 ### Update Methods
 
+#### Docker Updates (Preferred for container deployments)
+
+If WeatherNode runs in Docker, use image-based updates instead of the in-app updater:
+
+```bash
+docker compose pull
+docker compose up -d --force-recreate
+docker compose exec app php artisan migrate --force
+```
+
+Reason: containerized deployments are most reliable when code and dependencies are updated together via a new image.
+
 #### Browser-Based Updates (Tier 1)
 
 If your server supports it, you can update directly from the admin panel. The system will:

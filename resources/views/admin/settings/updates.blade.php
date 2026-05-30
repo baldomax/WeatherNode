@@ -3,6 +3,9 @@
 @section('title', __('Updates'))
 
 @section('content')
+@php
+    $isContainerized = file_exists('/.dockerenv') || env('CONTAINERIZED', false);
+@endphp
 <div class="w-full" x-data="updateManager()">
     <!-- Breadcrumb -->
     <nav class="mb-6 text-sm">
@@ -28,6 +31,7 @@
             <div class="flex-1">
                 <h3 class="text-lg font-semibold text-indigo-900 dark:text-indigo-100 mb-2">{{ __('How Updates Work') }}</h3>
                 <div class="space-y-2 text-sm text-indigo-800 dark:text-indigo-200">
+                    <p><strong>{{ __('Docker Deployments (Preferred)') }}:</strong> {{ __('If this app runs in Docker, update by pulling the new image and redeploying containers, then run php artisan migrate --force in the app container. This keeps container layers and runtime state consistent.') }}</p>
                     <p><strong>{{ __('Automatic Updates (Tier 1)') }}:</strong> {{ __('If your server supports it, you can update directly from this page. The system will automatically backup your data, download the update, verify it, and deploy it safely with automatic rollback if anything goes wrong.') }}</p>
                     <p><strong>{{ __('Preview Updates') }}:</strong> {{ __('Use the "Preview Update" button to test an update without deploying. This checks compatibility and requirements without making any changes.') }}</p>
                     <p><strong>{{ __('Manual Updates (Tier 0)') }}:</strong> {{ __('If browser updates aren\'t supported, you can download the ZIP file from GitHub and upload it manually. This works on almost all hosting providers.') }}</p>
@@ -96,6 +100,25 @@
             </div>
         </div>
     </div>
+
+    @if($isContainerized)
+        <div class="mb-8 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
+            <div class="flex items-start">
+                <svg class="w-6 h-6 text-amber-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-amber-900 dark:text-amber-100 mb-2">{{ __('Containerized install detected') }}</h3>
+                    <p class="text-sm text-amber-800 dark:text-amber-200 mb-3">
+                        {{ __('For Docker deployments, prefer updating via Docker image pull + container redeploy instead of the in-app updater.') }}
+                    </p>
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        {{ __('Typical flow: docker compose pull && docker compose up -d --force-recreate && docker compose exec app php artisan migrate --force') }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    @endif
 
     <!-- Current Version -->
     <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
@@ -356,6 +379,11 @@
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
             {{ __('Manual ZIP update works on almost all hosting providers. This is the safest method if browser updates are not available.') }}
         </p>
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+            <p class="text-sm text-blue-800 dark:text-blue-200">
+                <strong>{{ __('Docker note') }}:</strong> {{ __('If you deploy with Docker, prefer image-based updates (pull + redeploy + migrate) rather than ZIP or browser updater flows.') }}
+            </p>
+        </div>
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
             <p class="text-sm text-yellow-800 dark:text-yellow-200">
                 <strong>{{ __('Important') }}:</strong> {{ __('Always backup your .env file and database before updating manually. The automatic updater does this for you, but manual updates require you to do it yourself.') }}

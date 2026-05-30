@@ -18,46 +18,54 @@ This document describes running WeatherNode in Docker and how to use it.
 
 ## Quick start
 
-1. **Copy env and set app key**
+1. **Edit `docker-compose.yml`**
+   - Update `APP_URL` for your host/domain.
+   - Replace `APP_KEY` with a real key.
+   - Optional: set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for first-run admin creation.
+
+   Generate a key with:
    ```bash
-   cp .env.example .env
-   # Edit .env (DB_CONNECTION=sqlite, APP_URL=http://localhost:8080, etc.)
-   docker compose run --rm app php artisan key:generate
+   php artisan key:generate --show
    ```
 
-2. **Run migrations and create admin**
+2. **Start stack**
+   Preferred helper:
    ```bash
-   docker compose run --rm app php artisan migrate --force
-   docker compose run --rm app php artisan db:seed
-   docker compose run --rm app php artisan admin:create --email=admin@example.com --password=changeme --name=Admin
+   make docker-up
    ```
 
-3. **Create storage link**
-   ```bash
-   docker compose run --rm app php artisan storage:link
-   ```
-
-4. **Start stack**
+   Direct compose command:
    ```bash
    docker compose up -d
    ```
    Open http://localhost:8080 (or the port you set in docker-compose).
 
-5. **Optional: initial data**
+   On startup, the `app` container now:
+   - runs `php artisan migrate --force` (default on every start)
+   - runs first-run bootstrap once (`storage:link`, `db:seed`, optional `admin:create` via env)
+
+3. **Optional: initial weather data**
    ```bash
    docker compose exec app php artisan weather:fetch --save
    docker compose exec app php artisan weather:poll-external --force
    ```
 
+If you changed `Dockerfile` or other build-time files, rebuild with:
+
+```bash
+make docker-rebuild
+```
+
 ## What’s included
 
 - **Dockerfile**: Multi-stage build (Node for `npm run build`, then PHP 8.2-FPM + Nginx). Final image runs Nginx and PHP-FPM via supervisord.
-- **docker-compose.yml**: `app` (web), `scheduler` (runs `schedule:run` every minute), and volumes for `storage/`, `bootstrap/cache`, and SQLite `database/`.
+- **docker-compose.yml**: `app` (web), `scheduler` (runs `schedule:run` every minute), compose-managed environment values (no `.env` copy required), and volumes for `storage/`, `bootstrap/cache`, and SQLite `database/`.
+- **docker/entrypoint.sh**: startup bootstrap for migrations and one-time first-run initialization.
 - **.dockerignore**: Keeps build context small (excludes `.git`, `node_modules`, `vendor`, `storage/logs`, etc.).
 
 ## Using MySQL instead of SQLite
 
-In `docker-compose.yml`, uncomment the `mysql` service and the `depends_on` / `DB_HOST` for the app. In `.env`:
+In `docker-compose.yml`, uncomment the `mysql` service and set these values in the shared environment block:
 
 ```env
 DB_CONNECTION=mysql
@@ -75,3 +83,7 @@ Run migrations (and optionally seed/create admin) as above.
 - **Laravel Sail**: The project has `laravel/sail` in `require-dev` for local development. This Docker setup is a self-contained production-style alternative.
 - **Cron on the host**: Not required; the `scheduler` container replaces it.
 - **Deploy script**: `deploy.sh` excludes `Dockerfile` and `docker-compose*.yml`, so they are not overwritten when deploying to a non-Docker server.
+- **Bootstrap toggles**: set `DOCKER_AUTO_MIGRATE` or `DOCKER_AUTO_SEED` to `"false"` in `docker-compose.yml` to disable automatic startup actions.
+- **Makefile helpers**:
+  - `make docker-up` checks that the `APP_KEY` placeholder was replaced, then runs `docker compose up -d`.
+  - `make docker-rebuild` does the same check, then runs `docker compose build --no-cache && docker compose up -d`.

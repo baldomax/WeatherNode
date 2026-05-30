@@ -1,3 +1,20 @@
+x-weathernode-env: &weathernode-env
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "http://localhost:8080"
+  # Replace with your real app key before first start.
+  APP_KEY: "base64:REPLACE_WITH_YOUR_GENERATED_KEY"
+  # SQLite by default (stored in the db_data volume).
+  DB_CONNECTION: "sqlite"
+  SESSION_SECURE_COOKIE: "false"
+  CONTAINERIZED: "true"
+  DOCKER_AUTO_MIGRATE: "true"
+  DOCKER_AUTO_SEED: "true"
+  # Optional first-run admin bootstrap (leave blank to skip).
+  ADMIN_EMAIL: ""
+  ADMIN_PASSWORD: ""
+  ADMIN_NAME: "Administrator"
+
 services:
   app:
     build: .
@@ -6,8 +23,7 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
-    env_file:
-      - .env
+    environment: *weathernode-env
     volumes:
       - storage_data:/var/www/html/storage
       - cache_data:/var/www/html/bootstrap/cache
@@ -23,8 +39,10 @@ services:
     image: weathernode:latest
     container_name: weathernode-scheduler
     restart: unless-stopped
-    env_file:
-      - .env
+    environment: *weathernode-env
+    depends_on:
+      app:
+        condition: service_started
     volumes:
       - storage_data:/var/www/html/storage
       - cache_data:/var/www/html/bootstrap/cache

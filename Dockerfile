@@ -61,6 +61,8 @@ COPY --from=frontend /app/public/build ./public/build
 # Composer install (no dev, no scripts that need DB)
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
+RUN chmod +x /var/www/html/docker/entrypoint.sh
+
 # Create writable dirs (discovery runs at runtime with .env)
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
@@ -108,4 +110,4 @@ stderr_logfile_maxbytes=0\n' > /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 80
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+ENTRYPOINT ["/var/www/html/docker/entrypoint.sh"]

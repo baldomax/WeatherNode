@@ -170,13 +170,12 @@ docker run -d --name weathernode \
   ghcr.io/centauri/weathernode:latest
 ```
 
-Then initialize once:
+The container startup runs migrations automatically. On first startup it also runs one-time bootstrap (`storage:link`, `db:seed`, and optional `admin:create` when `ADMIN_EMAIL` + `ADMIN_PASSWORD` are set in `docker-compose.yml`).
+
+For a friendlier startup check flow, use:
 
 ```bash
-docker exec weathernode php artisan migrate --force
-docker exec weathernode php artisan db:seed
-docker exec -it weathernode php artisan admin:create
-docker exec weathernode php artisan storage:link
+make docker-up
 ```
 
 For full Docker usage (including the scheduler container), see [DOCKER.md](DOCKER.md).

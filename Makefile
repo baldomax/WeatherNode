@@ -1,6 +1,6 @@
 SHELL := /bin/sh
 
-.PHONY: help clean release release-note e2e-dashboard-hybrid
+.PHONY: help clean release release-note e2e-dashboard-hybrid docker-up docker-rebuild
 
 help:
 	@echo "Available targets:"
@@ -8,6 +8,8 @@ help:
 	@echo "  make release       Auto-suggest next vYYYY.MM.patch + plain-text/Markdown changelog note"
 	@echo "  make release-note  Alias for make release"
 	@echo "  make e2e-dashboard-hybrid  Run Playwright hybrid dashboard regression against localhost (set PLAYWRIGHT_PYTHON if needed)"
+	@echo "  make docker-up     Validate APP_KEY in docker-compose.yml, then start docker compose"
+	@echo "  make docker-rebuild  Rebuild image and start docker compose"
 
 clean:
 	@echo "Cleaning local runtime/build/cache artifacts..."
@@ -29,3 +31,24 @@ release-note: release
 
 e2e-dashboard-hybrid:
 	@sh scripts/run-dashboard-hybrid-playwright.sh --url http://localhost:8000/
+
+docker-up:
+	@if grep -q 'APP_KEY: "base64:REPLACE_WITH_YOUR_GENERATED_KEY"' docker-compose.yml; then \
+		echo "APP_KEY placeholder still set in docker-compose.yml."; \
+		echo "Generate one with: php artisan key:generate --show"; \
+		exit 1; \
+	fi
+	@echo "Starting docker compose stack..."
+	@docker compose up -d
+	@echo "Docker stack is up. Open http://localhost:8080 (or your configured port)."
+
+docker-rebuild:
+	@if grep -q 'APP_KEY: "base64:REPLACE_WITH_YOUR_GENERATED_KEY"' docker-compose.yml; then \
+		echo "APP_KEY placeholder still set in docker-compose.yml."; \
+		echo "Generate one with: php artisan key:generate --show"; \
+		exit 1; \
+	fi
+	@echo "Rebuilding image and starting docker compose stack..."
+	@docker compose build --no-cache
+	@docker compose up -d
+	@echo "Docker stack rebuilt and running."
