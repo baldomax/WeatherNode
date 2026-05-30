@@ -20,7 +20,6 @@ What happens automatically on push to `main`:
 - Docker image is built and pushed to GHCR.
 - Docker tags:
   - `latest`
-  - `main-<sha>`
 
 ## 2) Create an official release (ZIP + year-based Docker tag)
 

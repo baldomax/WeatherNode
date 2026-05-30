@@ -158,16 +158,14 @@ WeatherNode is also available as a Docker image (published on GitHub Container R
 docker pull ghcr.io/centauri/weathernode:latest
 ```
 
-Quick run example:
+Recommended Docker setup (compose-first):
 
 ```bash
-docker run -d --name weathernode \
-  -p 8080:80 \
-  --env-file .env \
-  -v weathernode_storage:/var/www/html/storage \
-  -v weathernode_cache:/var/www/html/bootstrap/cache \
-  -v weathernode_db:/var/www/html/database \
-  ghcr.io/centauri/weathernode:latest
+git clone https://github.com/centauri/WeatherNode.git
+cd WeatherNode
+# Edit docker-compose.yml: set APP_URL and APP_KEY
+php artisan key:generate --show
+make docker-up
 ```
 
 The container startup runs migrations automatically. On first startup it also runs one-time bootstrap (`storage:link`, `db:seed`, and optional `admin:create` when `ADMIN_EMAIL` + `ADMIN_PASSWORD` are set in `docker-compose.yml`).
@@ -178,7 +176,23 @@ For a friendlier startup check flow, use:
 make docker-up
 ```
 
+If you changed Docker build files, rebuild with:
+
+```bash
+make docker-rebuild
+```
+
 For full Docker usage (including the scheduler container), see [DOCKER.md](DOCKER.md).
+
+### Release artifacts: why no ZIP on normal push?
+
+A normal commit + push to `main` only builds/publishes the Docker image (`latest`).
+The deploy ZIP (`weathernode-deploy.zip`) is created only for tag pushes (`v*`), for example:
+
+```bash
+git tag v2026.05.1
+git push origin v2026.05.1
+```
 
 ## AI features
 
