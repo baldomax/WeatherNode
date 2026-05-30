@@ -574,6 +574,11 @@ class DeployerService
      */
     private function runPostDeploySteps(string $releaseDir): void
     {
+        // Remove compiled bootstrap artifacts before any artisan command.
+        // These files may reference dev-only providers (e.g. Collision) and
+        // can crash migrations when deploying --no-dev builds.
+        $this->purgeBootstrapCacheFiles($releaseDir);
+
         // Note: We can't use chdir() with Artisan::call because it uses base_path()
         // Instead, we need to run artisan from the release directory using exec
         // But for now, we'll assume the release is extracted to a path we can reference
@@ -603,6 +608,7 @@ class DeployerService
         } else {
             // Fallback: try with Artisan::call (may not work if base_path differs)
             try {
+                $this->purgeBootstrapCacheFiles($releaseDir);
                 Artisan::call('migrate', ['--force' => true]);
                 Artisan::call('config:clear');
                 Artisan::call('cache:clear');
@@ -613,6 +619,22 @@ class DeployerService
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+    }
+
+    private function purgeBootstrapCacheFiles(string $releaseDir): void
+    {
+        $cacheDir = rtrim($releaseDir, '/') . '/bootstrap/cache';
+        if (!File::exists($cacheDir) || !File::isDirectory($cacheDir)) {
+            return;
+        }
+
+        foreach (File::files($cacheDir) as $file) {
+            $path = $file->getPathname();
+            if (pathinfo($path, PATHINFO_EXTENSION) !== 'php') {
+                continue;
+            }
+            @unlink($path);
         }
     }
 
