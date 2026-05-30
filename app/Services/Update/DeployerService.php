@@ -573,7 +573,15 @@ class DeployerService
         $releaseStorage = $releaseDir . '/storage';
         
         if (File::exists($sharedStorage)) {
+            // Seed shared storage with the framework skeleton (and any default
+            // files) shipped in the release before discarding it. On a first
+            // deploy shared/storage is freshly created and empty; symlinking the
+            // release to it as-is would drop storage/framework/{cache,sessions,
+            // views}, breaking compiled views, sessions, cache, and
+            // `artisan down`. Existing runtime data (logs, sessions) is never
+            // overwritten.
             if (File::exists($releaseStorage)) {
+                $this->seedDirectory($releaseStorage, $sharedStorage);
                 File::deleteDirectory($releaseStorage);
             }
             symlink($sharedStorage, $releaseStorage);
@@ -661,6 +669,36 @@ class DeployerService
                 continue;
             }
             @unlink($path);
+        }
+    }
+
+    /**
+     * Recursively copy entries from $source into $target that don't already
+     * exist there. Bootstraps shared storage from a release without clobbering
+     * existing runtime data (logs, sessions, cache, uploads).
+     */
+    private function seedDirectory(string $source, string $target): void
+    {
+        if (!File::isDirectory($target)) {
+            File::makeDirectory($target, 0775, true);
+        }
+
+        foreach (File::directories($source) as $dir) {
+            $dest = $target . '/' . basename($dir);
+            if (File::exists($dest)) {
+                $this->seedDirectory($dir, $dest);
+            } else {
+                File::copyDirectory($dir, $dest);
+            }
+        }
+
+        // Include hidden files so .gitignore keepers (which preserve empty
+        // framework dirs) are carried over too.
+        foreach (File::files($source, true) as $file) {
+            $dest = $target . '/' . $file->getFilename();
+            if (!File::exists($dest)) {
+                File::copy($file->getPathname(), $dest);
+            }
         }
     }
 

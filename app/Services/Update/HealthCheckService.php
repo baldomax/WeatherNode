@@ -145,11 +145,13 @@ class HealthCheckService
             ];
         }
 
+        // Do NOT require the executable bit here: `php artisan ...` reads the
+        // file through the PHP interpreter and never needs +x. ZIP extraction
+        // commonly drops the bit, so an is_executable() gate fails healthy
+        // releases. The real test is running the command below; best-effort
+        // restore the bit for convenience but never fail the check on it.
         if (!is_executable($artisanPath)) {
-            return [
-                'passed' => false,
-                'message' => 'Artisan file is not executable',
-            ];
+            @chmod($artisanPath, 0755);
         }
 
         // Try to run a simple artisan command
