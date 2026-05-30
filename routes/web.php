@@ -454,6 +454,8 @@ Route::prefix('admin')
         Route::post('/updates/deploy', [UpdateController::class, 'deploy'])->name('updates.deploy');
         Route::post('/updates/git', [UpdateController::class, 'updateViaGit'])->name('updates.git');
         Route::post('/updates/rollback', [UpdateController::class, 'rollback'])->name('updates.rollback');
+        Route::post('/updates/releases/delete', [UpdateController::class, 'deleteRelease'])->name('updates.releases.delete');
+        Route::post('/updates/backups/delete', [UpdateController::class, 'deleteBackup'])->name('updates.backups.delete');
 
         // API Keys Management
         Route::get('/api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');

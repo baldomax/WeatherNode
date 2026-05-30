@@ -257,6 +257,81 @@ class BackupService
     }
 
     /**
+     * Restore the database from a backup file (used by automatic rollback).
+     */
+    public function restoreDatabase(string $backupFile): array
+    {
+        try {
+            if (!file_exists($backupFile)) {
+                return ['success' => false, 'message' => "Backup file not found: {$backupFile}"];
+            }
+
+            $connection = config('database.default');
+
+            if ($connection === 'sqlite') {
+                $dbPath = config('database.connections.sqlite.database');
+                if (!@copy($backupFile, $dbPath)) {
+                    throw new \Exception("Failed to copy SQLite backup over {$dbPath}");
+                }
+            } elseif ($connection === 'mysql') {
+                $config = config('database.connections.mysql');
+                $command = sprintf(
+                    'mysql --user=%s --password=%s --host=%s --port=%s %s < %s 2>&1',
+                    escapeshellarg($config['username']),
+                    escapeshellarg($config['password']),
+                    escapeshellarg($config['host']),
+                    escapeshellarg($config['port'] ?? 3306),
+                    escapeshellarg($config['database']),
+                    escapeshellarg($backupFile)
+                );
+
+                exec($command, $output, $returnCode);
+                if ($returnCode !== 0) {
+                    throw new \Exception('mysql restore failed: ' . implode("\n", $output));
+                }
+            } else {
+                return ['success' => false, 'message' => "Restore not supported for connection: {$connection}"];
+            }
+
+            return ['success' => true, 'message' => 'Database restored from backup'];
+        } catch (\Exception $e) {
+            Log::error('Database restore failed', ['error' => $e->getMessage(), 'backup' => $backupFile]);
+            return ['success' => false, 'message' => 'Database restore failed: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Delete a single backup file (or uncompressed storage backup directory) by
+     * its filename. The name is validated to stay inside the backup directory.
+     */
+    public function deleteBackup(string $filename): array
+    {
+        // Reject path traversal — only a bare filename is allowed.
+        if ($filename === '' || basename($filename) !== $filename) {
+            return ['success' => false, 'message' => 'Invalid backup filename'];
+        }
+
+        $target = $this->backupPath . '/' . $filename;
+        $realBase = realpath($this->backupPath);
+        $realTarget = realpath($target);
+
+        if ($realBase === false || $realTarget === false || !str_starts_with($realTarget, $realBase . DIRECTORY_SEPARATOR)) {
+            return ['success' => false, 'message' => 'Backup not found'];
+        }
+
+        $deleted = File::isDirectory($realTarget)
+            ? File::deleteDirectory($realTarget)
+            : @unlink($realTarget);
+
+        if (!$deleted) {
+            return ['success' => false, 'message' => "Failed to delete backup {$filename}"];
+        }
+
+        Log::info('Backup deleted', ['filename' => $filename]);
+        return ['success' => true, 'message' => "Deleted backup {$filename}"];
+    }
+
+    /**
      * Determine backup type from filename
      */
     private function getBackupType(string $filename): string

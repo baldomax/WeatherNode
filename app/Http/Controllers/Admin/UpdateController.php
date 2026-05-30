@@ -8,6 +8,7 @@ use App\Services\Update\GithubReleaseService;
 use App\Services\Update\DeployerService;
 use App\Services\Update\PreUpdateValidator;
 use App\Services\Update\ReleaseNotesParser;
+use App\Services\Update\BackupService;
 use App\Models\UpdateLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -19,17 +20,20 @@ class UpdateController extends Controller
     private GithubReleaseService $githubService;
     private DeployerService $deployer;
     private PreUpdateValidator $validator;
+    private BackupService $backupService;
 
     public function __construct(
         CompatibilityChecker $compatibilityChecker,
         GithubReleaseService $githubService,
         DeployerService $deployer,
-        PreUpdateValidator $validator
+        PreUpdateValidator $validator,
+        BackupService $backupService
     ) {
         $this->compatibilityChecker = $compatibilityChecker;
         $this->githubService = $githubService;
         $this->deployer = $deployer;
         $this->validator = $validator;
+        $this->backupService = $backupService;
     }
 
     /**
@@ -43,7 +47,8 @@ class UpdateController extends Controller
         $currentVersion = \App\Services\VersionService::getAppVersion();
         $releases = $this->deployer->getReleases();
         $currentRelease = $this->deployer->getCurrentRelease();
-        
+        $backups = $this->backupService->getBackups();
+
         // Parse release notes
         $notesParser = app(ReleaseNotesParser::class);
         $releaseNotes = null;
@@ -64,6 +69,7 @@ class UpdateController extends Controller
             'currentVersion',
             'releases',
             'currentRelease',
+            'backups',
             'releaseNotes',
             'updateHistory'
         ));
@@ -323,6 +329,54 @@ class UpdateController extends Controller
                 'message' => $result['message'],
             ], 400);
         }
+    }
+
+    /**
+     * Delete an old release directory to reclaim disk space.
+     */
+    public function deleteRelease(Request $request)
+    {
+        if (!config('updater.enabled')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Updater is disabled',
+            ], 403);
+        }
+
+        $version = $this->validatedVersion($request);
+
+        $result = $this->deployer->deleteRelease($version);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+        ], $result['success'] ? 200 : 400);
+    }
+
+    /**
+     * Delete a single backup file to reclaim disk space.
+     */
+    public function deleteBackup(Request $request)
+    {
+        if (!config('updater.enabled')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Updater is disabled',
+            ], 403);
+        }
+
+        $data = $request->validate([
+            // Backup filenames are produced by BackupService: a bare filename,
+            // no path separators. Reject anything else outright.
+            'filename' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9._-]+$/'],
+        ]);
+
+        $result = $this->backupService->deleteBackup($data['filename']);
+
+        return response()->json([
+            'success' => $result['success'],
+            'message' => $result['message'],
+        ], $result['success'] ? 200 : 400);
     }
 
     private function validatedVersion(Request $request): string

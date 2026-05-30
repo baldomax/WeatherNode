@@ -267,6 +267,9 @@
                             <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">
                                 {{ \Carbon\Carbon::createFromTimestamp($release['created_at'])->diffForHumans() }}
                             </span>
+                            @isset($release['size'])
+                                <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">{{ number_format($release['size'] / 1048576, 1) }} MB</span>
+                            @endisset
                             @if($release['version'] === $currentRelease)
                                 <span class="ml-2 px-2 py-0.5 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded">
                                     {{ __('Current') }}
@@ -274,9 +277,46 @@
                             @endif
                         </div>
                         @if($release['version'] !== $currentRelease && config('updater.enabled'))
-                            <button @click="rollback('{{ $release['version'] }}')"
-                                    class="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded">
-                                {{ __('Rollback') }}
+                            <div class="flex items-center gap-1">
+                                <button @click="rollback('{{ $release['version'] }}')"
+                                        class="px-3 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded">
+                                    {{ __('Rollback') }}
+                                </button>
+                                <button @click="deleteRelease('{{ $release['version'] }}')"
+                                        class="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
+                                    {{ __('Delete') }}
+                                </button>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
+    <!-- Backups -->
+    @if(!empty($backups))
+        <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('Backups') }}</h2>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ __('Total') }}: {{ number_format(collect($backups)->sum('size') / 1048576, 1) }} MB
+                </span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ __('Automatic backups taken before each update (.env, database, storage). Delete old ones to reclaim disk space.') }}</p>
+            <div class="space-y-2">
+                @foreach($backups as $backup)
+                    <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <div class="min-w-0 mr-3">
+                            <span class="text-sm text-gray-900 dark:text-white font-mono break-all">{{ $backup['filename'] }}</span>
+                            <span class="ml-2 px-2 py-0.5 text-xs bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">{{ $backup['type'] }}</span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">{{ number_format($backup['size'] / 1048576, 2) }} MB</span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">{{ \Carbon\Carbon::createFromTimestamp($backup['created_at'])->diffForHumans() }}</span>
+                        </div>
+                        @if(config('updater.enabled'))
+                            <button @click="deleteBackup('{{ $backup['filename'] }}')"
+                                    class="px-3 py-1 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded shrink-0">
+                                {{ __('Delete') }}
                             </button>
                         @endif
                     </div>
@@ -551,6 +591,60 @@ function updateManager() {
                 }
             } catch (error) {
                 alert('{{ __("Rollback failed:") }} ' + error.message);
+            }
+        },
+
+        async deleteRelease(version) {
+            if (!confirm('{{ __("Permanently delete release") }} ' + version + '?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('{{ route("admin.updates.releases.delete") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({ version: version }),
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('{{ __("Delete failed:") }} ' + data.message);
+                }
+            } catch (error) {
+                alert('{{ __("Delete failed:") }} ' + error.message);
+            }
+        },
+
+        async deleteBackup(filename) {
+            if (!confirm('{{ __("Permanently delete this backup?") }}')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('{{ route("admin.updates.backups.delete") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify({ filename: filename }),
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('{{ __("Delete failed:") }} ' + data.message);
+                }
+            } catch (error) {
+                alert('{{ __("Delete failed:") }} ' + error.message);
             }
         },
     };

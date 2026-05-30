@@ -55,10 +55,11 @@ class DeployerService
                 'validation_results' => $validationResults,
             ]);
             // Create backup before update
+            $backupResult = null;
             if (config('updater.backup_enabled', true)) {
                 $backupService = app(BackupService::class);
                 $backupResult = $backupService->createBackup();
-                
+
                 if (!$backupResult['success']) {
                     Log::warning('Backup failed but continuing with deployment', [
                         'backup_error' => $backupResult['message'],
@@ -96,6 +97,15 @@ class DeployerService
             // Atomically switch symlink
             $this->switchSymlink($releaseDir);
 
+            // Bust PHP's caches so the new release is served immediately. This
+            // method runs inside the PHP-FPM request, so opcache_reset() clears
+            // the pool's shared opcache and clearstatcache() drops this worker's
+            // cached resolution of the `current` symlink. Without it FPM keeps
+            // executing the previous release — and reporting its VERSION — until
+            // the caches expire on their own. Done before the health check so it
+            // probes the freshly activated code.
+            $this->refreshPhpCaches();
+
             // Health check after symlink switch (before bringing site online)
             $healthCheckResults = null;
             if (config('updater.health_check_enabled', true)) {
@@ -121,10 +131,19 @@ class DeployerService
                         ]);
                     }
 
-                    // Rollback to previous release
+                    // Rollback to previous release. Also restore the database to
+                    // its pre-update state: runPostDeploySteps already ran
+                    // `migrate --force`, so reverting only the code symlink would
+                    // leave the old release running against a newer schema. The
+                    // site was in maintenance during the deploy, so no data is
+                    // lost by restoring the snapshot taken moments earlier.
                     if ($previousRelease) {
                         $this->rollback($previousRelease, $userId);
-                        throw new \Exception('Health check failed - automatically rolled back to version ' . $previousRelease);
+                        $dbRestored = $this->restorePreUpdateDatabase($backupResult);
+                        throw new \Exception(
+                            'Health check failed - automatically rolled back to version ' . $previousRelease
+                            . ($dbRestored ? '. Database restored to pre-update state.' : '.')
+                        );
                     } else {
                         // No previous release to rollback to - this is critical
                         throw new \Exception('Health check failed and no previous release available for rollback');
@@ -269,11 +288,120 @@ class DeployerService
                     'version' => basename($path),
                     'path' => $path,
                     'created_at' => filemtime($path),
+                    'size' => $this->directorySize($path),
                 ];
             })
             ->sortByDesc('created_at')
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Delete a release directory to reclaim disk space.
+     *
+     * Refuses to delete the currently active release. Shared symlinks
+     * (storage, .env, database) are unlinked first so the shared targets are
+     * never touched.
+     */
+    public function deleteRelease(string $version): array
+    {
+        $version = trim($version);
+
+        if (!$this->isValidGitRef($version)) {
+            return ['success' => false, 'message' => 'Invalid version/tag format'];
+        }
+
+        $current = $this->getCurrentRelease();
+        if ($current !== null && $version === $current) {
+            return ['success' => false, 'message' => 'Cannot delete the currently active release'];
+        }
+
+        $releaseDir = $this->releasesPath . '/' . $version;
+        if (!File::isDirectory($releaseDir)) {
+            return ['success' => false, 'message' => "Release {$version} not found"];
+        }
+
+        $freed = $this->directorySize($releaseDir);
+
+        // Remove symlinks into shared resources first so deleteDirectory can
+        // never recurse into the shared storage/database/.env targets.
+        foreach (['storage', '.env', 'database'] as $link) {
+            $linkPath = $releaseDir . '/' . $link;
+            if (is_link($linkPath)) {
+                @unlink($linkPath);
+            }
+        }
+
+        if (!File::deleteDirectory($releaseDir)) {
+            return ['success' => false, 'message' => "Failed to delete release {$version}"];
+        }
+
+        Log::info('Release deleted', ['version' => $version, 'bytes_freed' => $freed]);
+
+        return [
+            'success' => true,
+            'message' => "Deleted release {$version}",
+            'bytes_freed' => $freed,
+        ];
+    }
+
+    /**
+     * Total size of a directory's own files, in bytes. Symlinks are skipped so
+     * shared storage (linked into each release) isn't counted or followed.
+     */
+    private function directorySize(string $path): int
+    {
+        if (!is_dir($path) || is_link($path)) {
+            return 0;
+        }
+
+        $size = 0;
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveCallbackFilterIterator(
+                    new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                    fn (\SplFileInfo $current) => !$current->isLink()
+                ),
+                \RecursiveIteratorIterator::SELF_FIRST
+            );
+
+            foreach ($iterator as $file) {
+                if ($file->isFile() && !$file->isLink()) {
+                    $size += $file->getSize();
+                }
+            }
+        } catch (\Throwable $e) {
+            return 0;
+        }
+
+        return $size;
+    }
+
+    /**
+     * Restore the database from the pre-update backup taken at the start of the
+     * deploy. Returns true on success. Used by the automatic rollback path so a
+     * failed deploy reverts schema changes, not just the code symlink.
+     */
+    private function restorePreUpdateDatabase(?array $backupResult): bool
+    {
+        $dbBackup = $backupResult['backups']['database'] ?? null;
+        if (!$dbBackup) {
+            Log::warning('No pre-update database backup available; rollback reverted code only.');
+            return false;
+        }
+
+        $result = app(BackupService::class)->restoreDatabase($dbBackup);
+        if (!empty($result['success'])) {
+            Log::info('Database restored to pre-update state during rollback', ['backup' => $dbBackup]);
+            return true;
+        }
+
+        Log::error('Database restore failed during rollback', [
+            'error' => $result['message'] ?? 'unknown',
+            'backup' => $dbBackup,
+        ]);
+        return false;
     }
 
     /**
@@ -699,6 +827,22 @@ class DeployerService
             if (!File::exists($dest)) {
                 File::copy($file->getPathname(), $dest);
             }
+        }
+    }
+
+    /**
+     * Invalidate PHP's opcode and realpath caches after a symlink switch so the
+     * newly activated release is served right away. Best-effort: opcache may be
+     * disabled or its API restricted, in which case the caches expire on their
+     * own (realpath_cache_ttl, typically 120s).
+     */
+    private function refreshPhpCaches(): void
+    {
+        // Drop this worker's cached stat/symlink resolution of `current`.
+        clearstatcache(true);
+
+        if (function_exists('opcache_reset') && filter_var(ini_get('opcache.enable'), FILTER_VALIDATE_BOOL)) {
+            @opcache_reset();
         }
     }
 
