@@ -1,0 +1,21 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret UI/translation strings that trigger generic-api-key heuristics"
+paths = [
+  '''database/seeders/SettingsSeeder\.php''',
+  '''resources/js/pages/dashboard\.js''',
+  '''resources/lang/ca-es\.json''',
+  '''resources/lang/de-de\.json'''
+]
+regexes = [
+  '''meteouitgeest_ads_consent_v1''',
+  '''WU Upload password/key''',
+  '''N2YO\.com API Key''',
+  '''Extra Sensor [1-4]''',
+  '''Soil Sensor [1-2]''',
+  '''PM2\.5 Sensor [1-4]''',
+  '''Leak Sensor [1-4]''',
+  '''CO2 Sensor'''
+]

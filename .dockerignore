@@ -1,0 +1,41 @@
+# Git and IDE
+.git
+.github
+.idea
+.vscode
+.cursor
+.claude
+
+# Dependencies (reinstalled in build)
+node_modules
+vendor
+
+# Env and secrets (bind or compose env)
+.env
+.env.*
+!.env.example
+
+# Laravel runtime (mounted as volumes in compose)
+storage/logs
+storage/framework/cache
+storage/framework/sessions
+storage/framework/views
+bootstrap/cache
+
+# Optional / large
+storage/app/radar-tiles
+ecowitt
+telemetry-aggregator
+
+# Tests and dev
+tests
+phpunit.xml
+.phpunit.result.cache
+*.md
+!README.md
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
+deploy.sh

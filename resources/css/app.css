@@ -1,0 +1,146 @@
+@import './weather.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Flat theme overrides – must come after Tailwind; minimize GPU (no animations, no will-change, no transform layers) */
+@layer utilities {
+    body.theme-flat .glass,
+    body.theme-flat [class*="glass"] {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: #1a2332 !important;
+        transform: none !important;
+    }
+    body.theme-flat [class*="backdrop-blur"] {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    body.theme-flat .pressure-map-header {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(0, 0, 0, 0.95) !important;
+    }
+    /* Remove all animations (not just pause) to avoid GPU compositing */
+    body.theme-flat *,
+    body.theme-flat *::before,
+    body.theme-flat *::after {
+        animation: none !important;
+    }
+    /* Flat: no animations at all – keep live dot visible but static */
+    body.theme-flat .live-indicator {
+        animation: none !important;
+    }
+    /* Remove will-change to avoid GPU layers */
+    body.theme-flat * {
+        will-change: auto !important;
+    }
+    /* Remove transform from header/floating so no compositing layer */
+    body.theme-flat .floating-header,
+    body.theme-flat header {
+        transform: none !important;
+    }
+    /* No transitions in flat (reduces GPU work) */
+    body.theme-flat *,
+    body.theme-flat *::before,
+    body.theme-flat *::after {
+        transition: none !important;
+    }
+    body.theme-flat .glow,
+    body.theme-flat [class*="shadow"] {
+        box-shadow: none !important;
+    }
+    body.theme-flat [class*="drop-shadow"] {
+        filter: none !important;
+    }
+    /* Header logo and any gradient/shine in flat theme */
+    body.theme-flat header [class*="bg-gradient"],
+    body.theme-flat header [class*="from-blue"],
+    body.theme-flat header [class*="to-cyan"],
+    body.theme-flat header .rounded-lg {
+        background: #1a2332 !important;
+        background-image: none !important;
+        box-shadow: none !important;
+    }
+    body.theme-flat .sortable-widget:hover,
+    body.theme-flat .card-3d:hover,
+    body.theme-flat .sortable-widget,
+    body.theme-flat .card-3d {
+        box-shadow: none !important;
+    }
+    body.theme-flat .card-3d,
+    body.theme-flat .sortable-widget {
+        transform: none !important;
+        transform-style: flat !important;
+        will-change: auto !important;
+        transition: none !important;
+    }
+    body.theme-flat .card-3d:hover,
+    body.theme-flat .card-3d.tilting {
+        transform: none !important;
+    }
+    body.theme-flat [class*="border-white"],
+    body.theme-flat [class*="border-gray-500"] {
+        border-color: rgba(75, 85, 99, 0.6) !important;
+    }
+    body.theme-flat .sortable-widget,
+    body.theme-flat .bg-weather-card,
+    body.theme-flat [class*="from-weather-card"],
+    body.theme-flat [class*="to-weather-card"],
+    body.theme-flat [class*="bg-weather-card"],
+    body.theme-flat [class*="bg-gradient"],
+    body.theme-flat div[class*="bg-weather-card"] {
+        background: #1a2332 !important;
+        background-image: none !important;
+    }
+    /* Flat tab/button active state: solid blue, no glow */
+    body.theme-flat [class*="bg-blue-600"] {
+        box-shadow: none !important;
+    }
+    /* Temperature/UV bar gradients → solid visible fill in flat */
+    body.theme-flat [class*="from-weather-warm"],
+    body.theme-flat [class*="to-weather-cold"],
+    body.theme-flat [class*="from-orange"],
+    body.theme-flat [class*="via-yellow"],
+    body.theme-flat [class*="to-orange"] {
+        background: #4b5563 !important;
+        background-image: none !important;
+    }
+    /* Restore daylight bar gradient in Sun & Moon widget (flat theme) */
+    body.theme-flat [data-widget="sun_moon"] .h-2 [class*="from-orange"],
+    body.theme-flat [data-widget="sun_moon"] .h-2 [class*="via-yellow"],
+    body.theme-flat [data-widget="sun_moon"] .h-2 [class*="to-orange"] {
+        background: linear-gradient(to right, #fb923c, #fde047, #fb923c) !important;
+        background-image: linear-gradient(to right, #fb923c, #fde047, #fb923c) !important;
+    }
+    /* Restore temperature chart area gradient in hourly widget (flat theme) */
+    body.theme-flat [data-widget="hourly"] .h-28[class*="from-weather-warm"] {
+        background: linear-gradient(to bottom, rgba(245, 158, 11, 0.05), rgba(6, 182, 212, 0.05)) !important;
+        background-image: linear-gradient(to bottom, rgba(245, 158, 11, 0.05), rgba(6, 182, 212, 0.05)) !important;
+    }
+    /* Flat: single solid background – no gradient for lower CPU/GPU */
+    body.theme-flat .weather-bg--static {
+        background: #1a2332 !important;
+        background-image: none !important;
+    }
+    /* Hide any weather-effect DOM in flat (no GPU for rain/snow/fog/clouds/sun) */
+    body.theme-flat .rain-container,
+    body.theme-flat .snow-container,
+    body.theme-flat .wind-container,
+    body.theme-flat .fog-container,
+    body.theme-flat .lightning-flash,
+    body.theme-flat .cloud,
+    body.theme-flat .sun-rays,
+    body.theme-flat [class*="raindrop"],
+    body.theme-flat [class*="snowflake"],
+    body.theme-flat [class*="wind-global-particle"] {
+        display: none !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+    }
+    /* Flat: hide decorative widget visualization layers (wind streams, rain pond, etc.) */
+    body.theme-flat .fx-visual {
+        display: none !important;
+    }
+}

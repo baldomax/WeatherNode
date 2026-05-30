@@ -1,0 +1,62 @@
+services:
+  app:
+    build: .
+    image: weathernode:latest
+    container_name: weathernode-app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    env_file:
+      - .env
+    volumes:
+      - storage_data:/var/www/html/storage
+      - cache_data:/var/www/html/bootstrap/cache
+      - db_data:/var/www/html/database
+    # Optional: use MySQL instead of SQLite — uncomment below and set DB_* in .env
+    # depends_on:
+    #   mysql:
+    #     condition: service_healthy
+    # environment:
+    #   DB_HOST: mysql
+
+  scheduler:
+    image: weathernode:latest
+    container_name: weathernode-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - storage_data:/var/www/html/storage
+      - cache_data:/var/www/html/bootstrap/cache
+      - db_data:/var/www/html/database
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "while true; do php /var/www/html/artisan schedule:run --no-interaction; sleep 60; done"
+    # Optional: when using MySQL
+    # depends_on:
+    #   mysql:
+    #     condition: service_healthy
+
+  # Uncomment for MySQL instead of SQLite
+  # mysql:
+  #   image: mysql:8.0
+  #   container_name: weathernode-mysql
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_DATABASE: weathernode
+  #     MYSQL_USER: weathernode
+  #     MYSQL_PASSWORD: ${DB_PASSWORD:-changeme}
+  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+  #   volumes:
+  #     - mysql_data:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+
+volumes:
+  storage_data:
+  cache_data:
+  db_data:
+  # mysql_data:

@@ -1,0 +1,40 @@
+<?php
+
+return [
+    'enabled' => env('VISITORLOG_ENABLED', true),
+    'log_methods' => ['GET', 'HEAD'],
+    'ignore_paths' => [
+        'admin',
+        'api',
+        'up',
+        'health',
+        'login',
+        'logout',
+        'register',
+        'password',
+        'build',
+        'storage',
+        'vendor',
+        'robots.txt',
+        'favicon.ico',
+    ],
+    'retention_days' => env('VISITORLOG_RETENTION_DAYS', 90),
+    'aggregate_retention_days' => env('VISITORLOG_AGGREGATE_RETENTION_DAYS'),
+    'store_search_terms' => env('VISITORLOG_STORE_SEARCH_TERMS', true),
+    'geoip' => [
+        'enabled' => env('VISITORLOG_GEOIP_ENABLED', true),
+        'database_path' => storage_path('app/private/geoip/GeoLite2-Country.mmdb'),
+        'config_path' => storage_path('app/private/geoip/GeoIP.conf'),
+        'license_key' => env('MAXMIND_LICENSE_KEY', ''),
+    ],
+    'ip_hash_salt' => env('VISITORLOG_IP_HASH_SALT', ''),
+    'search_engines' => [
+        'google.' => ['name' => 'Google', 'param' => ['q', 'query']],
+        'bing.com' => ['name' => 'Bing', 'param' => ['q', 'qry']],
+        'duckduckgo.com' => ['name' => 'DuckDuckGo', 'param' => ['q']],
+        'search.yahoo.' => ['name' => 'Yahoo', 'param' => ['p', 'q']],
+        'yandex.' => ['name' => 'Yandex', 'param' => ['text']],
+        'baidu.com' => ['name' => 'Baidu', 'param' => ['wd', 'word']],
+        'ecosia.org' => ['name' => 'Ecosia', 'param' => ['q']],
+    ],
+];

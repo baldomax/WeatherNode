@@ -1,0 +1,668 @@
+<?php
+
+namespace App\Services\Update;
+
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use App\Services\Update\HealthCheckService;
+use App\Services\Update\BackupService;
+use App\Models\UpdateLog;
+
+class DeployerService
+{
+    private string $deployRoot;
+    private string $releasesPath;
+    private string $sharedPath;
+    private string $currentSymlink;
+    private int $keepReleases;
+
+    public function __construct()
+    {
+        $this->deployRoot = config('updater.deploy_root');
+        $this->releasesPath = $this->deployRoot . '/' . config('updater.releases_path');
+        $this->sharedPath = $this->deployRoot . '/' . config('updater.shared_path');
+        $this->currentSymlink = $this->deployRoot . '/' . config('updater.current_symlink');
+        $this->keepReleases = config('updater.keep_releases', 5);
+    }
+
+    /**
+     * Deploy a release from a ZIP file
+     */
+    public function deploy(string $zipPath, string $version, ?int $userId = null, ?array $validationResults = null): array
+    {
+        $lockFile = storage_path('app/.updater_lock');
+        
+        // Acquire lock to prevent concurrent deployments
+        $lockHandle = @fopen($lockFile, 'w');
+        if (!$lockHandle || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
+            return [
+                'success' => false,
+                'message' => 'Another deployment is already in progress',
+            ];
+        }
+
+        $startTime = time();
+        $updateLog = null;
+
+        try {
+            // Create audit log entry
+            $updateLog = UpdateLog::create([
+                'version' => $version,
+                'status' => 'pending',
+                'deployed_by' => $userId,
+                'validation_results' => $validationResults,
+            ]);
+            // Create backup before update
+            if (config('updater.backup_enabled', true)) {
+                $backupService = app(BackupService::class);
+                $backupResult = $backupService->createBackup();
+                
+                if (!$backupResult['success']) {
+                    Log::warning('Backup failed but continuing with deployment', [
+                        'backup_error' => $backupResult['message'],
+                    ]);
+                } else {
+                    Log::info('Backup created successfully', [
+                        'backups' => $backupResult['backups'] ?? [],
+                    ]);
+                }
+            }
+
+            // Put site in maintenance mode
+            Artisan::call('down', ['--render' => 'errors::503', '--retry' => '60']);
+
+            // Create directories if they don't exist
+            $this->ensureDirectoriesExist();
+
+            // Extract ZIP to new release directory
+            $releaseDir = $this->releasesPath . '/' . $version;
+            if (!File::exists($releaseDir)) {
+                File::makeDirectory($releaseDir, 0755, true);
+            }
+
+            $this->extractZip($zipPath, $releaseDir);
+
+            // Link shared directories
+            $this->linkSharedDirectories($releaseDir);
+
+            // Run post-deploy steps
+            $this->runPostDeploySteps($releaseDir);
+
+            // Store previous release for potential rollback
+            $previousRelease = $this->getCurrentRelease();
+
+            // Atomically switch symlink
+            $this->switchSymlink($releaseDir);
+
+            // Health check after symlink switch (before bringing site online)
+            $healthCheckResults = null;
+            if (config('updater.health_check_enabled', true)) {
+                $healthCheck = app(HealthCheckService::class);
+                $isHealthy = $healthCheck->verify($releaseDir);
+                $healthCheckResults = $healthCheck->getDetailedResults($releaseDir);
+
+                if (!$isHealthy) {
+                    // Health check failed - rollback immediately
+                    Log::error('Health check failed after deployment', [
+                        'version' => $version,
+                        'release_dir' => $releaseDir,
+                        'health_results' => $healthCheckResults,
+                    ]);
+
+                    // Update audit log
+                    if ($updateLog) {
+                        $updateLog->update([
+                            'status' => 'failed',
+                            'error_message' => 'Health check failed',
+                            'health_check_results' => $healthCheckResults,
+                            'duration_seconds' => time() - $startTime,
+                        ]);
+                    }
+
+                    // Rollback to previous release
+                    if ($previousRelease) {
+                        $this->rollback($previousRelease, $userId);
+                        throw new \Exception('Health check failed - automatically rolled back to version ' . $previousRelease);
+                    } else {
+                        // No previous release to rollback to - this is critical
+                        throw new \Exception('Health check failed and no previous release available for rollback');
+                    }
+                }
+
+                Log::info('Health check passed', [
+                    'version' => $version,
+                    'release_dir' => $releaseDir,
+                ]);
+            }
+
+            // Clean up old releases
+            $this->cleanupOldReleases();
+
+            // Bring site back online
+            // Note: Health check may have temporarily brought it online, but we ensure it's up here
+            Artisan::call('up');
+
+            // Update audit log with success
+            if ($updateLog) {
+                $updateLog->update([
+                    'status' => 'success',
+                    'deployed_at' => now(),
+                    'release_dir' => $releaseDir,
+                    'health_check_results' => $healthCheckResults,
+                    'duration_seconds' => time() - $startTime,
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => "Successfully deployed version {$version}",
+                'release_dir' => $releaseDir,
+                'health_check_passed' => config('updater.health_check_enabled', true),
+            ];
+        } catch (\Exception $e) {
+            Log::error('Deployment failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            // Update audit log with failure
+            if ($updateLog) {
+                $updateLog->update([
+                    'status' => 'failed',
+                    'error_message' => $e->getMessage(),
+                    'duration_seconds' => time() - $startTime,
+                ]);
+            }
+
+            // Ensure site is brought back online even on failure
+            try {
+                Artisan::call('up');
+            } catch (\Exception $upException) {
+                Log::error('Failed to bring site back online', [
+                    'error' => $upException->getMessage(),
+                ]);
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Deployment failed: ' . $e->getMessage(),
+            ];
+        } finally {
+            // Release lock
+            if (isset($lockHandle)) {
+                flock($lockHandle, LOCK_UN);
+                fclose($lockHandle);
+                @unlink($lockFile);
+            }
+        }
+    }
+
+    /**
+     * Rollback to a previous release
+     */
+    public function rollback(string $version, ?int $userId = null): array
+    {
+        $version = trim($version);
+        if (!$this->isValidGitRef($version)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid version/tag format',
+            ];
+        }
+
+        try {
+            $releaseDir = $this->releasesPath . '/' . $version;
+            
+            if (!File::exists($releaseDir)) {
+                return [
+                    'success' => false,
+                    'message' => "Release {$version} not found",
+                ];
+            }
+
+            // Find the failed update log entry
+            $failedLog = UpdateLog::where('status', 'failed')
+                ->orWhere('status', 'success')
+                ->latest('deployed_at')
+                ->first();
+
+            // Switch symlink to previous release
+            $this->switchSymlink($releaseDir);
+
+            // Update audit log if we have a failed deployment
+            if ($failedLog) {
+                $failedLog->update([
+                    'status' => 'rolled_back',
+                    'rollback_at' => now(),
+                    'rollback_by' => $userId,
+                ]);
+            }
+
+            return [
+                'success' => true,
+                'message' => "Rolled back to version {$version}",
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Rollback failed: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Get list of available releases
+     */
+    public function getReleases(): array
+    {
+        if (!File::exists($this->releasesPath)) {
+            return [];
+        }
+
+        $releases = File::directories($this->releasesPath);
+        
+        return collect($releases)
+            ->map(function ($path) {
+                return [
+                    'version' => basename($path),
+                    'path' => $path,
+                    'created_at' => filemtime($path),
+                ];
+            })
+            ->sortByDesc('created_at')
+            ->values()
+            ->toArray();
+    }
+
+    /**
+     * Get current release version
+     */
+    public function getCurrentRelease(): ?string
+    {
+        if (!is_link($this->currentSymlink)) {
+            return null;
+        }
+
+        $target = readlink($this->currentSymlink);
+        return basename($target);
+    }
+
+    /**
+     * Update via Git (if enabled and available)
+     */
+    public function updateViaGit(string $version): array
+    {
+        if (!config('updater.allow_git')) {
+            return [
+                'success' => false,
+                'message' => 'Git updates are disabled. Set UPDATER_ALLOW_GIT=true in .env',
+            ];
+        }
+
+        $version = trim($version);
+        if (!$this->isValidGitRef($version)) {
+            return [
+                'success' => false,
+                'message' => 'Invalid version/tag format',
+            ];
+        }
+
+        $repoPath = config('updater.deploy_root');
+        
+        // Verify we're in a git repository
+        if (!is_dir($repoPath . '/.git')) {
+            return [
+                'success' => false,
+                'message' => 'Not a Git repository',
+            ];
+        }
+
+        try {
+            // Fetch tags
+            $this->runGitCommand($repoPath, ['fetch', '--tags']);
+
+            // Checkout the specified version/tag
+            $this->runGitCommand($repoPath, ['checkout', $version]);
+
+            // Run post-deploy steps
+            $this->runPostDeploySteps($repoPath);
+
+            return [
+                'success' => true,
+                'message' => "Successfully updated to {$version} via Git",
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Git update failed: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Run a Git command safely
+     */
+    private function runGitCommand(string $repoPath, array $args): string
+    {
+        $command = implode(' ', array_map('escapeshellarg', $args));
+        $fullCommand = "cd " . escapeshellarg($repoPath) . " && git " . $command . " 2>&1";
+        
+        if (!function_exists('exec')) {
+            throw new \Exception('exec() function is not available');
+        }
+
+        $output = [];
+        $returnVar = 0;
+        exec($fullCommand, $output, $returnVar);
+
+        if ($returnVar !== 0) {
+            throw new \Exception('Git command failed: ' . implode("\n", $output));
+        }
+
+        return implode("\n", $output);
+    }
+
+    /**
+     * Validate git version/tag input to avoid option injection and invalid refs.
+     */
+    private function isValidGitRef(string $ref): bool
+    {
+        if ($ref === '' || strlen($ref) > 120) {
+            return false;
+        }
+
+        if (!preg_match('/\A[A-Za-z0-9._\/-]+\z/', $ref)) {
+            return false;
+        }
+
+        if (
+            str_starts_with($ref, '-')
+            || str_contains($ref, '..')
+            || str_contains($ref, '@{')
+            || str_contains($ref, '\\')
+            || str_ends_with($ref, '/')
+            || str_ends_with($ref, '.lock')
+        ) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Ensure required directories exist
+     */
+    private function ensureDirectoriesExist(): void
+    {
+        if (!File::exists($this->releasesPath)) {
+            File::makeDirectory($this->releasesPath, 0755, true);
+        }
+
+        if (!File::exists($this->sharedPath)) {
+            File::makeDirectory($this->sharedPath, 0755, true);
+        }
+
+        // Create shared subdirectories
+        $sharedDirs = ['storage', 'database'];
+        foreach ($sharedDirs as $dir) {
+            $path = $this->sharedPath . '/' . $dir;
+            if (!File::exists($path)) {
+                File::makeDirectory($path, 0755, true);
+            }
+        }
+    }
+
+    /**
+     * Extract ZIP file to release directory
+     */
+    private function extractZip(string $zipPath, string $destination): void
+    {
+        $zip = new \ZipArchive();
+        
+        if ($zip->open($zipPath) !== true) {
+            throw new \Exception("Failed to open ZIP file: {$zipPath}");
+        }
+
+        // Extract to a temporary directory first
+        $tempDir = $destination . '_temp';
+        if (File::exists($tempDir)) {
+            File::deleteDirectory($tempDir);
+        }
+        File::makeDirectory($tempDir, 0755, true);
+
+        $this->extractZipSafely($zip, $tempDir);
+        $zip->close();
+
+        // Move contents from temp to final destination
+        // Handle case where ZIP contains a single root folder
+        $contents = File::directories($tempDir);
+        if (count($contents) === 1 && count(File::files($tempDir)) === 0) {
+            // ZIP has a single root folder, move its contents
+            $rootFolder = $contents[0];
+            File::copyDirectory($rootFolder, $destination);
+        } else {
+            // ZIP contents are at root level
+            File::copyDirectory($tempDir, $destination);
+        }
+
+        // Clean up temp directory
+        File::deleteDirectory($tempDir);
+    }
+
+    private function extractZipSafely(\ZipArchive $zip, string $destination): void
+    {
+        $destination = rtrim($destination, '/');
+
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $entry = $zip->getNameIndex($index);
+            if (!is_string($entry) || $entry === '') {
+                continue;
+            }
+
+            $normalizedEntry = str_replace('\\', '/', $entry);
+            if (!$this->isSafeZipEntryPath($normalizedEntry)) {
+                throw new \Exception("Unsafe ZIP entry path detected: {$entry}");
+            }
+
+            if ($this->isZipSymlinkEntry($zip, $index)) {
+                throw new \Exception("ZIP contains unsupported symlink entry: {$entry}");
+            }
+
+            // Directory entries are represented by a trailing slash.
+            if (str_ends_with($normalizedEntry, '/')) {
+                $dirPath = $destination . '/' . rtrim($normalizedEntry, '/');
+                if (!File::exists($dirPath)) {
+                    File::makeDirectory($dirPath, 0755, true);
+                }
+                continue;
+            }
+
+            $targetPath = $destination . '/' . $normalizedEntry;
+            $targetDir = dirname($targetPath);
+            if (!File::exists($targetDir)) {
+                File::makeDirectory($targetDir, 0755, true);
+            }
+
+            $content = $zip->getFromIndex($index);
+            if ($content === false) {
+                throw new \Exception("Failed to read ZIP entry: {$entry}");
+            }
+
+            if (file_put_contents($targetPath, $content, LOCK_EX) === false) {
+                throw new \Exception("Failed to write extracted entry: {$entry}");
+            }
+        }
+    }
+
+    private function isSafeZipEntryPath(string $entry): bool
+    {
+        if ($entry === '' || str_starts_with($entry, '/')) {
+            return false;
+        }
+
+        if (preg_match('/^[A-Za-z]:\//', $entry) === 1) {
+            return false;
+        }
+
+        $segments = explode('/', $entry);
+        foreach ($segments as $segment) {
+            if ($segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function isZipSymlinkEntry(\ZipArchive $zip, int $index): bool
+    {
+        $opsys = 0;
+        $attributes = 0;
+        if (!$zip->getExternalAttributesIndex($index, $opsys, $attributes)) {
+            return false;
+        }
+
+        // Unix file type bits are stored in the high 16 bits.
+        $mode = ($attributes >> 16) & 0xF000;
+        return $mode === 0xA000;
+    }
+
+    /**
+     * Link shared directories (.env, storage, database) into release
+     */
+    private function linkSharedDirectories(string $releaseDir): void
+    {
+        // Link .env if it exists in shared
+        $sharedEnv = $this->sharedPath . '/.env';
+        $releaseEnv = $releaseDir . '/.env';
+        
+        if (File::exists($sharedEnv) && !File::exists($releaseEnv)) {
+            symlink($sharedEnv, $releaseEnv);
+        }
+
+        // Link storage
+        $sharedStorage = $this->sharedPath . '/storage';
+        $releaseStorage = $releaseDir . '/storage';
+        
+        if (File::exists($sharedStorage)) {
+            if (File::exists($releaseStorage)) {
+                File::deleteDirectory($releaseStorage);
+            }
+            symlink($sharedStorage, $releaseStorage);
+        }
+
+        // Link database (for SQLite)
+        $sharedDatabase = $this->sharedPath . '/database';
+        $releaseDatabase = $releaseDir . '/database';
+        
+        if (File::exists($sharedDatabase)) {
+            // Only link if it's SQLite (contains .sqlite files)
+            $hasSqlite = !empty(File::glob($sharedDatabase . '/*.sqlite*'));
+            if ($hasSqlite) {
+                if (File::exists($releaseDatabase)) {
+                    File::deleteDirectory($releaseDatabase);
+                }
+                symlink($sharedDatabase, $releaseDatabase);
+            }
+        }
+    }
+
+    /**
+     * Run post-deploy steps (migrations, cache clear, etc.)
+     */
+    private function runPostDeploySteps(string $releaseDir): void
+    {
+        // Note: We can't use chdir() with Artisan::call because it uses base_path()
+        // Instead, we need to run artisan from the release directory using exec
+        // But for now, we'll assume the release is extracted to a path we can reference
+        
+        // Run migrations - use the artisan file in the release directory
+        $artisanPath = $releaseDir . '/artisan';
+        if (file_exists($artisanPath)) {
+            // Use exec to run artisan from the release directory
+            $originalCwd = getcwd();
+            chdir($releaseDir);
+            
+            try {
+                // Run migrations
+                exec('php artisan migrate --force 2>&1', $migrateOutput, $migrateReturn);
+                if ($migrateReturn !== 0) {
+                    throw new \Exception('Migration failed: ' . implode("\n", $migrateOutput));
+                }
+
+                // Clear caches
+                exec('php artisan config:clear 2>&1', $configOutput, $configReturn);
+                exec('php artisan cache:clear 2>&1', $cacheOutput, $cacheReturn);
+                exec('php artisan view:clear 2>&1', $viewOutput, $viewReturn);
+                exec('php artisan route:clear 2>&1', $routeOutput, $routeReturn);
+            } finally {
+                chdir($originalCwd);
+            }
+        } else {
+            // Fallback: try with Artisan::call (may not work if base_path differs)
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+                Artisan::call('config:clear');
+                Artisan::call('cache:clear');
+                Artisan::call('view:clear');
+                Artisan::call('route:clear');
+            } catch (\Exception $e) {
+                Log::warning('Artisan commands may have failed due to path mismatch', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Atomically switch the current symlink
+     */
+    private function switchSymlink(string $releaseDir): void
+    {
+        // Create a temporary symlink first
+        $tempSymlink = $this->currentSymlink . '_temp';
+        
+        if (File::exists($tempSymlink)) {
+            @unlink($tempSymlink);
+        }
+        
+        symlink($releaseDir, $tempSymlink);
+
+        // Atomically replace the current symlink
+        if (File::exists($this->currentSymlink)) {
+            @unlink($this->currentSymlink);
+        }
+        
+        rename($tempSymlink, $this->currentSymlink);
+    }
+
+    /**
+     * Clean up old releases, keeping only the last N
+     */
+    private function cleanupOldReleases(): void
+    {
+        $releases = $this->getReleases();
+        
+        if (count($releases) <= $this->keepReleases) {
+            return;
+        }
+
+        // Sort by creation time, oldest first
+        $sorted = collect($releases)
+            ->sortBy('created_at')
+            ->values()
+            ->toArray();
+
+        // Remove oldest releases beyond keep limit
+        $toRemove = array_slice($sorted, 0, count($sorted) - $this->keepReleases);
+        
+        foreach ($toRemove as $release) {
+            $path = $release['path'];
+            if (File::exists($path)) {
+                File::deleteDirectory($path);
+            }
+        }
+    }
+}

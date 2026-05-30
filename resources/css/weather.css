@@ -1,0 +1,894 @@
+/**
+ * Weather Dashboard Custom Styles
+ * These styles are used across the public weather pages
+ */
+
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+
+/* Hide Alpine elements until initialized */
+[x-cloak] { display: none !important; }
+
+/* Tabular numbers for data values */
+.data-value { font-variant-numeric: tabular-nums; }
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Theme color for Safari status bar */
+html, body {
+    background-color: #1a2332;
+}
+/* When fixed weather layer exists, html and body must be transparent so the gradient layer is visible */
+html.has-weather-bg,
+body.has-weather-bg,
+html:has(body .weather-bg),
+body:has(.weather-bg) {
+    background-color: transparent !important;
+}
+
+/* Keep horizontal clipping so wide effects/content do not spill into side-rail space. */
+#site-wrapper {
+    overflow-x: clip;
+}
+
+/* Keep a minimum side gutter on wide screens so Google side rails can stay eligible. */
+@media (min-width: 1280px) {
+    body[data-side-rails='enabled'] .side-rail-safe {
+        max-width: min(80rem, calc(100vw - 15rem));
+    }
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ==========================================================================
+   Weather background layer (fixed, behind content – body stays scrollable)
+   ========================================================================== */
+
+/* Fixed full-viewport layer: never affects body scroll */
+.weather-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    pointer-events: none;
+    /* Fallback so background is always visible even before Alpine applies state classes */
+    background: linear-gradient(-45deg, #0f1419, #1a2744, #0f1419);
+    background-size: 100% 100%;
+}
+
+/* FX animated gradient on the layer (not on body) – no solid fill so ::before shows */
+.weather-bg--animated {
+    background: transparent;
+}
+
+.weather-bg--animated::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(-45deg, #0f1419, #1a2744, #0f1419, #1e1b4b, #0f1419);
+    background-size: 400% 400%;
+    animation: gradientShift 30s ease infinite;
+    /* Keep inside the weather-bg stacking context so it remains visible behind page content */
+    z-index: 0;
+}
+
+/* Static gradient (flat theme or FX off) */
+.weather-bg--static {
+    background: linear-gradient(-45deg, #0f1419, #1a2744, #0f1419);
+    background-size: 100% 100%;
+    animation: none;
+}
+
+/* Legacy: keep for any old references; map to layer behavior */
+.bg-weather-animated,
+.bg-weather-static {
+    position: relative;
+    background: transparent;
+}
+
+/* Transform-based animation is GPU-accelerated */
+@keyframes gradientShift {
+    0% { transform: translate(0%, 0%); }
+    25% { transform: translate(-5%, -5%); }
+    50% { transform: translate(-10%, -10%); }
+    75% { transform: translate(-5%, -5%); }
+    100% { transform: translate(0%, 0%); }
+}
+
+/* ==========================================================================
+   Glass Effect (optimized for all browsers)
+   ========================================================================== */
+
+.glass {
+    background: rgba(26, 35, 50, 0.75);
+    /* Reduced blur for better cross-browser performance */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    /* GPU compositing hint for smoother rendering */
+    transform: translateZ(0);
+}
+
+.glow {
+    /* Subtle glow for better performance */
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+/* Disable expensive glass blur when effects are off (battery saver) */
+.effects-disabled .glass,
+.fx-off .glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(26, 35, 50, 0.92);
+}
+
+/* Disable glow effects when effects are off */
+.effects-disabled .glow,
+.fx-off .glow {
+    box-shadow: none;
+}
+
+/* Disable ALL animations when effects are off (battery saver) */
+.effects-disabled *,
+.effects-disabled *::before,
+.effects-disabled *::after,
+.fx-off *,
+.fx-off *::before,
+.fx-off *::after {
+    animation-play-state: paused !important;
+}
+
+.effects-disabled [class*="backdrop-blur"],
+.fx-off [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Widget theme visuals (wind streams, rain pond, etc.): force-stop all motion when FX is off */
+.effects-disabled .fx-visual,
+.effects-disabled .fx-visual *,
+.effects-disabled .fx-visual *::before,
+.effects-disabled .fx-visual *::after,
+.fx-off .fx-visual,
+.fx-off .fx-visual *,
+.fx-off .fx-visual *::before,
+.fx-off .fx-visual *::after {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Keep only essential animations running (live indicator) */
+.effects-disabled .live-indicator,
+.fx-off .live-indicator {
+    animation-play-state: running !important;
+}
+
+
+
+
+
+
+
+/* Flat borders: solid, no semi-transparent “glass” borders */
+
+
+
+/* ==========================================================================
+   Performance Optimizations (applied to all browsers)
+   ========================================================================== */
+
+/* Weather particles - let browser optimize */
+.raindrop,
+.snowflake,
+.wind-global-particle {
+    will-change: auto;
+}
+
+/* Reduced cloud blur for performance */
+.cloud {
+    filter: blur(20px);
+}
+
+/* ==========================================================================
+   Card Effects
+   ========================================================================== */
+
+.card-3d {
+    /* Optimized transition for cross-browser performance */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    /* Flat transform style for better performance */
+    transform-style: flat;
+}
+
+/* Disable 3D card effects when effects are off (reduces GPU layers) */
+.effects-disabled .card-3d,
+.fx-off .card-3d {
+    transform-style: flat;
+    will-change: auto;
+    transition: none;
+}
+
+.card-3d.tilting {
+    transition: transform 0.1s ease-out, box-shadow 0.3s ease;
+}
+
+.card-3d:hover {
+    will-change: transform;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2), 0 0 15px rgba(59, 130, 246, 0.05);
+}
+
+/* Disable card tilt/wiggle on mobile (below Tailwind sm breakpoint) */
+@media (max-width: 639px) {
+    .card-3d {
+        transform: none !important;
+        transition: none;
+    }
+    .card-3d.tilting {
+        transform: none !important;
+    }
+}
+
+/* ==========================================================================
+   Card Flip (Wind Rose, etc.)
+   Same pattern as the ISS flip on /astronomy — proven cross-browser.
+   ========================================================================== */
+
+.card-flip-container {
+    perspective: 1000px;
+    -webkit-perspective: 1000px;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    isolation: isolate;
+}
+.card-flip-container.sortable-widget {
+    contain: style;
+}
+
+.card-flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s;
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    will-change: transform;
+}
+
+.card-flip-inner.flipped {
+    transform: rotateY(180deg);
+    -webkit-transform: rotateY(180deg);
+}
+
+.card-flip-front,
+.card-flip-back {
+    position: absolute;
+    width: 100%;
+    top: 0;
+    left: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+    -webkit-font-smoothing: antialiased;
+}
+
+.card-flip-front {
+    transform: rotateY(0deg) translateZ(0.1px);
+    -webkit-transform: rotateY(0deg) translateZ(0.1px);
+}
+
+.card-flip-back {
+    transform: rotateY(180deg) translateZ(0.1px);
+    -webkit-transform: rotateY(180deg) translateZ(0.1px);
+}
+
+/* Disable flip transition when effects are off */
+.effects-disabled .card-flip-inner,
+.fx-off .card-flip-inner {
+    transition: none;
+}
+
+/* ==========================================================================
+   Edit Mode / Drag & Drop
+   ========================================================================== */
+
+.sortable-widget {
+    position: relative;
+    /* CSS containment for rendering performance.
+       Using layout+style only — paint containment clips ad iframes that
+       expand beyond their initial bounds (e.g. AdSense responsive units). */
+    contain: layout style;
+}
+
+.edit-mode .sortable-widget {
+    cursor: grab;
+}
+
+.edit-mode .sortable-widget:active {
+    cursor: grabbing;
+}
+
+.edit-mode .sortable-widget::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px dashed rgba(139, 92, 246, 0.5);
+    border-radius: 1rem;
+    pointer-events: none;
+    z-index: 10;
+    animation: borderPulse 2s ease-in-out infinite;
+}
+
+@keyframes borderPulse {
+    0%, 100% { border-color: rgba(139, 92, 246, 0.3); }
+    50% { border-color: rgba(139, 92, 246, 0.7); }
+}
+
+.edit-mode .drag-handle {
+    display: flex !important;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: rgba(139, 92, 246, 0.2) !important;
+    transform: scale(1.02);
+}
+
+.sortable-chosen {
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.5), 0 10px 40px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+}
+
+.drag-handle {
+    display: none;
+}
+
+/* Dynamic grid columns for bottom section */
+@media (min-width: 1024px) {
+    .bottom-widgets-grid {
+        grid-template-columns: repeat(var(--grid-cols, 3), minmax(0, 1fr)) !important;
+    }
+}
+
+/* ==========================================================================
+   Weather Effects - Rain
+   ========================================================================== */
+
+.rain-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.rain-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+    overflow: hidden;
+}
+
+.raindrop {
+    position: absolute;
+    width: 2px;
+    background: linear-gradient(to bottom, transparent, rgba(174, 194, 224, 0.5), rgba(174, 194, 224, 0.8));
+    border-radius: 0 0 2px 2px;
+    animation-name: fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.raindrop.foreground {
+    z-index: 1001;
+}
+
+.raindrop.background {
+    z-index: 5;
+    opacity: 0.4;
+}
+
+@keyframes fall {
+    0% { transform: translateY(-100px); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(100vh); opacity: 0; }
+}
+
+.rain-splash {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(174, 194, 224, 0.6) 0%, transparent 70%);
+    animation: splash 0.4s ease-out forwards;
+    pointer-events: none;
+    z-index: 100;
+}
+
+@keyframes splash {
+    0% { transform: scale(0); opacity: 1; }
+    50% { transform: scale(2); opacity: 0.6; }
+    100% { transform: scale(3); opacity: 0; }
+}
+
+.rain-splash.ripple {
+    width: 10px;
+    height: 10px;
+    background: transparent;
+    border: 1px solid rgba(174, 194, 224, 0.4);
+    animation: ripple 0.6s ease-out forwards;
+}
+
+@keyframes ripple {
+    0% { transform: scale(0); opacity: 1; }
+    100% { transform: scale(4); opacity: 0; }
+}
+
+.splash {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: rgba(174, 194, 224, 0.6);
+    border-radius: 50%;
+    animation: splash 0.4s ease-out forwards;
+}
+
+/* ==========================================================================
+   Weather Effects - Snow
+   ========================================================================== */
+
+.snow-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.snowflake {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: snowfall linear infinite;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+    opacity: 0;
+}
+
+.snowflake.foreground {
+    z-index: 1001;
+}
+
+.snowflake.background {
+    z-index: 5;
+    opacity: 0.5;
+}
+
+@keyframes snowfall {
+    0% { transform: translateY(-20px) translateX(0) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.9; }
+    90% { opacity: 0.9; }
+    100% { transform: translateY(100vh) translateX(50px) rotate(360deg); opacity: 0; }
+}
+
+.snow-accumulation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.6), transparent);
+    border-radius: 8px 8px 0 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* ==========================================================================
+   Weather Effects - Wind
+   ========================================================================== */
+
+.wind-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 999;
+    overflow: hidden;
+}
+
+.wind-global-particle {
+    position: absolute;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+    opacity: 0;
+    will-change: transform, opacity;
+    transform: translate(0, 0) rotate(var(--angle, 0deg));
+    animation: windMove var(--dur, 2.5s) linear forwards;
+}
+
+@keyframes windMove {
+    0% { transform: translate(0, 0) rotate(var(--angle, 0deg)); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translate(var(--dx, 120vw), var(--dy, -20px)) rotate(var(--angle, 0deg)); opacity: 0; }
+}
+
+/* ==========================================================================
+   Weather Effects - Lightning
+   ========================================================================== */
+
+.lightning-flash {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+}
+
+.lightning-flash.active {
+    animation: lightningFlash 0.15s ease-out;
+}
+
+@keyframes lightningFlash {
+    0% { opacity: 0.9; }
+    20% { opacity: 0; }
+    30% { opacity: 0.7; }
+    50% { opacity: 0; }
+    60% { opacity: 0.4; }
+    100% { opacity: 0; }
+}
+
+.thunder-shake {
+    animation: thunderShake 0.3s ease-out;
+}
+
+@keyframes thunderShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-3px); }
+    40% { transform: translateX(3px); }
+    60% { transform: translateX(-2px); }
+    80% { transform: translateX(2px); }
+}
+
+/* ==========================================================================
+   Weather Effects - Fog (Mist)
+   ========================================================================== */
+/*
+ * Fog overlay: three full-height layers with horizontal drifting gradients and
+ * vertical mask fades. Visibility is controlled by showFog() (dashboard): both
+ * "Mist Effect" must be enabled in admin and either test mode = fog or real
+ * conditions (high humidity, not raining) must set isFoggy.
+ *
+ * Banding: CSS linear gradients can show visible horizontal bands on 8-bit
+ * displays. We use many gradient stops and a slight blur to reduce it; some
+ * banding may still be visible depending on screen and browser.
+ */
+
+.fog-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100; /* Above main content; below rain/snow (z-1000) */
+    overflow: hidden;
+    /* Slight blur softens gradient steps and can reduce visible banding */
+    filter: blur(2px);
+    -webkit-filter: blur(2px);
+}
+
+.fog-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    /* Horizontal mist: many stops (0.04–0.08 opacity) for smoother transition */
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgba(240, 244, 252, 0.04) 10%,
+        rgba(242, 246, 252, 0.06) 25%,
+        rgba(245, 248, 253, 0.07) 40%,
+        rgba(246, 249, 253, 0.08) 50%,
+        rgba(245, 248, 253, 0.07) 60%,
+        rgba(242, 246, 252, 0.06) 75%,
+        rgba(240, 244, 252, 0.04) 90%,
+        transparent 100%
+    );
+    animation: fogDrift linear infinite;
+}
+
+/* Full-height layers with long vertical mask fades to avoid hard horizontal edges */
+.fog-layer.layer-1 {
+    animation-duration: 100s;
+    opacity: 0.6;
+    mask-image: linear-gradient(to top, transparent 0%, black 85%);
+    -webkit-mask-image: linear-gradient(to top, transparent 0%, black 85%);
+}
+
+.fog-layer.layer-2 {
+    animation-duration: 75s;
+    animation-delay: -25s;
+    opacity: 0.4;
+    mask-image: linear-gradient(to top, transparent 0%, black 90%);
+    -webkit-mask-image: linear-gradient(to top, transparent 0%, black 90%);
+}
+
+.fog-layer.layer-3 {
+    animation-duration: 120s;
+    animation-delay: -50s;
+    opacity: 0.3;
+    mask-image: linear-gradient(to top, transparent 0%, black 95%);
+    -webkit-mask-image: linear-gradient(to top, transparent 0%, black 95%);
+}
+
+@keyframes fogDrift {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0%); }
+}
+
+/* ==========================================================================
+   Weather Effects - Clouds & Sun
+   ========================================================================== */
+
+.cloud {
+    position: fixed;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(40px);
+    animation: floatCloud linear infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes floatCloud {
+    0% { transform: translateX(-20%) translateY(0); }
+    100% { transform: translateX(120vw) translateY(-5%); }
+}
+
+/* Respect user motion preferences for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .cloud {
+        animation: none;
+        opacity: 0.5;
+    }
+}
+
+.sun-rays {
+    position: fixed;
+    top: -20%;
+    right: -10%;
+    width: 60%;
+    height: 60%;
+    background: radial-gradient(ellipse at center, 
+        rgba(251, 191, 36, 0.4) 0%, 
+        rgba(251, 191, 36, 0.2) 25%, 
+        rgba(251, 146, 60, 0.1) 50%, 
+        transparent 70%);
+    pointer-events: none;
+    z-index: 100;
+    animation: sunPulse 5s ease-in-out infinite;
+}
+
+@keyframes sunPulse {
+    0%, 100% { opacity: 0.7; transform: scale(1) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1.1) rotate(3deg); }
+}
+
+/* ==========================================================================
+   Live Indicator & Animations
+   ========================================================================== */
+
+@keyframes livePulse {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.6; 
+        transform: scale(1.2);
+    }
+}
+
+.live-indicator {
+    animation: livePulse 2s ease-in-out infinite;
+    display: inline-block;
+}
+
+/* Alias for layout.blade.php compatibility */
+@keyframes pulse-slow {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+/* ==========================================================================
+   Auto-Update Animations
+   ========================================================================== */
+
+@keyframes fadeInValue {
+    0% { opacity: 0.3; transform: scale(0.95); }
+    50% { opacity: 1; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes highlightFlash {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: rgba(59, 130, 246, 0.2); }
+}
+
+.field-updated {
+    animation: fadeInValue 0.5s ease-out, highlightFlash 1.5s ease-out;
+}
+
+@keyframes refreshPulse {
+    0%, 100% { opacity: 0.6; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+.refresh-indicator {
+    animation: refreshPulse 1.5s ease-in-out infinite;
+}
+
+.stale-data-banner {
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* ==========================================================================
+   Pressure Visualization
+   ========================================================================== */
+
+@keyframes birdFly {
+    0%, 100% { transform: translateX(0) translateY(0); }
+    25% { transform: translateX(3px) translateY(-2px); }
+    50% { transform: translateX(6px) translateY(0); }
+    75% { transform: translateX(3px) translateY(2px); }
+}
+
+.bird-fly {
+    animation: birdFly 3s ease-in-out infinite;
+}
+
+@keyframes arrowFloat {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(-5px); opacity: 0.8; }
+}
+
+.arrow-up {
+    animation: arrowFloat 2s ease-in-out infinite;
+}
+
+@keyframes arrowSink {
+    0%, 100% { transform: translateY(0); opacity: 0.5; }
+    50% { transform: translateY(5px); opacity: 0.8; }
+}
+
+.arrow-down {
+    animation: arrowSink 2s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Rain Visualizations (for other pages)
+   ========================================================================== */
+
+/* Ripple Pond */
+@keyframes ripple-expand {
+    0% { transform: scale(0.5); opacity: 0.8; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes raindrop-fall {
+    0% { transform: translateY(-20px); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateY(0); opacity: 0; }
+}
+
+.rain-viz-ripple .ripple-1 { animation: ripple-expand 2s ease-out infinite; }
+.rain-viz-ripple .ripple-2 { animation: ripple-expand 2s ease-out infinite 0.4s; }
+.rain-viz-ripple .ripple-3 { animation: ripple-expand 2s ease-out infinite 0.8s; }
+.rain-viz-ripple .ripple-4 { animation: ripple-expand 2s ease-out infinite 1.2s; }
+.rain-viz-ripple .raindrop-splash { animation: raindrop-fall 2s ease-in infinite; }
+
+/* Mountain Lake */
+@keyframes water-shimmer {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes water-wave {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(3px); }
+}
+
+.rain-viz-mountain .water-shimmer { animation: water-shimmer 3s ease-in-out infinite; }
+.rain-viz-mountain .water-level { animation: water-wave 4s ease-in-out infinite; }
+
+/* Growing Tree */
+@keyframes tree-sway {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(1deg); }
+    75% { transform: rotate(-1deg); }
+}
+
+@keyframes leaf-rustle {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+.rain-viz-tree .tree-foliage {
+    transform-origin: bottom center;
+    animation: tree-sway 5s ease-in-out infinite, leaf-rustle 3s ease-in-out infinite;
+}
+
+.rain-viz-tree .tree-flowers circle {
+    animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   Floating Header (Mobile)
+   ========================================================================== */
+
+@media (max-width: 639px) {
+    .floating-header {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 100 !important;
+        transition: transform 0.25s ease-out;
+    }
+}
+
+/* ==========================================================================
+   Chart Container Fix (Mobile GPU Rendering)
+   ========================================================================== */
+
+/* Prevent black screen on mobile when scrolling near charts */
+[id^="history-chart"],
+[id^="chart-"],
+.apexcharts-canvas {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    perspective: 1000px;
+    -webkit-perspective: 1000px;
+}
+
+/* Ensure chart containers stay on their own GPU layer */
+.apexcharts-svg {
+    will-change: auto;
+}

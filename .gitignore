@@ -1,0 +1,57 @@
+# Dependencies
+/vendor
+/node_modules
+
+# Temp/plan files
+/temp
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+/auth.json
+/GeoIP.conf
+
+# Build artifacts
+/public/build
+/public/hot
+/public/storage
+/coverage
+
+# Runtime, cache, and logs
+*.log
+.phpunit.result.cache
+/.phpunit.cache
+/storage/*.key
+/storage/pail
+/storage/app/private/geoip
+/storage/app/radar-tiles
+
+# IDE/editor/local tooling
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+/.cursor
+/.claude
+/.config
+/.xdg
+.phpactor.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local dev infra
+Homestead.json
+Homestead.yaml
+/telemetry-aggregator
+docs/_archive/
+
+# Ecowitt runtime files and secrets
+ecowitt/ecco_lcl.arr
+ecowitt/ecco_key.arr
+ecowitt/ecco_test.arr
+ecowitt/ecco_stats.txt
+ecowitt/error_log

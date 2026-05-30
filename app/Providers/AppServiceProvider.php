@@ -1,0 +1,126 @@
+<?php
+
+namespace App\Providers;
+
+use App\Contracts\Nlg\Narrator;
+use App\Contracts\Nlg\Rephraser;
+use App\Services\Nlg\ForecastNarrator;
+use App\Services\Nlg\Rephrasers\OllamaRephraser;
+use App\Services\Nlg\Rephrasers\OpenAiCompatibleRephraser;
+use App\Services\OpenData\BomProvider;
+use App\Services\OpenData\DwdProvider;
+use App\Services\OpenData\EcmwfProvider;
+use App\Services\OpenData\JmaProvider;
+use App\Services\OpenData\KnmiProvider;
+use App\Services\OpenData\MeteoFranceProvider;
+use App\Services\OpenData\MetOfficeProvider;
+use App\Services\OpenData\NoaaProvider;
+use App\Services\Mail\MailConfigService;
+use App\Services\OpenData\OpenDataProviderRegistry;
+use App\Models\Setting;
+use App\Services\Security\ApiKeyService;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\View;
+use Throwable;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        // Bind Narrator interface to ForecastNarrator
+        $this->app->bind(Narrator::class, ForecastNarrator::class);
+
+        // Bind Rephraser interface based on DB settings (optional)
+        $this->app->bind(Rephraser::class, function () {
+            try {
+                if (!Setting::getValue('nlg.llm_enabled', false)) {
+                    return null;
+                }
+
+                $provider = Setting::getValue('nlg.provider', 'openai');
+                $preset = config("nlg.providers.{$provider}", config('nlg.providers.openai'));
+
+                $baseUrl = Setting::getValue('nlg.base_url', '') ?: ($preset['base_url'] ?? '');
+                $model = Setting::getValue('nlg.model', '') ?: ($preset['default_model'] ?? '');
+
+                if (($preset['type'] ?? 'compatible') === 'ollama') {
+                    return new OllamaRephraser(
+                        hostUrl: $baseUrl ?: 'http://localhost:11434',
+                        model: $model ?: 'llama3',
+                    );
+                }
+
+                // All other providers use OpenAI-compatible chat/completions
+                $apiKey = Setting::getValue('nlg.api_key', '')
+                    ?: env('OPENAI_API_KEY', '')    // fallback for migration
+                    ?: env('NLG_COMPAT_KEY', '');
+
+                return new OpenAiCompatibleRephraser(
+                    baseUrl: $baseUrl ?: 'https://api.openai.com/v1',
+                    apiKey: $apiKey,
+                    model: $model ?: 'gpt-4o-mini',
+                );
+            } catch (Throwable $e) {
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        // Register Open Data providers
+        $this->registerOpenDataProviders();
+
+        // Apply mail configuration
+        try {
+            $mailService = app(MailConfigService::class);
+            $mailService->applyConfiguration();
+        } catch (\Exception $e) {
+            // Ignore errors during boot (settings might not be initialized yet)
+        }
+
+        if (app()->runningInConsole() && !app()->environment('testing')) {
+            return;
+        }
+
+        $publicApiKey = app(ApiKeyService::class)->getOrCreatePublicKey();
+        View::share('publicApiKey', $publicApiKey);
+
+        try {
+            $siteTheme = Setting::getValue('appearance.theme', 'fx');
+        } catch (Throwable $e) {
+            $siteTheme = 'fx';
+        }
+        View::share('siteTheme', $siteTheme);
+
+        $weatherIconsPath = $siteTheme === 'flat' ? 'icons/weather-static' : 'icons/weather';
+        View::share('weatherIconsPath', $weatherIconsPath);
+
+        $weatherIconsBaseUrl = $siteTheme === 'flat' ? '/icons/weather-static' : '/icons/weather';
+        View::share('weatherIconsBaseUrl', $weatherIconsBaseUrl);
+    }
+
+    /**
+     * Register all Open Data providers
+     */
+    private function registerOpenDataProviders(): void
+    {
+        // Implemented providers
+        OpenDataProviderRegistry::register(new KnmiProvider());
+
+        // Placeholder providers (coming soon)
+        OpenDataProviderRegistry::register(new MetOfficeProvider());
+        OpenDataProviderRegistry::register(new NoaaProvider());
+        OpenDataProviderRegistry::register(new DwdProvider());
+        OpenDataProviderRegistry::register(new MeteoFranceProvider());
+        OpenDataProviderRegistry::register(new JmaProvider());
+        OpenDataProviderRegistry::register(new EcmwfProvider());
+        OpenDataProviderRegistry::register(new BomProvider());
+    }
+}

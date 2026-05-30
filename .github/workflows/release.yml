@@ -1,0 +1,197 @@
+name: Release (build deploy ZIP)
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  create-tag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tags are up to date
+        run: git fetch --tags --force
+
+      - name: Compute next release tag
+        id: next_tag
+        run: |
+          TAG="$(sh scripts/next-release-version.sh)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Next release tag: ${TAG}"
+
+      - name: Update VERSION and push to default branch
+        env:
+          TAG: ${{ steps.next_tag.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "${TAG}" > VERSION
+          git add VERSION
+          if ! git diff --staged --quiet; then
+            git commit -m "Release ${TAG}"
+            git push origin HEAD
+          fi
+
+      - name: Create and push tag
+        env:
+          TAG: ${{ steps.next_tag.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "Tag ${TAG} already exists; aborting."
+            exit 1
+          fi
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Summary
+        env:
+          TAG: ${{ steps.next_tag.outputs.tag }}
+        run: |
+          {
+            echo "### Release Tag Created"
+            echo ""
+            echo "- Tag: \`${TAG}\`"
+            echo "- A new workflow run will now build and publish the GitHub release for this tag."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install PHP deps (with dev for CI checks)
+        run: |
+          composer install --optimize-autoloader
+
+      - name: Install Node deps
+        run: |
+          npm ci
+
+      - name: Build frontend assets
+        run: |
+          npm run build
+
+      - name: Run test suite
+        run: |
+          php artisan test
+
+      - name: Install production PHP deps
+        run: |
+          composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+      - name: Write VERSION + release.json
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          COMMIT="$(git rev-parse --short=16 HEAD)"
+          echo "${TAG}" > VERSION
+          cat > release.json <<'JSON'
+          {
+            "name": "WeatherNode",
+            "version": "__TAG__",
+            "commit": "__COMMIT__",
+            "built_at_utc": "__BUILT_AT__",
+            "artifact": "weathernode-deploy.zip",
+            "sha256": ""
+          }
+          JSON
+          BUILT_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          sed -i "s/__TAG__/${TAG}/" release.json
+          sed -i "s/__COMMIT__/${COMMIT}/" release.json
+          sed -i "s/__BUILT_AT__/${BUILT_AT}/" release.json
+
+      - name: Create deploy zip
+        run: |
+          zip -r weathernode-deploy.zip \
+            app bootstrap config database public resources routes storage artisan composer.json composer.lock \
+            vendor VERSION release.json
+
+      - name: Compute sha256 and update release.json
+        id: checksum
+        run: |
+          SHA="$(sha256sum weathernode-deploy.zip | awk '{print $1}')"
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          sed -i "s/\"sha256\": \"\"/\"sha256\": \"${SHA}\"/" release.json
+          zip -u weathernode-deploy.zip release.json
+          printf '%s  weathernode-deploy.zip\n' "${SHA}" > weathernode-deploy.zip.sha256
+
+      - name: Create GitHub Release and upload asset
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          body: |
+            SHA256: `${{ steps.checksum.outputs.sha }}`
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
+          files: |
+            weathernode-deploy.zip
+            weathernode-deploy.zip.sha256
+
+  build-docker:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute lowercase image name
+        id: image
+        run: |
+          IMAGE="ghcr.io/$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          echo "name=${IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
