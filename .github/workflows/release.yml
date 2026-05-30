@@ -107,6 +107,14 @@ jobs:
       - name: Install production PHP deps
         run: |
           composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+          # The with-dev install above ran package:discover and wrote
+          # bootstrap/cache/packages.php referencing dev-only providers such as
+          # nunomaduro/collision. With --no-scripts that cache is NOT regenerated
+          # for the --no-dev vendor, so it would ship in the ZIP and crash artisan
+          # ("CollisionServiceProvider not found") during migrations on the target
+          # server. Remove the compiled caches; Laravel rebuilds them clean on
+          # first boot from the production vendor.
+          rm -f bootstrap/cache/*.php
 
       - name: Write VERSION + release.json
         run: |
