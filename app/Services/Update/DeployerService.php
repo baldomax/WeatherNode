@@ -493,6 +493,32 @@ class DeployerService
             if (file_put_contents($targetPath, $content, LOCK_EX) === false) {
                 throw new \Exception("Failed to write extracted entry: {$entry}");
             }
+
+            // Preserve the executable bit from the ZIP's stored Unix mode.
+            // file_put_contents() writes with the default umask (typically
+            // 0644), which strips +x from files like `artisan`. The post-deploy
+            // health check (is_executable) and any CLI use then fail.
+            $this->applyZipEntryPermissions($zip, $index, $targetPath);
+        }
+    }
+
+    /**
+     * Restore a file's executable bit from the ZIP entry's stored Unix mode.
+     */
+    private function applyZipEntryPermissions(\ZipArchive $zip, int $index, string $targetPath): void
+    {
+        $opsys = 0;
+        $attributes = 0;
+        if (!$zip->getExternalAttributesIndex($index, $opsys, $attributes)) {
+            return;
+        }
+
+        // Unix permission bits live in the high 16 bits of the external attrs.
+        $mode = ($attributes >> 16) & 0777;
+
+        // Only propagate execute bits (e.g. for `artisan`); keep writes owner-only.
+        if ($mode & 0111) {
+            @chmod($targetPath, 0755);
         }
     }
 

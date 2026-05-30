@@ -87,9 +87,13 @@ return [
     
     'health_check_timeout' => env('UPDATER_HEALTH_CHECK_TIMEOUT', 30),
     
-    'health_check_endpoints' => env('UPDATER_HEALTH_CHECK_ENDPOINTS', '/,api/weather/dashboard') 
-        ? explode(',', env('UPDATER_HEALTH_CHECK_ENDPOINTS', '/,api/weather/dashboard'))
-        : ['/'],
+    // Probe public, unauthenticated endpoints only. `/up` is Laravel's built-in
+    // health route (200 when the app boots); `/` is the public home page.
+    // Avoid auth-protected routes (e.g. api/weather/dashboard) — they return
+    // 401 and would fail the health check even on a perfectly healthy deploy.
+    'health_check_endpoints' => env('UPDATER_HEALTH_CHECK_ENDPOINTS', '/up,/')
+        ? explode(',', env('UPDATER_HEALTH_CHECK_ENDPOINTS', '/up,/'))
+        : ['/up'],
 
     /*
     |--------------------------------------------------------------------------

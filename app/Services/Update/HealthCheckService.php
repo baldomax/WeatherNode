@@ -70,8 +70,12 @@ class HealthCheckService
                     $response = Http::timeout($this->timeout)
                         ->get($url);
 
-                    // Accept 200, 301, 302 (redirects are OK)
-                    if (!in_array($response->status(), [200, 301, 302])) {
+                    // A response below 500 means the app booted and routed the
+                    // request. 2xx/3xx are clearly healthy; 401/403/404 indicate
+                    // the framework is up but the route is protected or absent —
+                    // still a healthy app, not a failed deploy. Only 5xx (or a
+                    // connection error, handled below) signals a broken release.
+                    if ($response->status() >= 500) {
                         return [
                             'passed' => false,
                             'message' => "HTTP check failed: {$endpoint} returned status {$response->status()}",
