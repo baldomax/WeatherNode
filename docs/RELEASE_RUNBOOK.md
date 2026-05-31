@@ -81,3 +81,18 @@ Common examples:
 - `manifest.json not found` -> build Vite assets before tests.
 - Composer lock incompatibility -> ensure CI/Docker PHP version matches lockfile requirements.
 
+## 6) Keep GitHub Free-Tier Storage Under Control
+
+Use the `GHCR Cleanup` workflow regularly:
+
+- Weekly schedule cleans old GHCR package versions (keeps `latest` and newest year-based tags).
+- Separate monthly schedule cleans old year-based GitHub Releases.
+- Safe default is `dry_run=true` when run manually.
+
+Recommended manual run settings:
+
+- `dry_run=true` first, verify output.
+- `keep_release_tags=6`
+- `keep_github_releases=6`
+- `delete_release_tags=false` (enable only if you intentionally want old git tags deleted too).
+

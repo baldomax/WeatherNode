@@ -2,7 +2,10 @@ name: GHCR Cleanup
 
 on:
   schedule:
+    # Weekly GHCR package cleanup
     - cron: "30 3 * * 0"
+    # Monthly GitHub Releases cleanup
+    - cron: "30 4 1 * *"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -15,6 +18,16 @@ on:
         required: false
         type: number
         default: 6
+      keep_github_releases:
+        description: "How many newest year-based GitHub Releases to keep"
+        required: false
+        type: number
+        default: 6
+      delete_release_tags:
+        description: "Also delete matching git tags when deleting GitHub Releases"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -121,3 +134,78 @@ jobs:
             gh api -X DELETE "${ENDPOINT}/${id}"
             echo "Deleted package version ${id}"
           done <<< "${final_delete_ids}"
+
+      - name: Delete old GitHub releases
+        if: github.event_name == 'workflow_dispatch' || github.event.schedule == '30 4 1 * *'
+        env:
+          REPO: ${{ github.repository }}
+          KEEP_GH_RELEASES: ${{ github.event.inputs.keep_github_releases || '6' }}
+          DELETE_TAGS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.delete_release_tags || 'false' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+
+          releases_json="$(gh api --paginate "repos/${REPO}/releases?per_page=100")"
+
+          if [ "$(echo "${releases_json}" | jq 'length')" -eq 0 ]; then
+            echo "No GitHub releases found."
+            exit 0
+          fi
+
+          # Keep the newest N year-based releases (vYYYY.MM.patch).
+          keep_release_ids="$(echo "${releases_json}" | jq -r --argjson keep "${KEEP_GH_RELEASES}" '
+            map(select(.tag_name | test("^v[0-9]{4}\\.[0-9]{2}\\.[0-9]+$")))
+            | sort_by(.published_at // .created_at // "1970-01-01T00:00:00Z")
+            | reverse
+            | .[0:$keep]
+            | map(.id)
+            | unique
+            | .[]
+          ' || true)"
+
+          # Candidate releases to delete: older year-based releases not in keep window.
+          delete_release_lines="$(echo "${releases_json}" | jq -r '
+            map(select(.tag_name | test("^v[0-9]{4}\\.[0-9]{2}\\.[0-9]+$")))
+            | sort_by(.published_at // .created_at // "1970-01-01T00:00:00Z")
+            | reverse
+            | .[]
+            | "\(.id)\t\(.tag_name)"
+          ')"
+
+          if [ -z "${delete_release_lines}" ]; then
+            echo "No year-based GitHub releases found to evaluate."
+            exit 0
+          fi
+
+          keep_release_ids_sorted="$(printf "%s\n" "${keep_release_ids}" | awk 'NF' | sort -u)"
+          delete_release_ids="$(printf "%s\n" "${delete_release_lines}" | cut -f1 | awk 'NF' | sort -u)"
+          final_delete_release_ids="$(comm -23 <(printf "%s\n" "${delete_release_ids}") <(printf "%s\n" "${keep_release_ids_sorted}") || true)"
+
+          if [ -z "${final_delete_release_ids}" ]; then
+            echo "No GitHub releases to delete after retention filtering."
+            exit 0
+          fi
+
+          echo "Will delete GitHub Releases (id -> tag):"
+          while IFS= read -r id; do
+            [ -n "${id}" ] || continue
+            tag="$(printf "%s\n" "${delete_release_lines}" | awk -F '\t' -v rid="${id}" '$1 == rid { print $2; exit }')"
+            echo "${id} -> ${tag}"
+          done <<< "${final_delete_release_ids}"
+
+          if [ "${DRY_RUN}" = "true" ]; then
+            echo "Dry run enabled. No GitHub Releases deleted."
+            exit 0
+          fi
+
+          while IFS= read -r id; do
+            [ -n "${id}" ] || continue
+            tag="$(printf "%s\n" "${delete_release_lines}" | awk -F '\t' -v rid="${id}" '$1 == rid { print $2; exit }')"
+            gh api -X DELETE "repos/${REPO}/releases/${id}"
+            echo "Deleted GitHub Release ${id} (${tag})"
+
+            if [ "${DELETE_TAGS}" = "true" ] && [ -n "${tag}" ]; then
+              gh api -X DELETE "repos/${REPO}/git/refs/tags/${tag}" || true
+              echo "Deleted tag ${tag}"
+            fi
+          done <<< "${final_delete_release_ids}"
