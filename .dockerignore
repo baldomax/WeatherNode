@@ -29,6 +29,7 @@ telemetry-aggregator
 
 # Tests and dev
 tests
+/tests/*
 phpunit.xml
 .phpunit.result.cache
 *.md
