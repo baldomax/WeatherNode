@@ -1,10 +1,16 @@
 # Deployment guide
 
+> **Not sure how you should host WeatherNode?** Start with [HOSTING.md](HOSTING.md) — it
+> compares every hosting option (VPS, shared, Docker), tells you which fits your situation,
+> and explains the trade-offs (especially whether the one-click updater will work). This
+> document is the detailed, step-by-step companion once you've picked a layout.
+
 This guide explains how to deploy WeatherNode to a production web server.
 For local development, see DEVELOPMENT.md.
 
 If you are deploying for the first time, follow the steps in order.
 If you are on shared hosting without server-side npm, start with [SHARED_HOSTING_QUICKSTART.md](SHARED_HOSTING_QUICKSTART.md).
+For the difference between an auto-update-ready layout and a static layout, see [HOSTING.md](HOSTING.md).
 
 ## First-time install paths
 
@@ -657,6 +663,14 @@ Configuration lives in config/updater.php.
 UPDATER_ENABLED=true
 UPDATER_GITHUB_REPO=your-org/WeatherNode
 ```
+
+> **Important — the one-click updater only works on an auto-update-ready layout**
+> (web root follows a `current/public` symlink). On a static install (the app served
+> from a fixed `public/`), the Updates page can report success while the live site stays
+> on the old code, because the updater swaps a symlink the web server never serves. See
+> [HOSTING.md](HOSTING.md) for the layout requirements and the full list of `UPDATER_*`
+> environment variables. On a static install, update with Git or a file sync instead and
+> set `UPDATER_ENABLED=false`.
 
 ### In-app updater command behavior
 

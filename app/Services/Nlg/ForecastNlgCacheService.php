@@ -2,6 +2,7 @@
 
 namespace App\Services\Nlg;
 
+use App\Contracts\Nlg\BatchRephraser;
 use App\Contracts\Nlg\Narrator;
 use App\Contracts\Nlg\Rephraser;
 use Illuminate\Support\Facades\Cache;
@@ -9,7 +10,9 @@ use Illuminate\Support\Facades\Cache;
 class ForecastNlgCacheService
 {
     public const CACHE_TTL_MINUTES = 45;
+
     public const HASH_TTL_HOURS = 6;
+
     public const DEFAULT_AI_DAYS = 3;
 
     /**
@@ -89,6 +92,12 @@ class ForecastNlgCacheService
         ?RephraseBudget $budget = null,
         string $providerId = '',
     ): array {
+        // Rephrasers that support batching send a whole locale's days in one request, which keeps
+        // the request rate far under strict free-tier per-minute quotas (e.g. Cerebras 5 RPM).
+        if ($rephraser instanceof BatchRephraser) {
+            return $this->rephraseBatchForLocale($entries, $locale, $narrator, $rephraser, $tone, $force, $budget, $providerId);
+        }
+
         $updated = 0;
         $skipped = 0;
         $fallback = 0;
@@ -103,7 +112,7 @@ class ForecastNlgCacheService
             $hashKey = self::hashCacheKey($locale, $date);
 
             $draft = Cache::get($draftKey);
-            if (!is_string($draft) || trim($draft) === '') {
+            if (! is_string($draft) || trim($draft) === '') {
                 $draft = $narrator->narrate($entry['payload'], ['locale' => $locale]);
                 Cache::put($draftKey, $draft, $ttl);
             }
@@ -120,20 +129,21 @@ class ForecastNlgCacheService
                 && trim($final) !== ''
                 && trim($final) !== trim($draft);
 
-            if (!$force && Cache::get($hashKey) === $sourceHash && $hasAiFinal) {
+            if (! $force && Cache::get($hashKey) === $sourceHash && $hasAiFinal) {
                 $skipped++;
+
                 continue;
             }
 
             // Budget gate: if the provider's hour/day quota is spent, stop calling the API
             // and keep whatever final text already exists (the deterministic draft for fresh
             // entries). The shared budget is per provider, so nothing later will succeed.
-            if ($budget !== null && !$budget->tryReserve($providerId)) {
+            if ($budget !== null && ! $budget->tryReserve($providerId)) {
                 $budgetExhausted = true;
                 break;
             }
 
-            $rewritten = trim($rephraser->rewrite($draft, $entry['payload'], $tone));
+            $rewritten = trim($rephraser->rewrite($draft, $entry['payload'], $tone, $locale));
 
             if ($rewritten === '') {
                 $rewritten = $draft;
@@ -144,10 +154,122 @@ class ForecastNlgCacheService
             if ($rewritten !== $draft) {
                 Cache::put($hashKey, $sourceHash, $hashTtl);
                 $updated++;
+
                 continue;
             }
 
             Cache::forget($hashKey);
+            $fallback++;
+        }
+
+        return [
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'fallback' => $fallback,
+            'budgetExhausted' => $budgetExhausted,
+        ];
+    }
+
+    /**
+     * Rephrase a whole locale in a single provider request.
+     *
+     * The skip/force/hash semantics match the per-entry path; the difference is that every
+     * entry still needing work is collected and sent together, so a locale costs one request
+     * (plus retries) instead of one per day. The budget is reserved per request via a callback
+     * passed into the rephraser, so retries are paced and counted rather than bypassing the quota.
+     *
+     * @param  array<int, array{date: string, payload: array<string, mixed>}>  $entries
+     * @return array{updated: int, skipped: int, fallback: int, budgetExhausted: bool}
+     */
+    private function rephraseBatchForLocale(
+        array $entries,
+        string $locale,
+        Narrator $narrator,
+        BatchRephraser $rephraser,
+        string $tone,
+        bool $force,
+        ?RephraseBudget $budget,
+        string $providerId,
+    ): array {
+        $updated = 0;
+        $skipped = 0;
+        $fallback = 0;
+        $budgetExhausted = false;
+        $ttl = now()->addMinutes(self::CACHE_TTL_MINUTES);
+        $hashTtl = now()->addHours(self::HASH_TTL_HOURS);
+
+        /** @var array<string, array{draft: string, facts: array<string, mixed>}> $pending */
+        $pending = [];
+        /** @var array<string, array{finalKey: string, hashKey: string, sourceHash: string}> $meta */
+        $meta = [];
+
+        foreach ($entries as $entry) {
+            $date = $entry['date'];
+            $draftKey = self::draftCacheKey($locale, $date);
+            $finalKey = self::finalCacheKey($locale, $date);
+            $hashKey = self::hashCacheKey($locale, $date);
+
+            $draft = Cache::get($draftKey);
+            if (! is_string($draft) || trim($draft) === '') {
+                $draft = $narrator->narrate($entry['payload'], ['locale' => $locale]);
+                Cache::put($draftKey, $draft, $ttl);
+            }
+
+            $final = Cache::get($finalKey);
+
+            $sourceHash = sha1(json_encode([
+                'tone' => $tone,
+                'draft' => $draft,
+                'facts' => $entry['payload'],
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '');
+
+            $hasAiFinal = is_string($final)
+                && trim($final) !== ''
+                && trim($final) !== trim($draft);
+
+            if (! $force && Cache::get($hashKey) === $sourceHash && $hasAiFinal) {
+                $skipped++;
+
+                continue;
+            }
+
+            $pending[$date] = ['draft' => $draft, 'facts' => $entry['payload']];
+            $meta[$date] = ['finalKey' => $finalKey, 'hashKey' => $hashKey, 'sourceHash' => $sourceHash];
+        }
+
+        if ($pending === []) {
+            return ['updated' => 0, 'skipped' => $skipped, 'fallback' => 0, 'budgetExhausted' => false];
+        }
+
+        $reserveSlot = $budget !== null
+            ? fn (): bool => $budget->tryReserve($providerId)
+            : null;
+
+        $results = $rephraser->rewriteBatch($pending, $tone, $reserveSlot, $locale);
+
+        // A denied reserve (hour/day quota) makes the rephraser keep the drafts; surface that so the
+        // command stops early instead of trying the next locale on the same exhausted provider budget.
+        if ($budget !== null && $budget->lastSkipReason() !== null) {
+            $budgetExhausted = true;
+        }
+
+        foreach ($pending as $date => $item) {
+            $draft = $item['draft'];
+            $rewritten = trim((string) ($results[$date] ?? $draft));
+            if ($rewritten === '') {
+                $rewritten = $draft;
+            }
+
+            Cache::put($meta[$date]['finalKey'], $rewritten, $ttl);
+
+            if ($rewritten !== $draft) {
+                Cache::put($meta[$date]['hashKey'], $meta[$date]['sourceHash'], $hashTtl);
+                $updated++;
+
+                continue;
+            }
+
+            Cache::forget($meta[$date]['hashKey']);
             $fallback++;
         }
 
@@ -184,7 +306,7 @@ class ForecastNlgCacheService
                 return null;
             }
 
-            if (!is_numeric($normalized)) {
+            if (! is_numeric($normalized)) {
                 return max(1, $default);
             }
 
@@ -233,7 +355,7 @@ class ForecastNlgCacheService
         $preferredMap = $preferredLocales !== [] ? array_flip($preferredLocales) : [];
 
         foreach ($requestedLocales as $requestedLocale) {
-            if (!is_string($requestedLocale) || trim($requestedLocale) === '') {
+            if (! is_string($requestedLocale) || trim($requestedLocale) === '') {
                 continue;
             }
 
@@ -241,15 +363,16 @@ class ForecastNlgCacheService
 
             if (in_array($normalized, $availableLocales, true)) {
                 $expanded[] = $normalized;
+
                 continue;
             }
 
-            if (!preg_match('/^[a-z]{2}$/', $normalized)) {
+            if (! preg_match('/^[a-z]{2}$/', $normalized)) {
                 continue;
             }
 
             $matches = array_values(array_filter($availableLocales, static function (string $locale) use ($normalized): bool {
-                return $locale === $normalized || str_starts_with($locale, $normalized . '-');
+                return $locale === $normalized || str_starts_with($locale, $normalized.'-');
             }));
 
             if ($matches === []) {
@@ -293,8 +416,8 @@ class ForecastNlgCacheService
             return null;
         }
 
-        $dayStart = $date . 'T00:00:00Z';
-        $dayEnd = $date . 'T23:59:59Z';
+        $dayStart = $date.'T00:00:00Z';
+        $dayEnd = $date.'T23:59:59Z';
 
         $dayHours = array_values(array_filter($hourlyForecast, static function ($entry) use ($dayStart, $dayEnd): bool {
             $time = $entry['time'] ?? null;
@@ -334,7 +457,7 @@ class ForecastNlgCacheService
                 continue;
             }
 
-            if (!isset($periods[$periodName])) {
+            if (! isset($periods[$periodName])) {
                 $periods[$periodName] = [
                     'name' => $periodName,
                     'temp_c' => [],

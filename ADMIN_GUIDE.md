@@ -128,6 +128,12 @@ Remove the query parameters (refresh without them) to return to real values.
 
 WeatherNode includes an update system that allows you to update the application directly from the admin panel.
 
+> **One-click updates require an auto-update-ready install** (the web root follows a
+> `current/public` symlink). If your site is a static install — the app served from a fixed
+> `public/` folder, common on shared hosting — the Updates page may report success while the
+> live site stays on the old version. See [HOSTING.md](HOSTING.md) to check which layout you
+> have; on a static install, update via Git or file sync instead.
+
 ### Accessing Updates
 
 Navigate to **Admin → Settings → Updates** (`/admin/settings/updates`) to:

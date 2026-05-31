@@ -15,7 +15,7 @@ class OllamaRephraser implements Rephraser
         private string $model = 'llama3',
     ) {}
 
-    public function rewrite(string $draft, array $facts, string $tone = 'brief'): string
+    public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string
     {
         $toneCfg = config("nlg.tones.{$tone}")
             ?: config('nlg.tones.brief')
@@ -25,7 +25,7 @@ class OllamaRephraser implements Rephraser
                 'style_notes' => 'Concise, no filler, no emojis.',
             ];
 
-        $prompt = $this->buildOllamaPrompt($draft, $facts, $tone, $toneCfg);
+        $prompt = $this->buildOllamaPrompt($draft, $facts, $tone, $toneCfg, $locale);
 
         try {
             $res = Http::timeout(30)->post(rtrim($this->hostUrl, '/') . '/api/generate', [
@@ -33,7 +33,7 @@ class OllamaRephraser implements Rephraser
                 'prompt' => $prompt,
                 'stream' => false,
                 'options' => [
-                    'temperature' => 0.2,
+                    'temperature' => (float) ($toneCfg['temperature'] ?? 0.2),
                     'num_predict' => $toneCfg['max_tokens'] ?? 60,
                 ],
             ]);

@@ -45,4 +45,9 @@ return [
         'afternoon' => 'afternoon',
         'evening' => 'evening',
     ],
+    // Glued in front of a period name: "this afternoon" (today) / "in the afternoon" (a future day).
+    'time_prefix' => [
+        'today' => 'this',
+        'other' => 'in the',
+    ],
 ];

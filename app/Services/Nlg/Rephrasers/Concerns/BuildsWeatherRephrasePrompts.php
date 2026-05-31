@@ -7,24 +7,25 @@ trait BuildsWeatherRephrasePrompts
     /**
      * @param  array<string, mixed>  $toneCfg
      */
-    private function buildWeatherSystemPrompt(string $tone, array $toneCfg): string
+    private function buildWeatherSystemPrompt(string $tone, array $toneCfg, ?string $locale = null): string
     {
         $maxSentences = (int) ($toneCfg['max_sentences'] ?? 2);
         $styleNotes = (string) ($toneCfg['style_notes'] ?? 'Keep it natural and concise.');
 
         return
-            "Rewrite the forecast using ONLY the provided facts. " .
-            "Do not add numbers, events, certainty, or timing that are not supported by the facts. " .
-            "Use idiomatic forecast language in the target language and avoid literal translations or awkward adjective-noun combinations. " .
-            "Use natural weather phrasing, not raw labels. " .
-            "Lead with the main takeaway before supporting detail. " .
-            "Never write contradictory precipitation phrases such as 'dry rain', 'droog regen', or similar combinations. " .
-            "If precipitation is negligible or absent, say 'dry', 'mostly dry', 'little or no rain', or 'a slight chance of rain later' when supported, but never combine 'dry' with a precipitation noun. " .
-            "If it stays mostly cloudy without much precipitation, say 'cloudy and mostly dry' or an equivalent natural phrase. " .
-            "If rain is only possible later, phrase it as a chance or risk later in the day. " .
-            $this->toneSpecificGuidance($tone) . ' ' .
-            "Return plain text only. " .
-            "Max sentences: {$maxSentences}. " .
+            $this->languageDirective($locale).
+            'Rewrite the forecast using ONLY the provided facts. '.
+            'Do not add numbers, events, certainty, or timing that are not supported by the facts. '.
+            'Use idiomatic forecast language in the target language and avoid literal translations or awkward adjective-noun combinations. '.
+            'Use natural weather phrasing, not raw labels. '.
+            'Lead with the main takeaway before supporting detail. '.
+            "Never write contradictory precipitation phrases such as 'dry rain', 'droog regen', or similar combinations. ".
+            "If precipitation is negligible or absent, say 'dry', 'mostly dry', 'little or no rain', or 'a slight chance of rain later' when supported, but never combine 'dry' with a precipitation noun. ".
+            "If it stays mostly cloudy without much precipitation, say 'cloudy and mostly dry' or an equivalent natural phrase. ".
+            'If rain is only possible later, phrase it as a chance or risk later in the day. '.
+            $this->toneSpecificGuidance($tone).' '.
+            'Return plain text only. '.
+            "Max sentences: {$maxSentences}. ".
             $styleNotes;
     }
 
@@ -32,19 +33,36 @@ trait BuildsWeatherRephrasePrompts
      * @param  array<string, mixed>  $facts
      * @param  array<string, mixed>  $toneCfg
      */
-    private function buildOllamaPrompt(string $draft, array $facts, string $tone, array $toneCfg): string
+    private function buildOllamaPrompt(string $draft, array $facts, string $tone, array $toneCfg, ?string $locale = null): string
     {
-        return $this->buildWeatherSystemPrompt($tone, $toneCfg) .
-            "\n\nFacts JSON: " . json_encode($facts, JSON_UNESCAPED_SLASHES) .
+        return $this->buildWeatherSystemPrompt($tone, $toneCfg, $locale).
+            "\n\nFacts JSON: ".json_encode($facts, JSON_UNESCAPED_SLASHES).
             "\n\nDraft: {$draft}\n\nRewrite:";
+    }
+
+    /**
+     * A strong, explicit language instruction. The deterministic draft is already written in the
+     * locale's language, but the rest of this prompt is in English, so models (e.g. gpt-oss) tend
+     * to translate the rewrite into English unless told otherwise. Naming the language fixes that.
+     */
+    private function languageDirective(?string $locale): string
+    {
+        if ($locale === null || trim($locale) === '') {
+            return '';
+        }
+
+        $label = config("localization.locales.{$locale}.label");
+        $language = is_string($label) && trim($label) !== '' ? $label : $locale;
+
+        return "Write the rewritten forecast in {$language}. The draft is already in that language — keep it; never translate it to English or any other language. ";
     }
 
     private function toneSpecificGuidance(string $tone): string
     {
         return match ($tone) {
-            'friendly' => "Sound like a clear local weather presenter. Prefer 2-4 complete sentences with smoother transitions. Mention how conditions change through the day when the facts support it.",
-            'formal' => "Sound like a concise professional forecast. Prefer 2-4 complete sentences. Present the dominant conditions first, then precipitation timing, wind, and temperature in a measured order.",
-            default => "Keep it very short. Prefer one clear lead sentence and at most one short follow-up sentence. Drop secondary detail before becoming wordy.",
+            'friendly' => "Sound like a warm, upbeat local weather presenter talking straight to one person — not a written bulletin. Address the reader directly using the INFORMAL second person of the target language (for example 'je' in Dutch, 'tu' in French, 'du' in German). Do NOT simply tidy up the draft: re-cast it in your own warm, spoken voice and vary the opening so it does not begin like the draft. Use 2-4 flowing sentences with natural transitions, and say how the day changes when the facts support it. Where it clearly follows from the facts, finish with one short, practical takeaway written in the target language (the idea of 'a good day to get outside' when it is dry and mild, or 'worth taking a coat' when it is cold or wet) — but never invent advice the facts do not support.",
+            'formal' => 'Sound like a concise professional forecast. Prefer 2-4 complete sentences. Present the dominant conditions first, then precipitation timing, wind, and temperature in a measured order.',
+            default => 'Keep it very short. Prefer one clear lead sentence and at most one short follow-up sentence. Drop secondary detail before becoming wordy.',
         };
     }
 

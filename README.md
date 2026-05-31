@@ -7,7 +7,8 @@ I built WeatherNode for my own station first.
 I wanted a dashboard that loads fast, stays usable during API outages, and lets me choose where the data comes from.
 Once it worked well enough for daily use, I decided to share it so you can run it too.
 
-If you are setting up a server, start with [DEPLOYMENT.md](DEPLOYMENT.md).
+If you are setting up a server, start with [HOSTING.md](HOSTING.md) to choose the right
+setup for your situation (VPS, shared hosting, or Docker), then follow [DEPLOYMENT.md](DEPLOYMENT.md) for the step-by-step install.
 
 ## Support
 
@@ -17,7 +18,8 @@ If you are setting up a server, start with [DEPLOYMENT.md](DEPLOYMENT.md).
 
 - Admin guide, [ADMIN_GUIDE.md](ADMIN_GUIDE.md). Use this if you run the site.
 - User guide, [USER_GUIDE.md](USER_GUIDE.md). Use this if you visit the site.
-- Deployment guide, [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Hosting guide (start here to choose a setup), [HOSTING.md](HOSTING.md)**
+- Deployment guide (step-by-step install), [DEPLOYMENT.md](DEPLOYMENT.md)
 - Shared hosting quickstart (no server npm), [SHARED_HOSTING_QUICKSTART.md](SHARED_HOSTING_QUICKSTART.md)
 - Development guide, [DEVELOPMENT.md](DEVELOPMENT.md)
 - Versioning guide, [VERSIONING_GUIDE.md](VERSIONING_GUIDE.md)

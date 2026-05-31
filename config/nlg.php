@@ -6,16 +6,20 @@ return [
         'brief' => [
             'max_sentences' => 2,
             'max_tokens' => 60,
+            'temperature' => 0.2,
             'style_notes' => 'Keep it compact and direct. Prefer 1-2 short sentences with only the main forecast takeaway. No filler, no emojis.',
         ],
         'friendly' => [
             'max_sentences' => 4,
             'max_tokens' => 120,
-            'style_notes' => 'Use a warm, natural weather-presenter tone. It may be slightly longer than brief, with a clearer day flow and more natural transitions. Avoid stiff or literal wording. No filler, no emojis.',
+            // Warmer tone needs room to vary from the neutral draft, so run a touch hotter.
+            'temperature' => 0.55,
+            'style_notes' => 'Sound genuinely warm and upbeat, like a local presenter chatting to one person. Address the reader directly in the informal second person of the target language. Vary the sentence openings — do NOT start like the draft. Natural, human, spoken rhythm. No filler, no emojis.',
         ],
         'formal' => [
             'max_sentences' => 4,
             'max_tokens' => 120,
+            'temperature' => 0.3,
             'style_notes' => 'Use a professional forecast tone with complete, polished sentences. It may be slightly longer than brief, with explicit timing, measured phrasing, and clear forecast ordering. No filler, no emojis.',
         ],
     ],
@@ -86,6 +90,13 @@ return [
         'max_requests_per_minute' => 4,
         'max_retry_attempts' => 2,
         'retry_backoff_seconds' => [2, 5],
+
+        // Extra output-token headroom added on top of the tone budget when a reasoning effort is
+        // selected for the active model (Admin > Settings > NLG). Reasoning models spend tokens on
+        // internal "thinking" before the answer, so without headroom the JSON is truncated
+        // (finish_reason: length) before any content is produced. Sane internal default; the
+        // operator never needs to touch it.
+        'reasoning_headroom_tokens' => 2000,
     ],
 
     // Per-provider request budget defaults (rpm / rph / rpd = per minute / hour / day).
@@ -94,11 +105,13 @@ return [
     // Enforced by App\Services\Nlg\RephraseBudget: the minute tier is paced (the run waits),
     // the hour/day tiers are skipped (entries keep their deterministic text until reset).
     'limits' => [
-        // Cerebras free tier is token-capped, not request-capped, so only a sane RPM default.
-        'cerebras'   => ['rpm' => 30, 'rph' => null, 'rpd' => null],
-        'groq'       => ['rpm' => 30, 'rph' => null, 'rpd' => 1000],
+        // Cerebras free-tier limits are PER MODEL. The large models (gpt-oss-120b, zai-glm-4.7)
+        // are capped at 5 RPM — much lower than the older llama models. Default to the strict
+        // tier so a model swap can't silently outrun the quota; operators raise it per their plan.
+        'cerebras' => ['rpm' => 5, 'rph' => 150, 'rpd' => 2400],
+        'groq' => ['rpm' => 30, 'rph' => null, 'rpd' => 1000],
         'openrouter' => ['rpm' => 20, 'rph' => null, 'rpd' => 50],
-        'openai'     => ['rpm' => null, 'rph' => null, 'rpd' => null],
-        'google'     => ['rpm' => null, 'rph' => null, 'rpd' => null],
+        'openai' => ['rpm' => null, 'rph' => null, 'rpd' => null],
+        'google' => ['rpm' => null, 'rph' => null, 'rpd' => null],
     ],
 ];

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Nlg;
 
+use App\Contracts\Nlg\BatchRephraser;
 use App\Contracts\Nlg\Narrator;
 use App\Contracts\Nlg\Rephraser;
 use App\Services\Nlg\ForecastNlgCacheService;
@@ -86,7 +87,7 @@ class ForecastNlgCacheServiceTest extends TestCase
         {
             public int $calls = 0;
 
-            public function rewrite(string $draft, array $facts, string $tone = 'brief'): string
+            public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string
             {
                 $this->calls++;
 
@@ -124,7 +125,7 @@ class ForecastNlgCacheServiceTest extends TestCase
         {
             public int $calls = 0;
 
-            public function rewrite(string $draft, array $facts, string $tone = 'brief'): string
+            public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string
             {
                 $this->calls++;
 
@@ -186,7 +187,7 @@ class ForecastNlgCacheServiceTest extends TestCase
         {
             public int $calls = 0;
 
-            public function rewrite(string $draft, array $facts, string $tone = 'brief'): string
+            public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string
             {
                 $this->calls++;
 
@@ -229,7 +230,7 @@ class ForecastNlgCacheServiceTest extends TestCase
         {
             public int $calls = 0;
 
-            public function rewrite(string $draft, array $facts, string $tone = 'brief'): string
+            public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string
             {
                 $this->calls++;
 
@@ -260,6 +261,120 @@ class ForecastNlgCacheServiceTest extends TestCase
             'draft:2026-03-13',
             Cache::get(ForecastNlgCacheService::finalCacheKey('en-us', '2026-03-13')),
             'the deterministic draft is kept as the final text',
+        );
+    }
+
+    public function test_rephrase_for_locale_uses_a_single_batch_request_for_batch_rephrasers(): void
+    {
+        $service = new ForecastNlgCacheService();
+        $narrator = new class implements Narrator
+        {
+            public function narrate(array $payload, array $options = []): string
+            {
+                return 'draft:' . ($payload['date'] ?? 'missing-date');
+            }
+        };
+
+        $rephraser = new class implements Rephraser, BatchRephraser
+        {
+            public int $rewriteCalls = 0;
+
+            public int $batchCalls = 0;
+
+            public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string
+            {
+                $this->rewriteCalls++;
+
+                return $draft . ':ai';
+            }
+
+            public function rewriteBatch(array $items, string $tone = 'brief', ?callable $reserveSlot = null, ?string $locale = null): array
+            {
+                $this->batchCalls++;
+
+                $out = [];
+                foreach ($items as $id => $item) {
+                    if ($reserveSlot !== null) {
+                        $reserveSlot();
+                    }
+                    $out[$id] = $item['draft'] . ':ai';
+                }
+
+                return $out;
+            }
+        };
+
+        $entries = [
+            ['date' => '2026-03-13', 'payload' => ['date' => '2026-03-13']],
+            ['date' => '2026-03-14', 'payload' => ['date' => '2026-03-14']],
+            ['date' => '2026-03-15', 'payload' => ['date' => '2026-03-15']],
+        ];
+
+        $service->cacheDraftsForLocale($entries, 'en-us', $narrator);
+
+        $result = $service->rephraseForLocale($entries, 'en-us', $narrator, $rephraser, 'brief');
+
+        $this->assertSame(1, $rephraser->batchCalls, 'all days for a locale must go out in one request');
+        $this->assertSame(0, $rephraser->rewriteCalls, 'the per-entry path must not be used for batch rephrasers');
+        $this->assertSame(['updated' => 3, 'skipped' => 0, 'fallback' => 0, 'budgetExhausted' => false], $result);
+        $this->assertSame('draft:2026-03-14:ai', Cache::get(ForecastNlgCacheService::finalCacheKey('en-us', '2026-03-14')));
+    }
+
+    public function test_batch_rephrase_keeps_drafts_and_flags_exhaustion_when_budget_denies(): void
+    {
+        $service = new ForecastNlgCacheService();
+        $narrator = new class implements Narrator
+        {
+            public function narrate(array $payload, array $options = []): string
+            {
+                return 'draft:' . ($payload['date'] ?? 'missing-date');
+            }
+        };
+
+        $rephraser = new class implements Rephraser, BatchRephraser
+        {
+            public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string
+            {
+                return $draft . ':ai';
+            }
+
+            // Mirror the real rephraser: a denied reserve aborts and keeps drafts.
+            public function rewriteBatch(array $items, string $tone = 'brief', ?callable $reserveSlot = null, ?string $locale = null): array
+            {
+                if ($reserveSlot !== null && !$reserveSlot()) {
+                    return array_map(fn ($item) => $item['draft'], $items);
+                }
+
+                return array_map(fn ($item) => $item['draft'] . ':ai', $items);
+            }
+        };
+
+        $budget = new class(new CacheRepository(new ArrayStore())) extends RephraseBudget
+        {
+            public function tryReserve(string $providerId): bool
+            {
+                return false;
+            }
+
+            public function lastSkipReason(): ?string
+            {
+                return 'hour';
+            }
+        };
+
+        $entries = [
+            ['date' => '2026-03-13', 'payload' => ['date' => '2026-03-13']],
+        ];
+
+        $service->cacheDraftsForLocale($entries, 'en-us', $narrator);
+
+        $result = $service->rephraseForLocale($entries, 'en-us', $narrator, $rephraser, 'brief', false, $budget, 'cerebras');
+
+        $this->assertTrue($result['budgetExhausted']);
+        $this->assertSame(
+            'draft:2026-03-13',
+            Cache::get(ForecastNlgCacheService::finalCacheKey('en-us', '2026-03-13')),
+            'the deterministic draft is kept when the budget denies the batch',
         );
     }
 

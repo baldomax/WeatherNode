@@ -267,6 +267,24 @@
                             <option value="formal" {{ $currentTone === 'formal' ? 'selected' : '' }}>{{ __('Formal') }}</option>
                         </select>
                     </div>
+
+                    <!-- Reasoning effort -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            {{ __('Reasoning Effort') }}
+                        </label>
+                        <select name="nlg_reasoning_effort"
+                                class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                            @php $currentReasoningEffort = \App\Models\Setting::getValue('nlg.reasoning_effort', ''); @endphp
+                            <option value="" {{ $currentReasoningEffort === '' ? 'selected' : '' }}>{{ __('Default — don\'t send (standard chat models)') }}</option>
+                            <option value="disabled" {{ $currentReasoningEffort === 'disabled' ? 'selected' : '' }}>{{ __('Disabled — no thinking (Cerebras GLM / gpt-oss)') }}</option>
+                            <option value="low" {{ $currentReasoningEffort === 'low' ? 'selected' : '' }}>{{ __('Low') }}</option>
+                            <option value="medium" {{ $currentReasoningEffort === 'medium' ? 'selected' : '' }}>{{ __('Medium') }}</option>
+                            <option value="high" {{ $currentReasoningEffort === 'high' ? 'selected' : '' }}>{{ __('High') }}</option>
+                        </select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Standard chat models (OpenAI gpt-4o-mini, Google, llama, …): leave on Default — they reject this option.') }}</p>
+                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">{{ __('Reasoning models (OpenAI o-series, and some Groq / OpenRouter / Cerebras models such as zai-glm / gpt-oss): rephrasing needs no thinking, so pick Disabled for Cerebras GLM/gpt-oss, or Low elsewhere. "Default" does NOT turn thinking off — it lets the model reason at full effort, which can use up the whole response on internal thinking and return no text.') }}</p>
+                    </div>
                 </div>
 
                 <!-- AI Days -->

@@ -14,6 +14,7 @@ class CompatibilityChecker
             'symlinks' => $this->checkSymlinks(),
             'zip_extraction' => $this->checkZipExtraction(),
             'artisan_execution' => $this->checkArtisanExecution(),
+            'deployment_paths' => $this->checkDeploymentPaths(),
         ];
 
         $allPassed = collect($checks)->every(fn($check) => $check['passed']);
@@ -139,6 +140,54 @@ class CompatibilityChecker
     }
 
     /**
+     * Check that the live site is actually served from the release that the
+     * `current` symlink points to.
+     *
+     * The browser updater extracts each release into releases/<version> and
+     * flips the `current` symlink. That only changes the live site if the web
+     * server's document root follows `current/public`. On a "static" install
+     * (the app served from a fixed public/ folder) the updater would extract,
+     * migrate, and flip the symlink, but visitors would keep seeing the old
+     * code — the classic "update said OK but nothing changed". This check
+     * detects that mismatch up front instead of letting a no-op deploy run.
+     */
+    private function checkDeploymentPaths(): array
+    {
+        $deployRoot = config('updater.deploy_root');
+        $releasesPath = rtrim($deployRoot, '/') . '/' . trim(config('updater.releases_path', 'releases'), '/');
+        $currentLink = rtrim($deployRoot, '/') . '/' . trim(config('updater.current_symlink', 'current'), '/');
+
+        $base = realpath(base_path()) ?: rtrim(base_path(), '/');
+        $releasesReal = realpath($releasesPath);
+
+        // The running code's base path must live under the releases directory
+        // (i.e. the docroot is serving a release, not a fixed copy).
+        $servedFromRelease = $releasesReal !== false
+            && ($base === $releasesReal || str_starts_with($base . '/', $releasesReal . '/'));
+
+        if ($servedFromRelease) {
+            $currentTarget = is_link($currentLink) ? (realpath($currentLink) ?: null) : null;
+            $isCurrentRelease = $currentTarget !== null && $currentTarget === $base;
+
+            return [
+                'passed' => true,
+                'message' => $isCurrentRelease
+                    ? 'The live site is served from the current release symlink. Updates take effect immediately.'
+                    : 'The live site is served from a release directory. Updates will take effect on the next request.',
+            ];
+        }
+
+        return [
+            'passed' => false,
+            'message' => 'The live site is not served from the release symlink (current/public).',
+            'advice' => 'Browser updates deploy to releases/ and flip the "current" symlink, but your web root '
+                . 'serves a fixed directory, so the live site would not change. Point your document root at '
+                . '"' . $currentLink . '/public" (see HOSTING.md), or update via Git / file sync instead and set '
+                . 'UPDATER_ENABLED=false.',
+        ];
+    }
+
+    /**
      * Get update recommendation based on compatibility checks
      */
     private function getRecommendation(array $checks, bool $allPassed): string
@@ -148,7 +197,14 @@ class CompatibilityChecker
         }
 
         $failedChecks = collect($checks)->filter(fn($check) => !$check['passed']);
-        
+
+        if ($failedChecks->has('deployment_paths')) {
+            return 'Browser update will not change your live site: your web root is not served from the '
+                . '"current/public" release symlink, so updates would deploy to releases/ without taking effect. '
+                . 'Point your document root at <deploy_root>/current/public (see HOSTING.md), or update via '
+                . 'Git / file sync instead.';
+        }
+
         if ($failedChecks->has('write_access')) {
             return 'Browser update is not supported. Use manual GitHub Release ZIP upload (Tier 0) via FTP/file manager.';
         }

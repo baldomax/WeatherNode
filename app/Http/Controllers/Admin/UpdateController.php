@@ -10,6 +10,7 @@ use App\Services\Update\PreUpdateValidator;
 use App\Services\Update\ReleaseNotesParser;
 use App\Services\Update\BackupService;
 use App\Models\UpdateLog;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -48,6 +49,8 @@ class UpdateController extends Controller
         $releases = $this->deployer->getReleases();
         $currentRelease = $this->deployer->getCurrentRelease();
         $backups = $this->backupService->getBackups();
+        $keepReleases = (int) Setting::getValue('updater.keep_releases', config('updater.keep_releases', 5));
+        $keepBackups = (int) Setting::getValue('updater.backup_keep_count', config('updater.backup_keep_count', 5));
 
         // Parse release notes
         $notesParser = app(ReleaseNotesParser::class);
@@ -70,9 +73,27 @@ class UpdateController extends Controller
             'releases',
             'currentRelease',
             'backups',
+            'keepReleases',
+            'keepBackups',
             'releaseNotes',
             'updateHistory'
         ));
+    }
+
+    /**
+     * Save how many old releases / backups to keep (auto-prune retention).
+     */
+    public function updateRetention(Request $request)
+    {
+        $data = $request->validate([
+            'keep_releases' => ['required', 'integer', 'min:1', 'max:50'],
+            'keep_backups' => ['required', 'integer', 'min:1', 'max:50'],
+        ]);
+
+        Setting::setValue('updater.keep_releases', $data['keep_releases'], 'integer', 'updater');
+        Setting::setValue('updater.backup_keep_count', $data['keep_backups'], 'integer', 'updater');
+
+        return back()->with('status', __('Retention settings saved.'));
     }
 
     /**

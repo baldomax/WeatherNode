@@ -2053,6 +2053,15 @@ class SettingsController extends Controller
         // Model name — allow clearing so the provider default is used again
         Setting::setValue('nlg.model', trim((string) $request->input('nlg_model', '')), 'string', 'nlg');
 
+        // Reasoning control for reasoning-capable models: 'disabled' turns thinking off
+        // (Cerebras GLM / gpt-oss), low/medium/high set the OpenAI-compatible `reasoning_effort`.
+        // Empty = send nothing (plain chat models reject these params).
+        $reasoningEffort = strtolower(trim((string) $request->input('nlg_reasoning_effort', '')));
+        if (! in_array($reasoningEffort, ['', 'disabled', 'low', 'medium', 'high'], true)) {
+            $reasoningEffort = '';
+        }
+        Setting::setValue('nlg.reasoning_effort', $reasoningEffort, 'string', 'nlg');
+
         // Thresholds → DB
         Setting::setValue('nlg.min_amount', (string) (float) $request->input('nlg_min_amount', 0.1), 'string', 'nlg');
         Setting::setValue('nlg.min_prob', (string) (int) $request->input('nlg_min_prob', 60), 'string', 'nlg');

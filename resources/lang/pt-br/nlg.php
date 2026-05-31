@@ -45,4 +45,9 @@ return [
         'afternoon' => 'tarde',
         'evening' => 'noite',
     ],
+    // Glued before a period name; chosen so a single prefix is grammatical for all daytime periods.
+    'time_prefix' => [
+        'today' => 'esta',
+        'other' => 'de',
+    ],
 ];

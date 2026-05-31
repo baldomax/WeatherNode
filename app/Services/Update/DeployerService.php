@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Services\Update\HealthCheckService;
 use App\Services\Update\BackupService;
 use App\Models\UpdateLog;
+use App\Models\Setting;
 
 class DeployerService
 {
@@ -24,7 +25,8 @@ class DeployerService
         $this->releasesPath = $this->deployRoot . '/' . config('updater.releases_path');
         $this->sharedPath = $this->deployRoot . '/' . config('updater.shared_path');
         $this->currentSymlink = $this->deployRoot . '/' . config('updater.current_symlink');
-        $this->keepReleases = config('updater.keep_releases', 5);
+        // Admin-configurable (Updates page) with the env/config default as fallback.
+        $this->keepReleases = max(1, (int) Setting::getValue('updater.keep_releases', config('updater.keep_releases', 5)));
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Services\Update;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Models\Setting;
 
 class BackupService
 {
@@ -16,7 +17,8 @@ class BackupService
         $sharedPath = config('updater.shared_path', 'shared');
         $deployRoot = config('updater.deploy_root', base_path());
         $this->backupPath = $deployRoot . '/' . $sharedPath . '/backups';
-        $this->keepCount = config('updater.backup_keep_count', 5);
+        // Admin-configurable (Updates page) with the env/config default as fallback.
+        $this->keepCount = max(1, (int) Setting::getValue('updater.backup_keep_count', config('updater.backup_keep_count', 5)));
     }
 
     /**

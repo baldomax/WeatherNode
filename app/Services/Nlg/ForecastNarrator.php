@@ -108,7 +108,7 @@ class ForecastNarrator implements Narrator
         // Check if this is today (for "this morning" vs "in the morning")
         $date = Arr::get($payload, 'date');
         $isToday = $date && $date === date('Y-m-d');
-        $timePrefix = $isToday ? 'this' : 'in the';
+        $timePrefix = $this->timePrefix((bool) $isToday);
 
         $parts = [];
 
@@ -295,6 +295,26 @@ class ForecastNarrator implements Narrator
             'evening' => __('nlg.periods.evening'),
             default => $period,
         };
+    }
+
+    /**
+     * Locale-aware "this"/"in the" prefix glued in front of a period name (e.g. "this afternoon",
+     * "deze middag"). Falls back to English when a locale has not defined the keys, so an
+     * untranslated locale keeps its current behaviour instead of emitting a raw translation key.
+     */
+    private function timePrefix(bool $isToday): string
+    {
+        $key = $isToday ? 'nlg.time_prefix.today' : 'nlg.time_prefix.other';
+        $value = __($key);
+
+        // A present-but-empty value is intentional (some languages' period words already read as
+        // "in the morning", so they take no prefix). Only fall back when the key is genuinely
+        // missing — i.e. the translator returns the dotted key unchanged.
+        if (!is_string($value) || $value === $key) {
+            return $isToday ? 'this' : 'in the';
+        }
+
+        return $value;
     }
     
     private function skyPatternSentence(array $periods, string $timePrefix = 'in the'): ?string

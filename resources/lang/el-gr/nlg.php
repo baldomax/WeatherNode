@@ -45,4 +45,9 @@ return [
         'afternoon' => 'απόγευμα',
         'evening' => 'βράδυ',
     ],
+    // Glued before a period name; chosen so a single prefix is grammatical for all daytime periods.
+    'time_prefix' => [
+        'today' => 'σήμερα το',
+        'other' => 'το',
+    ],
 ];

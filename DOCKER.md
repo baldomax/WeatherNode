@@ -1,5 +1,10 @@
 # Docker deployment
 
+> **Comparing hosting options?** See [HOSTING.md](HOSTING.md). Docker is one of the
+> supported methods; you update by pulling a new image tag and recreating the container —
+> the in-app one-click updater does not apply to containers (the image filesystem is
+> immutable; persistent data lives in mounted volumes).
+
 This document describes running WeatherNode in Docker and how to use it.
 
 ## Feasibility summary
@@ -23,10 +28,12 @@ This document describes running WeatherNode in Docker and how to use it.
    - Replace `APP_KEY` with a real key.
    - Optional: set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for first-run admin creation.
 
-   Generate a key with:
+   Generate a key without a local PHP/Composer install:
    ```bash
-   php artisan key:generate --show
+   echo "base64:$(openssl rand -base64 32)"
    ```
+   (Or, if you already have a local dev checkout with dependencies installed,
+   `php artisan key:generate --show`.)
 
 2. **Start stack**
    Preferred helper:

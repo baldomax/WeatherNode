@@ -1,5 +1,12 @@
 # Shared Hosting Quickstart (No npm Required)
 
+> **Picking a hosting setup first?** See [HOSTING.md](HOSTING.md) to compare options and
+> trade-offs. This quickstart sets up a **static install (Layout B)** — solid and fully
+> supported, but note the one-click in-app updater does **not** drive a static install;
+> you update via Git or file sync (covered at the end of this page). If you can set your
+> domain's document root, the auto-update-ready layout in [HOSTING.md](HOSTING.md) unlocks
+> one-click updates.
+
 Use this when your hosting provider does not allow Node.js/npm.
 
 ## What you need

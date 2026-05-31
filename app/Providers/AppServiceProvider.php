@@ -58,10 +58,16 @@ class AppServiceProvider extends ServiceProvider
                     ?: env('OPENAI_API_KEY', '')    // fallback for migration
                     ?: env('NLG_COMPAT_KEY', '');
 
+                // Optional reasoning effort for reasoning-capable models (OpenAI o-series, and
+                // various Groq / OpenRouter / Cerebras models). Empty = omit the param so plain
+                // chat models are unaffected. Set per active model in Admin > Settings > NLG.
+                $reasoningEffort = (string) Setting::getValue('nlg.reasoning_effort', '');
+
                 return new OpenAiCompatibleRephraser(
                     baseUrl: $baseUrl ?: 'https://api.openai.com/v1',
                     apiKey: $apiKey,
                     model: $model ?: 'gpt-4o-mini',
+                    reasoningEffort: $reasoningEffort,
                 );
             } catch (Throwable $e) {
                 return null;

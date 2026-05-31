@@ -10,7 +10,8 @@ interface Rephraser
      * @param string $draft The deterministic draft text
      * @param array $facts Structured facts JSON to ensure accuracy
      * @param string $tone Tone preset (brief, friendly, formal)
+     * @param string|null $locale Target locale (e.g. nl-nl) so the model keeps the draft's language
      * @return string Rewritten text, or original draft if rewrite fails
      */
-    public function rewrite(string $draft, array $facts, string $tone = 'brief'): string;
+    public function rewrite(string $draft, array $facts, string $tone = 'brief', ?string $locale = null): string;
 }

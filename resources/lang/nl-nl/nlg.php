@@ -45,4 +45,9 @@ return [
         'afternoon' => 'middag',
         'evening' => 'avond',
     ],
+    // Glued in front of a period name: "deze middag" (today) / "in de middag" (a future day).
+    'time_prefix' => [
+        'today' => 'deze',
+        'other' => 'in de',
+    ],
 ];

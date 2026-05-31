@@ -27,6 +27,31 @@ class NarratorTest extends TestCase
         $this->assertStringContainsString('12°C', $text);
     }
 
+    public function test_intraday_time_prefix_is_localized_and_not_english_for_dutch(): void
+    {
+        $n = new ForecastNarrator();
+
+        $payload = [
+            'periods' => [
+                ['name' => 'morning', 'cloud_pct' => 85, 'temp_c' => 16],
+                ['name' => 'afternoon', 'cloud_pct' => 20, 'temp_c' => 18],
+            ],
+        ];
+
+        // Today → "deze <period>"; never the English "this".
+        $today = $n->narrate(['date' => date('Y-m-d')] + $payload, ['locale' => 'nl-nl']);
+        $this->assertStringContainsString('deze ochtend', $today);
+        $this->assertStringNotContainsString('this ', $today);
+
+        // A future day → "in de <period>".
+        $future = $n->narrate(['date' => date('Y-m-d', strtotime('+2 days'))] + $payload, ['locale' => 'nl-nl']);
+        $this->assertStringContainsString('in de ochtend', $future);
+
+        // English keeps its prefix.
+        $english = $n->narrate(['date' => date('Y-m-d')] + $payload, ['locale' => 'en-us']);
+        $this->assertStringContainsString('this morning', $english);
+    }
+
     public function test_it_skips_noisy_probability_sentence(): void
     {
         $n = new ForecastNarrator();

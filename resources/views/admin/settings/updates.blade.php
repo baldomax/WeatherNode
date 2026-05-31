@@ -4,7 +4,10 @@
 
 @section('content')
 @php
-    $isContainerized = file_exists('/.dockerenv') || env('CONTAINERIZED', false);
+    // Suppress errors: on hosts with a strict open_basedir, probing the
+    // out-of-tree path /.dockerenv raises a warning that Laravel would turn
+    // into a 500. @ makes the check fall back to false instead of crashing.
+    $isContainerized = @file_exists('/.dockerenv') || env('CONTAINERIZED', false);
 @endphp
 <div class="w-full" x-data="updateManager()">
     <!-- Breadcrumb -->
@@ -243,6 +246,39 @@
                     </a>
                 </div>
             </div>
+        </div>
+    @endif
+
+    <!-- Retention (auto-prune counts) -->
+    @if(config('updater.enabled'))
+        <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ __('Retention') }}</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ __('How many old releases and backups to keep automatically after each successful update. Older ones are pruned to reclaim disk space. You can also delete items individually below.') }}</p>
+
+            @if(session('status'))
+                <div class="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm text-green-800 dark:text-green-200">
+                    {{ session('status') }}
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('admin.updates.retention.update') }}" class="flex flex-wrap items-end gap-4">
+                @csrf
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('Keep releases') }}</label>
+                    <input type="number" name="keep_releases" min="1" max="50" required value="{{ old('keep_releases', $keepReleases) }}"
+                           class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{{ __('Keep backups') }}</label>
+                    <input type="number" name="keep_backups" min="1" max="50" required value="{{ old('keep_backups', $keepBackups) }}"
+                           class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                </div>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
+                    {{ __('Save') }}
+                </button>
+            </form>
+            @error('keep_releases')<p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
+            @error('keep_backups')<p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>@enderror
         </div>
     @endif
 
