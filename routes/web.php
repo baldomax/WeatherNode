@@ -50,7 +50,14 @@ Route::get('/manifest.json', function () {
 */
 Route::get('/sitemap.xml', function () {
     $baseUrl = rtrim(url('/'), '/');
-    $lastMod = now()->toW3cString();
+
+    // Use the deploy time (VERSION file mtime) rather than now() for every URL.
+    // A lastmod that is always "now" trains crawlers to distrust the field entirely;
+    // a stable per-deploy timestamp reflects when the indexable page content changed.
+    $versionFile = base_path('VERSION');
+    $lastMod = (is_file($versionFile) && filemtime($versionFile))
+        ? \Carbon\Carbon::createFromTimestamp(filemtime($versionFile))->toW3cString()
+        : now()->toW3cString();
 
     // Locale config
     $locales      = array_keys(config('localization.locales', []));
@@ -130,9 +137,21 @@ Route::get('/sitemap.xml', function () {
         array_unshift($airports, $primaryIcao);
     }
 
+    // High-volume airport pages: keep every airport, but only list each one's <loc> in a
+    // small set of languages (site default + English) to conserve crawl budget. Full
+    // language coverage is still advertised via the hreflang alternates emitted below, so
+    // a basic "EHAM weather" search still surfaces the page in the searcher's language.
+    $airportLocales = array_values(array_unique(array_filter(
+        [$defaultLocale, 'en-us'],
+        static fn (string $l): bool => in_array($l, $locales, true)
+    )));
+    if (empty($airportLocales)) {
+        $airportLocales = [$locales[0] ?? 'en-us'];
+    }
+
     if (($featureFlags[MenuFeatureMap::FEATURE_SKY_WATER] ?? true) === true) {
         foreach ($airports as $icao) {
-            $pages[] = ['loc' => '/aviation/' . $icao, 'changefreq' => 'hourly', 'priority' => '0.6'];
+            $pages[] = ['loc' => '/aviation/' . $icao, 'changefreq' => 'hourly', 'priority' => '0.6', 'sitemap_locales' => $airportLocales];
         }
     }
 
@@ -144,6 +163,10 @@ Route::get('/sitemap.xml', function () {
     foreach ($pages as $page) {
         $path = $page['loc'];
 
+        // Alternates always advertise the full language set (so every translation stays
+        // discoverable); $emitLocales controls which ones get their own <url> entry.
+        $emitLocales = $page['sitemap_locales'] ?? $locales;
+
         // Build alternate links once (shared across all locale entries for this page)
         $alternates = '';
         foreach ($locales as $locale) {
@@ -153,7 +176,7 @@ Route::get('/sitemap.xml', function () {
         $xDefault = htmlspecialchars($localeUrl($path, $defaultLocale), ENT_XML1, 'UTF-8');
         $alternates .= "    <xhtml:link rel=\"alternate\" hreflang=\"x-default\" href=\"{$xDefault}\"/>\n";
 
-        foreach ($locales as $locale) {
+        foreach ($emitLocales as $locale) {
             $loc = htmlspecialchars($localeUrl($path, $locale), ENT_XML1, 'UTF-8');
             $xml .= "  <url>\n";
             $xml .= "    <loc>{$loc}</loc>\n";

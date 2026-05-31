@@ -44,7 +44,9 @@ if (! function_exists('localeCanonicalUrl')) {
         }
         $cleanPath = implode('/', $segments);
 
-        $query = request()->except(['lang', 'locale']);
+        // Drop display-only params (lang/locale/units) so a single canonical/hreflang
+        // target serves all unit variants instead of fragmenting the index.
+        $query = request()->except(['lang', 'locale', 'units']);
         $qs    = $query ? '?' . http_build_query($query) : '';
 
         if ($locale === $defaultLocale) {

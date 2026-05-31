@@ -511,7 +511,9 @@
         $resolvedOgImage = $dynamicOgImage ?: $seoOgImage;
         $seoTitle = $seoSiteTitle;
         $seoDescription = $seoSiteDescription;
-        $seoCanonical = url()->current();
+        // Locale-aware canonical: matches the hreflang alternates exactly and collapses
+        // the default-locale duplicate (prefixed /nl-nl/x and unprefixed /x → one canonical).
+        $seoCanonical = localeCanonicalUrl($activeLocale ?? app()->getLocale());
         $seoTwitterCard = $resolvedOgImage ? 'summary_large_image' : 'summary';
         $dashboardJsonLd = null;
         if ($dashboardHybridSsrEnabled && $ssrDashboard) {
