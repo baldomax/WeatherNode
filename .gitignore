@@ -50,8 +50,8 @@ sync.ffs_lock
 # Local dev infra
 Homestead.json
 Homestead.yaml
-/telemetry-aggregator
 docs/_archive/
+tests/
 
 # Ecowitt runtime files and secrets
 ecowitt/ecco_lcl.arr
