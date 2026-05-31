@@ -50,6 +50,7 @@ sync.ffs_lock
 # Local dev infra
 Homestead.json
 Homestead.yaml
+freefilesync-exclude.txt
 docs/_archive/
 tests/
 
