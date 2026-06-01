@@ -30,6 +30,7 @@ Run commands from the repository root (the folder containing `docker-compose.yml
    - Replace `APP_KEY` with a real key.
    - Optional: set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for first-run admin creation.
      - If you prefer the normal web flow, leave them empty and create the first admin from `/setup/admin` in the browser after startup.
+     - `/setup/admin` is only available on a fresh install and disables itself after the first user is created.
 
    Generate a key without a local PHP/Composer install:
    ```bash
@@ -50,10 +51,12 @@ Run commands from the repository root (the folder containing `docker-compose.yml
    ```
    Open http://localhost:8080 (or the port you set in docker-compose).
 
-   On startup, the `app` container now:
+  On startup, the `app` container now:
    - normalizes mounted volume permissions for `storage/`, `bootstrap/cache`, and `database/`
    - runs `php artisan migrate --force` (default on every start)
    - runs first-run bootstrap once (`storage:link`, `db:seed`, optional `admin:create` via env)
+
+  If no user exists yet and you did not set `ADMIN_*` env values, open `/setup/admin` once to create the first admin account.
 
 3. **Optional: initial weather data**
    ```bash

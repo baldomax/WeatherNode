@@ -10,20 +10,20 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
-class DockerAdminSetupController extends Controller
+class InitialAdminSetupController extends Controller
 {
     /**
-     * Show the Docker first-run admin setup form.
+     * Show the first-run admin setup form.
      */
     public function create(): View
     {
         abort_unless(dockerAdminSetupPending(), 404);
 
-        return view('auth.docker-admin-setup');
+        return view('auth.initial-admin-setup');
     }
 
     /**
-     * Create the first admin account for containerized installs.
+     * Create the first admin account on a fresh install.
      */
     public function store(Request $request): RedirectResponse
     {

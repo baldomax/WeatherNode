@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-4 text-sm text-gray-600">
-        {{ __('Docker first-run setup: create the initial administrator account.') }}
+        {{ __('First-run setup: create the initial administrator account.') }}
     </div>
 
     @if ($errors->any())
@@ -11,7 +11,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('docker.setup.admin.store') }}">
+    <form method="POST" action="{{ route('setup.admin.store') }}">
         @csrf
 
         <div>

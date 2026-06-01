@@ -111,5 +111,6 @@ Recommended manual run settings:
 - Generate `APP_KEY` as `base64:` + 32-byte value:
   - `echo "base64:$(openssl rand -base64 32)"`
 - If first boot shows write/readonly errors, mounted volume permissions are wrong (`storage`, `bootstrap/cache`, `database`).
+- If you do not set `ADMIN_EMAIL` / `ADMIN_PASSWORD` in compose, create the first user via `/setup/admin` (only available before any users exist).
 - If `/admin` redirects to the host panel/login on custom ports, `APP_URL` is incomplete or not applied.
 

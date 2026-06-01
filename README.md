@@ -171,6 +171,7 @@ make docker-up
 ```
 
 The container startup runs migrations automatically. On first startup it also runs one-time bootstrap (`storage:link`, `db:seed`, and optional `admin:create` when `ADMIN_EMAIL` + `ADMIN_PASSWORD` are set in `docker-compose.yml`).
+If you leave `ADMIN_EMAIL` / `ADMIN_PASSWORD` empty, create the first admin account in the browser at `/setup/admin` (available only while no users exist).
 
 For a friendlier startup check flow, use:
 

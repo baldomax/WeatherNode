@@ -17,7 +17,7 @@ class AuthenticatedSessionController extends Controller
     public function create(): View
     {
         return view('auth.login', [
-            'showDockerSetupLink' => dockerAdminSetupPending(),
+            'showInitialSetupLink' => dockerAdminSetupPending(),
         ]);
     }
 
@@ -30,12 +30,12 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        // Redirect admins to admin dashboard, others to home
+        // Always use a relative redirect target so host + custom port are preserved.
         if (Auth::user()->is_admin) {
-            return redirect()->intended(route('admin.dashboard', absolute: false));
+            return redirect(route('admin.dashboard', absolute: false));
         }
-        
-        return redirect()->intended(route('home', absolute: false));
+
+        return redirect(route('home', absolute: false));
     }
 
     /**

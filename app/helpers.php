@@ -57,27 +57,12 @@ if (! function_exists('localeCanonicalUrl')) {
     }
 }
 
-if (! function_exists('isContainerizedDeployment')) {
-    /**
-     * Determine whether the current runtime is containerized.
-     */
-    function isContainerizedDeployment(): bool
-    {
-        // Suppress warnings for strict hosts where probing /.dockerenv may be blocked.
-        return (bool) config('app.containerized', false) || @file_exists('/.dockerenv');
-    }
-}
-
 if (! function_exists('dockerAdminSetupPending')) {
     /**
-     * Docker first-run setup is available only for a brand-new install.
+     * First-run setup is available only for a brand-new install.
      */
     function dockerAdminSetupPending(): bool
     {
-        if (! isContainerizedDeployment()) {
-            return false;
-        }
-
         try {
             return ! \App\Models\User::query()->exists();
         } catch (\Throwable $e) {
