@@ -2,6 +2,9 @@
 /vendor
 /node_modules
 
+# Server-only root forwarding/redirect .htaccess (NOT public/.htaccess, which is tracked)
+/.htaccess
+
 # Temp/plan files
 /temp
 
