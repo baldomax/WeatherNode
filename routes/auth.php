@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\DockerAdminSetupController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
@@ -15,6 +16,13 @@ use Illuminate\Support\Facades\Route;
 Route::get('password', fn () => redirect()->route('password.request'));
 
 Route::middleware('guest')->group(function () {
+    Route::get('setup/admin', [DockerAdminSetupController::class, 'create'])
+        ->name('docker.setup.admin.create');
+
+    Route::post('setup/admin', [DockerAdminSetupController::class, 'store'])
+        ->middleware('throttle:6,1')
+        ->name('docker.setup.admin.store');
+
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 

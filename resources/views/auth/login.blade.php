@@ -156,6 +156,18 @@
                         </div>
                     @endif
 
+                    @if(($showDockerSetupLink ?? false) === true)
+                        <div class="mb-6 p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl text-blue-300 text-sm">
+                            <p class="font-medium">{{ __('First container startup detected') }}</p>
+                            <p class="mt-1">
+                                {{ __('No admin account exists yet.') }}
+                                <a href="{{ route('docker.setup.admin.create') }}" class="underline hover:text-blue-200">
+                                    {{ __('Create your first admin via web setup') }}
+                                </a>.
+                            </p>
+                        </div>
+                    @endif
+
                     <!-- Error Messages -->
                     @if ($errors->any())
                         <div class="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-xl text-red-400 text-sm">

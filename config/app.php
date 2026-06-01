@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Containerized Deployment
+    |--------------------------------------------------------------------------
+    |
+    | Indicates whether the app is running as a containerized deployment
+    | (for example Docker). This enables container-specific UX such as
+    | first-run web setup flows.
+    |
+    */
+
+    'containerized' => (bool) env('CONTAINERIZED', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

@@ -29,6 +29,7 @@ Run commands from the repository root (the folder containing `docker-compose.yml
    - Update `APP_URL` for your host/domain.
    - Replace `APP_KEY` with a real key.
    - Optional: set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for first-run admin creation.
+     - If you prefer the normal web flow, leave them empty and create the first admin from `/setup/admin` in the browser after startup.
 
    Generate a key without a local PHP/Composer install:
    ```bash
