@@ -56,6 +56,16 @@ docker pull <image>:latest
 docker pull <image>:vYYYY.MM.patch
 ```
 
+After pulling/redeploying a Docker release, verify runtime basics:
+
+```bash
+docker exec weathernode-app php /var/www/html/artisan about --only=environment
+curl -I http://<host>:<port>/admin
+```
+
+- Ensure `APP_URL` includes scheme + port (for example `http://192.168.1.15:8089`).
+- Redirect `Location` should keep the same host/port.
+
 ## 4) Versioning rule (important)
 
 Use the year-based scheme consistently:
@@ -95,4 +105,11 @@ Recommended manual run settings:
 - `keep_release_tags=6`
 - `keep_github_releases=6`
 - `delete_release_tags=false` (enable only if you intentionally want old git tags deleted too).
+
+## 7) Docker First-Boot Lessons Learned
+
+- Generate `APP_KEY` as `base64:` + 32-byte value:
+  - `echo "base64:$(openssl rand -base64 32)"`
+- If first boot shows write/readonly errors, mounted volume permissions are wrong (`storage`, `bootstrap/cache`, `database`).
+- If `/admin` redirects to the host panel/login on custom ports, `APP_URL` is incomplete or not applied.
 

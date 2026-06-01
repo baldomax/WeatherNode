@@ -55,6 +55,14 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Docker first-boot reliability improvements:
+  - startup now normalizes writable permissions for mounted `storage/`, `bootstrap/cache`, and `database` paths to avoid readonly SQLite and log-file permission failures on stricter hosts
+  - auth redirect URL generation now consistently honors configured `APP_URL` (including custom host ports such as `:8089`)
+- Documentation updates for Docker/Unraid troubleshooting:
+  - valid Laravel `APP_KEY` format (`base64:` + 32-byte key)
+  - custom-port `APP_URL` examples and redirect verification
+  - first-boot diagnostics workflow for isolating scheduler noise vs web request failures
+
 - PHP 8.4 `ErrorException: Undefined array key` on `/admin/settings/og` when `og.*` settings had not yet been seeded — fixed by using `Collection::get()` instead of array access `[]`
 - OG image endpoints returning a cascading `JsonException: Malformed UTF-8 characters` error (caused by binary PNG data appearing in Ignition's exception context) — fixed by wrapping all generation in `try/catch` with clean logging and base64-encoding cached values
 

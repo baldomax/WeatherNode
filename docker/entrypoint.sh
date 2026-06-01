@@ -6,6 +6,25 @@ FIRST_RUN_MARKER="$APP_DIR/storage/app/.docker-initialized"
 
 cd "$APP_DIR"
 
+ensure_writable_paths() {
+    mkdir -p "$APP_DIR/storage/logs" "$APP_DIR/storage/app" "$APP_DIR/bootstrap/cache" "$APP_DIR/database"
+    touch "$APP_DIR/database/database.sqlite"
+
+    # Mounted volumes can come in with restrictive host-side ownership/permissions.
+    # Normalize write access at startup so Laravel can write logs/cache/sqlite.
+    if [ "$(id -u)" -eq 0 ]; then
+        chown -R www-data:www-data "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" "$APP_DIR/database" || true
+    fi
+
+    chmod 775 "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" "$APP_DIR/database" || true
+    find "$APP_DIR/storage" -type d -exec chmod 775 {} \; || true
+    find "$APP_DIR/storage" -type f -exec chmod 664 {} \; || true
+    find "$APP_DIR/bootstrap/cache" -type f -exec chmod 664 {} \; || true
+    chmod 664 "$APP_DIR/database/database.sqlite" || true
+}
+
+ensure_writable_paths
+
 case "${APP_KEY:-}" in
     ""|"base64:REPLACE_WITH_YOUR_GENERATED_KEY"|"REPLACE_WITH_YOUR_APP_KEY")
     echo "ERROR: APP_KEY is not set."

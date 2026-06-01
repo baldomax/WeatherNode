@@ -399,6 +399,36 @@ Common fixes.
 - If npm is not available, build assets locally and copy `public/build` to the server.
 - If you see missing table errors, run migrations first.
 
+### Docker-specific first-boot examples
+
+- **Invalid APP_KEY format**
+  - Symptom: startup/login errors, encryption/session exceptions.
+  - Fix:
+    ```bash
+    echo "base64:$(openssl rand -base64 32)"
+    ```
+  - Validate key length inside container:
+    ```bash
+    docker exec weathernode-app php -r '$k=getenv("APP_KEY"); $r=base64_decode(substr($k,7), true); echo strlen($r).PHP_EOL;'
+    ```
+    Expected: `32`.
+
+- **Redirect drops custom port (for example lands on host login page)**
+  - Symptom: `/admin` redirects to host URL without `:8089`.
+  - Fix: set full URL including scheme and port:
+    ```yaml
+    APP_URL: "http://192.168.1.15:8089"
+    ```
+  - Verify:
+    ```bash
+    curl -I http://192.168.1.15:8089/admin
+    ```
+
+- **Read-only volume 500 on first boot**
+  - Symptom: `laravel.log` append denied or SQLite readonly errors.
+  - Root cause: mounted `storage/`, `bootstrap/cache`, or `database/` not writable by app user.
+  - Current image startup normalizes permissions automatically; on strict hosts you may still need one manual ownership/permission correction.
+
 ## Keeping your workspace clean
 
 Remove local artifacts.

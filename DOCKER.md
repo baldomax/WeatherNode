@@ -23,6 +23,8 @@ This document describes running WeatherNode in Docker and how to use it.
 
 ## Quick start
 
+Run commands from the repository root (the folder containing `docker-compose.yml` and `Dockerfile`).
+
 1. **Edit `docker-compose.yml`**
    - Update `APP_URL` for your host/domain.
    - Replace `APP_KEY` with a real key.
@@ -48,6 +50,7 @@ This document describes running WeatherNode in Docker and how to use it.
    Open http://localhost:8080 (or the port you set in docker-compose).
 
    On startup, the `app` container now:
+   - normalizes mounted volume permissions for `storage/`, `bootstrap/cache`, and `database/`
    - runs `php artisan migrate --force` (default on every start)
    - runs first-run bootstrap once (`storage:link`, `db:seed`, optional `admin:create` via env)
 
@@ -94,3 +97,46 @@ Run migrations (and optionally seed/create admin) as above.
 - **Makefile helpers**:
   - `make docker-up` checks that the `APP_KEY` placeholder was replaced, then runs `docker compose up -d`.
   - `make docker-rebuild` does the same check, then runs `docker compose build --no-cache && docker compose up -d`.
+
+## Lessons learned (first-boot reliability)
+
+### 1) APP_KEY must be valid for Laravel
+
+Use a 32-byte key encoded as `base64:...`:
+
+```bash
+echo "base64:$(openssl rand -base64 32)"
+```
+
+Sanity-check in a running container:
+
+```bash
+docker exec weathernode-app php -r '$k=getenv("APP_KEY"); $r=base64_decode(substr($k,7), true); echo strlen($r).PHP_EOL;'
+```
+
+Expected output: `32`.
+
+### 2) Include scheme and port in APP_URL behind host-port mappings
+
+When publishing non-default ports (for example `8089:80`), set:
+
+```yaml
+APP_URL: "http://192.168.1.15:8089"
+```
+
+Verify redirects keep the port:
+
+```bash
+curl -I http://192.168.1.15:8089/admin
+```
+
+Expected `Location` should include `:8089` (for unauthenticated users, usually `/login`).
+
+### 3) Read-only volume symptoms
+
+If first boot returns HTTP 500 with messages like:
+- `laravel.log could not be opened in append mode`
+- `attempt to write a readonly database`
+
+the mounted volume permissions are too restrictive for PHP-FPM (`www-data`).
+The container startup now normalizes writable paths (`storage`, `bootstrap/cache`, `database`) automatically, but existing installations with strict host policies (for example Unraid) may need one manual ownership/permission correction once.

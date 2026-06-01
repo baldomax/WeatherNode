@@ -28,8 +28,6 @@ ecowitt
 telemetry-aggregator
 
 # Tests and dev
-tests
-phpunit.xml
 .phpunit.result.cache
 *.md
 !README.md

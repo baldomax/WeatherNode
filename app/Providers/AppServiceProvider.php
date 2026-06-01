@@ -21,6 +21,7 @@ use App\Models\Setting;
 use App\Services\Security\ApiKeyService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\URL;
 use Throwable;
 
 class AppServiceProvider extends ServiceProvider
@@ -80,6 +81,44 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (! app()->runningInConsole()) {
+            $configuredAppUrl = trim((string) config('app.url', ''));
+            $effectiveAppUrl = $configuredAppUrl;
+
+            // Keep custom host ports (e.g. :8089) when APP_URL host matches the current request
+            // but APP_URL does not include a port. This avoids language/alternate links dropping it.
+            $requestScheme = request()->getScheme();
+            $requestHost = request()->getHost();
+            $requestPort = request()->getPort();
+            $requestUsesNonStandardPort = ! in_array($requestPort, [80, 443], true);
+
+            if ($configuredAppUrl === '') {
+                $effectiveAppUrl = request()->getSchemeAndHttpHost();
+            } else {
+                $configuredHost = parse_url($configuredAppUrl, PHP_URL_HOST);
+                $configuredPort = parse_url($configuredAppUrl, PHP_URL_PORT);
+
+                if (
+                    is_string($configuredHost)
+                    && $configuredHost !== ''
+                    && strcasecmp($configuredHost, $requestHost) === 0
+                    && ! is_int($configuredPort)
+                    && $requestUsesNonStandardPort
+                ) {
+                    $effectiveAppUrl = sprintf('%s://%s:%d', $requestScheme, $requestHost, $requestPort);
+                }
+            }
+
+            if ($effectiveAppUrl !== '') {
+                URL::forceRootUrl($effectiveAppUrl);
+
+                $scheme = parse_url($effectiveAppUrl, PHP_URL_SCHEME);
+                if (is_string($scheme) && $scheme !== '') {
+                    URL::forceScheme($scheme);
+                }
+            }
+        }
+
         // Register Open Data providers
         $this->registerOpenDataProviders();
 

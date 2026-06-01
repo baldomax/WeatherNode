@@ -180,6 +180,8 @@ Update via Git or file sync (see [Updating](#updating-which-method-for-which-lay
 
 Use the published image; the container already serves `public/` correctly. Updates are done by **pulling a new image tag and recreating the container** — the in-app updater does not apply (the container filesystem is immutable; persistent data lives in mounted volumes). See [DOCKER.md](DOCKER.md).
 
+For containerized installs with custom host ports, set `APP_URL` with full scheme and port (example: `http://192.168.1.15:8089`) so auth redirects stay on the container URL.
+
 ---
 
 ## The one-click updater: requirements & env vars
