@@ -130,7 +130,7 @@ You can upload a built public/build directory, or build it on the server.
 **Option A, Git (recommended)**
 
 ```bash
-git clone <your GitHub clone URL>
+git clone https://github.com/centauri/WeatherNode.git
 cd WeatherNode
 ```
 

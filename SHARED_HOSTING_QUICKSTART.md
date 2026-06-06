@@ -75,7 +75,7 @@ php artisan system:readiness
 ```
 
 Check:
-- `/admin` login works with the account from `php artisan admin:create`
+- Open your site and sign in at `/admin` using the admin account you created with `php artisan admin:create`
 - dashboard loads without missing CSS/JS
 - weather data appears after first poll cycle
 

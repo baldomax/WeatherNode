@@ -7,6 +7,52 @@ I built WeatherNode for my own station first.
 I wanted a dashboard that loads fast, stays usable during API outages, and lets me choose where the data comes from.
 Once it worked well enough for daily use, I decided to share it so you can run it too.
 
+## Screenshots
+
+The public dashboard — live station readings, the current forecast, and the day's trends:
+
+![WeatherNode dashboard showing live weather station data, forecast and charts](screenshots/dashboard.webp)
+
+| Precipitation radar | Community stations map |
+| --- | --- |
+| ![Precipitation radar centred on the station location](screenshots/radar.webp) | ![Map of community weather stations that opted in to share their location](screenshots/community-stations.webp) |
+
+The admin panel — a dashboard with live ingest stats and station status, and settings to configure dozens of data sources, sensors, widgets and themes:
+
+![WeatherNode admin dashboard with live ingest statistics, station info, battery and sensor status](screenshots/admin-dashboard.webp)
+
+![WeatherNode admin settings showing dozens of configurable data sources and integrations](screenshots/admin-settings.webp)
+
+### More pages
+
+WeatherNode has dedicated pages for each data source — a few more:
+
+| Forecast | Satellite |
+| --- | --- |
+| ![Forecast page with daily and hourly outlook](screenshots/forecast.webp) | ![Satellite page with solar radiation forecast and imagery](screenshots/satellite.webp) |
+
+| Statistics &amp; records | History |
+| --- | --- |
+| ![Statistics and records with monthly averages and extremes](screenshots/statistics.webp) | ![History page with daily charts of past weather](screenshots/history.webp) |
+
+| Air quality | Fire weather |
+| --- | --- |
+| ![Air quality page with AQI index and health advice](screenshots/airquality.webp) | ![Fire weather page with fire-danger and Angstrom index](screenshots/fireweather.webp) |
+
+| Pollen forecast | Aviation / METAR |
+| --- | --- |
+| ![Pollen forecast with 5-day grass, tree and weed levels](screenshots/pollen.webp) | ![Aviation METAR page with airport weather and atmospheric profile](screenshots/metar.webp) |
+
+| Tides | River levels |
+| --- | --- |
+| ![Tides page with tidal chart and forecast](screenshots/tides.webp) | ![River levels with live gauge readings](screenshots/rivers.webp) |
+
+| Noise level | Astronomy |
+| --- | --- |
+| ![Noise level with live readings and 24-hour history](screenshots/noise.webp) | ![Astronomy page with sun and moon times and moon phases](screenshots/astronomy.webp) |
+
+> Live demo running a real station: [meteouitgeest.nl](https://meteouitgeest.nl)
+
 If you are setting up a server, start with [HOSTING.md](HOSTING.md) to choose the right
 setup for your situation (VPS, shared hosting, or Docker), then follow [DEPLOYMENT.md](DEPLOYMENT.md) for the step-by-step install.
 
@@ -101,24 +147,16 @@ Detailed admin operations live in [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
 ## Quick start for local development
 
 ```bash
-git clone <your GitHub clone URL>
+git clone https://github.com/centauri/WeatherNode.git
 cd WeatherNode
-
-composer install
-npm install
-
-cp .env.example .env
-php artisan key:generate
-
-php artisan migrate
-php artisan db:seed
+composer install && npm install
+cp .env.example .env && php artisan key:generate
+php artisan migrate && php artisan db:seed
 php artisan admin:create
-
-npm run build
-php artisan serve
+npm run build && php artisan serve
 ```
 
-Open http://localhost:8000 and sign in at /admin.
+Open your site and sign in at `/admin` using the admin account you created with `php artisan admin:create`.
 
 Local development helpers
 

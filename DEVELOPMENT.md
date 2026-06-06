@@ -32,27 +32,16 @@ If you are deploying a server, use DEPLOYMENT.md instead.
 From the project root.
 
 ```bash
-composer install
-npm install
-
-cp .env.example .env
-php artisan key:generate
-
-php artisan migrate
-php artisan db:seed
-
-npm run build
-php artisan serve
-```
-
-Open http://localhost:8000.
-Sign in at /admin.
-
-Create your first admin account explicitly:
-
-```bash
+git clone https://github.com/centauri/WeatherNode.git
+cd WeatherNode
+composer install && npm install
+cp .env.example .env && php artisan key:generate
+php artisan migrate && php artisan db:seed
 php artisan admin:create
+npm run build && php artisan serve
 ```
+
+Open your site and sign in at `/admin` using the admin account you created with `php artisan admin:create`.
 
 For automation only, you can set `ADMIN_EMAIL` and `ADMIN_PASSWORD` before `php artisan db:seed`.
 
