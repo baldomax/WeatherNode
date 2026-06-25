@@ -116,7 +116,7 @@
                     <input type="text" name="region_code" value="{{ $settings['region_code'] }}"
                            class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-red-500 focus:border-red-500"
                            placeholder="{{ __('e.g., NL011, DE031, FR075') }}">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Find your region code at') }} <a href="https://meteoalarm.org" target="_blank" class="text-red-500 hover:underline">meteoalarm.org</a></p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Find your region code at') }} <a href="https://saratoga-weather.org/meteoalarm-map/" target="_blank" rel="noopener noreferrer" class="text-red-500 hover:underline">the MeteoAlarm region map</a></p>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-900 dark:text-white mb-1">{{ __('Region name (optional)') }}</label>

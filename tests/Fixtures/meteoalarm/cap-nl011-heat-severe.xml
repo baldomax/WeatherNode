@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>cap-nl011-heat-severe</identifier>
+  <sender>procesbewaker@knmi.nl</sender>
+  <sent>2026-06-25T11:00:00+02:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <source>KNMI</source>
+  <scope>Public</scope>
+  <info>
+    <language>nl-NL</language>
+    <category>Met</category>
+    <event>Severe high-temperature warning</event>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <senderName>KNMI Koninklijk Nederlands Meteorologisch Instituut</senderName>
+    <headline>Hitte - Waarschuwingen voor Noord-Holland - Nederland</headline>
+    <description>Extreem warm met maximumtemperaturen tussen 35 en 40 graden, de hoogste waarden in grotere steden.</description>
+    <instruction/>
+    <web>https://www.knmi.nl/nederland-nu/weer/waarschuwingen</web>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>5; high-temperature</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <area>
+      <areaDesc>Noord-Holland</areaDesc>
+      <geocode><valueName>EMMA_ID</valueName><value>NL011</value></geocode>
+    </area>
+  </info>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Severe high-temperature warning</event>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <senderName>KNMI Royal Netherlands Meteorological Institute</senderName>
+    <headline>High-temperature - Warnings for Noord-Holland - The Netherlands</headline>
+    <description>The combination of high humidity and excessive heat causes a high heat index of 9-10.</description>
+    <instruction/>
+    <web>https://www.knmi.nl/nederland-nu/weer/waarschuwingen</web>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>5; high-temperature</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <area>
+      <areaDesc>Noord-Holland</areaDesc>
+      <geocode><valueName>EMMA_ID</valueName><value>NL011</value></geocode>
+    </area>
+  </info>
+</alert>

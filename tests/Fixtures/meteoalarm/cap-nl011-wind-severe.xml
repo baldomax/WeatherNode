@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>cap-nl011-wind-severe</identifier>
+  <sender>procesbewaker@knmi.nl</sender>
+  <sent>2026-06-25T11:00:00+02:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <source>KNMI</source>
+  <scope>Public</scope>
+  <info>
+    <language>nl-NL</language>
+    <category>Met</category>
+    <event>Severe wind warning</event>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <senderName>KNMI Koninklijk Nederlands Meteorologisch Instituut</senderName>
+    <headline>Wind - Waarschuwingen voor Noord-Holland - Nederland</headline>
+    <description>Zware windstoten tot 100 km/u langs de kust en op het IJsselmeer.</description>
+    <instruction/>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; wind</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <area>
+      <areaDesc>Noord-Holland</areaDesc>
+      <geocode><valueName>EMMA_ID</valueName><value>NL011</value></geocode>
+    </area>
+  </info>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Severe wind warning</event>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <senderName>KNMI Royal Netherlands Meteorological Institute</senderName>
+    <headline>Wind - Warnings for Noord-Holland - The Netherlands</headline>
+    <description>Strong wind gusts up to 100 km/h along the coast and over the IJsselmeer.</description>
+    <instruction/>
+    <parameter>
+      <valueName>awareness_type</valueName>
+      <value>1; wind</value>
+    </parameter>
+    <parameter>
+      <valueName>awareness_level</valueName>
+      <value>3; orange; Severe</value>
+    </parameter>
+    <area>
+      <areaDesc>Noord-Holland</areaDesc>
+      <geocode><valueName>EMMA_ID</valueName><value>NL011</value></geocode>
+    </area>
+  </info>
+</alert>

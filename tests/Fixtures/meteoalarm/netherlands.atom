@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <id>tag:meteoalarm.org,2021-02-19:NL</id>
+  <title>MeteoAlarm - The Netherlands</title>
+  <updated>2026-06-25T22:05:05Z</updated>
+
+  <!-- E1: NL011 Moderate (yellow) high-temperature, ACTIVE -->
+  <entry>
+    <cap:geocode><valueName>EMMA_ID</valueName><value>NL011</value></cap:geocode>
+    <link title="Noord-Holland" href="https://meteoalarm.org?geocode=EMMA_ID:NL011" hreflang="en"/>
+    <cap:areaDesc>Noord-Holland</cap:areaDesc>
+    <cap:event>Moderate high-temperature warning</cap:event>
+    <cap:onset>2026-06-25T06:00:00+00:00</cap:onset>
+    <cap:expires>2099-12-31T23:00:00+00:00</cap:expires>
+    <cap:severity>Moderate</cap:severity>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-netherlands/cap-nl011-heat-moderate"/>
+    <title>Yellow High-temperature Warning issued for The Netherlands - Noord-Holland</title>
+    <id>urn:meteoalarm:e1</id>
+    <updated>2026-06-25T06:00:00Z</updated>
+  </entry>
+
+  <!-- E2: NL011 Severe (orange) high-temperature, ACTIVE -->
+  <entry>
+    <cap:geocode><valueName>EMMA_ID</valueName><value>NL011</value></cap:geocode>
+    <link title="Noord-Holland" href="https://meteoalarm.org?geocode=EMMA_ID:NL011" hreflang="en"/>
+    <cap:areaDesc>Noord-Holland</cap:areaDesc>
+    <cap:event>Severe high-temperature warning</cap:event>
+    <cap:onset>2026-06-25T09:00:00+00:00</cap:onset>
+    <cap:expires>2099-12-31T23:00:00+00:00</cap:expires>
+    <cap:severity>Severe</cap:severity>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-netherlands/cap-nl011-heat-severe"/>
+    <title>Orange High-temperature Warning issued for The Netherlands - Noord-Holland</title>
+    <id>urn:meteoalarm:e2</id>
+    <updated>2026-06-25T09:00:00Z</updated>
+  </entry>
+
+  <!-- E3: NL011 Severe (orange) wind, ACTIVE -->
+  <entry>
+    <cap:geocode><valueName>EMMA_ID</valueName><value>NL011</value></cap:geocode>
+    <link title="Noord-Holland" href="https://meteoalarm.org?geocode=EMMA_ID:NL011" hreflang="en"/>
+    <cap:areaDesc>Noord-Holland</cap:areaDesc>
+    <cap:event>Severe wind warning</cap:event>
+    <cap:onset>2026-06-25T09:00:00+00:00</cap:onset>
+    <cap:expires>2099-12-31T23:00:00+00:00</cap:expires>
+    <cap:severity>Severe</cap:severity>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-netherlands/cap-nl011-wind-severe"/>
+    <title>Orange Wind Warning issued for The Netherlands - Noord-Holland</title>
+    <id>urn:meteoalarm:e3</id>
+    <updated>2026-06-25T09:00:00Z</updated>
+  </entry>
+
+  <!-- E4: NL011 Extreme (red) high-temperature, EXPIRED -->
+  <entry>
+    <cap:geocode><valueName>EMMA_ID</valueName><value>NL011</value></cap:geocode>
+    <link title="Noord-Holland" href="https://meteoalarm.org?geocode=EMMA_ID:NL011" hreflang="en"/>
+    <cap:areaDesc>Noord-Holland</cap:areaDesc>
+    <cap:event>Extreme high-temperature warning</cap:event>
+    <cap:onset>2020-07-01T09:00:00+00:00</cap:onset>
+    <cap:expires>2020-07-02T09:00:00+00:00</cap:expires>
+    <cap:severity>Extreme</cap:severity>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-netherlands/cap-nl011-heat-extreme"/>
+    <title>Red High-temperature Warning issued for The Netherlands - Noord-Holland</title>
+    <id>urn:meteoalarm:e4</id>
+    <updated>2020-07-01T09:00:00Z</updated>
+  </entry>
+
+  <!-- E5: NL009 Severe high-temperature, ACTIVE (different region, must be excluded) -->
+  <entry>
+    <cap:geocode><valueName>EMMA_ID</valueName><value>NL009</value></cap:geocode>
+    <link title="Zuid-Holland" href="https://meteoalarm.org?geocode=EMMA_ID:NL009" hreflang="en"/>
+    <cap:areaDesc>Zuid-Holland</cap:areaDesc>
+    <cap:event>Severe high-temperature warning</cap:event>
+    <cap:onset>2026-06-25T09:00:00+00:00</cap:onset>
+    <cap:expires>2099-12-31T23:00:00+00:00</cap:expires>
+    <cap:severity>Severe</cap:severity>
+    <link type="application/cap+xml" href="https://feeds.meteoalarm.org/api/v1/warnings/feeds-netherlands/cap-nl009-heat-severe"/>
+    <title>Orange High-temperature Warning issued for The Netherlands - Zuid-Holland</title>
+    <id>urn:meteoalarm:e5</id>
+    <updated>2026-06-25T09:00:00Z</updated>
+  </entry>
+</feed>
