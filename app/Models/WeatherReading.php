@@ -417,6 +417,46 @@ class WeatherReading extends Model
     }
 
     /**
+     * Best-effort timestamp of the most recent lightning strike.
+     *
+     * Prefers a sensor-provided strike time. When the feed only reports a daily
+     * strike counter (no per-strike timestamp), derive it from the most recent
+     * moment that counter increased. Only a genuine increase is reliable — some
+     * feeds report the "count" as a running daily total, so "> 0" never resets and
+     * would keep the effect running until midnight. Drives the dashboard lightning
+     * effect's recency window.
+     */
+    public static function lastStrikeTime(): ?\Illuminate\Support\Carbon
+    {
+        $latest = static::query()->latest('recorded_at')->first();
+        if (!$latest) {
+            return null;
+        }
+
+        if ($latest->lightning_time) {
+            return $latest->lightning_time;
+        }
+
+        $readings = static::query()
+            ->where('recorded_at', '>=', now()->subHours(2))
+            ->whereNotNull('lightning_count_daily')
+            ->orderBy('recorded_at')
+            ->get(['recorded_at', 'lightning_count_daily']);
+
+        $lastStrike = null;
+        $previous = null;
+        foreach ($readings as $row) {
+            $daily = (int) $row->lightning_count_daily;
+            if ($previous !== null && $daily > $previous) {
+                $lastStrike = $row->recorded_at;
+            }
+            $previous = $daily;
+        }
+
+        return $lastStrike;
+    }
+
+    /**
      * Convert to comprehensive API array
      */
     public function toApiArray(): array

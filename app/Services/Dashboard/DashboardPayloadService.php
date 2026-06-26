@@ -214,12 +214,13 @@ class DashboardPayloadService
 
             // Lightning data
             if ($reading->lightning_count > 0 || $reading->lightning_distance) {
+                $lastStrike = WeatherReading::lastStrikeTime();
                 $lightning = [
                     'distance' => $reading->lightning_distance,
                     'count' => $reading->lightning_count,
                     'count_daily' => $reading->lightning_count_daily,
-                    'last_strike' => $reading->lightning_time?->toIso8601String(),
-                    'time_ago' => $reading->lightning_time_ago,
+                    'last_strike' => $lastStrike?->toIso8601String(),
+                    'time_ago' => $lastStrike?->diffForHumans(),
                 ];
             }
         }
