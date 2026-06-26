@@ -5331,9 +5331,11 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-xs font-semibold text-white leading-snug" x-text="toast.title"></div>
                         <div class="text-[10px] text-gray-400 mt-0.5 leading-snug" x-text="toast.message"></div>
-                        <a :href="toast.link"
+                        @if($alertsFeatureEnabled)
+                        <a href="{{ route('alerts') }}"
                            class="text-[10px] mt-1 inline-block hover:underline"
                            :style="'color:'+toast.color">{{ __('View alerts') }} →</a>
+                        @endif
                     </div>
                     <button @click="dismissWeatherToast(toast.id)"
                             class="flex-shrink-0 text-gray-500 hover:text-gray-200 text-lg leading-none mt-0.5"

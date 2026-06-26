@@ -98,12 +98,17 @@ class MeteoalarmService implements AlertServiceInterface
             return null;
         }
 
-        // Include locale in cache key so each locale gets its own cached alerts
-        $locale = app()->getLocale();
+        // Localize to the site's configured language (or the region's official language
+        // when "auto"), NOT the request/CLI locale: alerts are polled once in a CLI
+        // context and cached globally, so app()->getLocale() would default to English.
+        $locale = $this->alertLocale($country);
         $cacheKey = "meteoalarm_atom_{$this->regionCode}_{$locale}";
 
-        return Cache::remember($cacheKey, $this->cacheMaxAge, function () use ($country) {
+        return Cache::remember($cacheKey, $this->cacheMaxAge, function () use ($country, $locale) {
+            $previousLocale = app()->getLocale();
             try {
+                app()->setLocale($locale);
+
                 $feedUrl = "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-{$this->countries[$country]}";
 
                 $response = Http::timeout(10)->get($feedUrl);
@@ -121,8 +126,42 @@ class MeteoalarmService implements AlertServiceInterface
             } catch (\Exception $e) {
                 Log::error('Meteoalarm exception', ['error' => $e->getMessage()]);
                 return null;
+            } finally {
+                app()->setLocale($previousLocale);
             }
         });
+    }
+
+    /**
+     * Resolve the language alerts should be rendered in.
+     *
+     * Alerts are polled once in a CLI context and cached for every visitor, so the
+     * locale cannot come from the request. Prefer the admin-configured site language
+     * (display.language); when that is "auto" (per-visitor detection) fall back to the
+     * region's official warning language rather than the CLI default of English.
+     */
+    private function alertLocale(string $country): string
+    {
+        $supported = array_keys(config('localization.locales', []));
+
+        $configured = strtolower(str_replace('_', '-', (string) Setting::getValue('display.language', 'auto')));
+        if ($configured !== '' && $configured !== 'auto' && in_array($configured, $supported, true)) {
+            return $configured;
+        }
+
+        // "auto" / unset: use the region's official language, mapped to a supported locale.
+        $regionLocale = strtolower(str_replace('_', '-', $this->regionPrimaryLocale[$country] ?? ''));
+        if ($regionLocale !== '' && in_array($regionLocale, $supported, true)) {
+            return $regionLocale;
+        }
+
+        $base = explode('-', $regionLocale)[0] ?? '';
+        $defaults = config('localization.language_defaults', []);
+        if ($base !== '' && isset($defaults[$base]) && in_array($defaults[$base], $supported, true)) {
+            return $defaults[$base];
+        }
+
+        return config('app.locale', 'en');
     }
 
     /**

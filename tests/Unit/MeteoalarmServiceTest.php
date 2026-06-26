@@ -116,21 +116,28 @@ class MeteoalarmServiceTest extends TestCase
         Http::assertNotSent(fn ($r) => str_contains($r->url(), 'cap-nl009'));
     }
 
-    public function test_uses_localized_description_for_app_locale(): void
+    public function test_localizes_to_region_language_when_site_language_is_auto(): void
     {
-        app()->setLocale('nl');
+        // Simulate the scheduler/CLI context: app locale is the default 'en' and the
+        // site language is "auto" (per-visitor), so there is no fixed configured language.
+        app()->setLocale('en');
+        Setting::setValue('display.language', 'auto', 'string', 'display');
         $this->fakeMeteoalarm();
 
         $heat = $this->alertOfType((new MeteoalarmService())->getActiveAlerts(), 'high-temperature');
+
+        // NL region warnings must come out in the region's official language (Dutch), not English.
         $this->assertStringContainsString('Extreem warm', $heat['description']);
     }
 
-    public function test_uses_english_description_for_english_locale(): void
+    public function test_uses_configured_site_language_over_region_language(): void
     {
-        app()->setLocale('en');
+        app()->setLocale('nl');
+        Setting::setValue('display.language', 'en-gb', 'string', 'display');
         $this->fakeMeteoalarm();
 
         $heat = $this->alertOfType((new MeteoalarmService())->getActiveAlerts(), 'high-temperature');
+
         $this->assertStringContainsString('heat index', $heat['description']);
     }
 
