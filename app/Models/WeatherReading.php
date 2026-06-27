@@ -433,27 +433,33 @@ class WeatherReading extends Model
             return null;
         }
 
-        if ($latest->lightning_time) {
-            return $latest->lightning_time;
-        }
-
+        // Derive the strike time from the most recent increase of the daily counter.
+        // This is the authoritative signal: the count keeps incrementing during a
+        // storm even when the sensor's own lightning_time sticks on an earlier strike.
         $readings = static::query()
             ->where('recorded_at', '>=', now()->subHours(2))
             ->whereNotNull('lightning_count_daily')
             ->orderBy('recorded_at')
             ->get(['recorded_at', 'lightning_count_daily']);
 
-        $lastStrike = null;
+        $derived = null;
         $previous = null;
         foreach ($readings as $row) {
             $daily = (int) $row->lightning_count_daily;
             if ($previous !== null && $daily > $previous) {
-                $lastStrike = $row->recorded_at;
+                $derived = $row->recorded_at;
             }
             $previous = $daily;
         }
 
-        return $lastStrike;
+        // Prefer whichever signal is more recent. A sensor timestamp that lags or
+        // sticks on an old strike must not override a fresher counter increase.
+        $sensor = $latest->lightning_time;
+        if ($sensor && $derived) {
+            return $sensor->greaterThan($derived) ? $sensor : $derived;
+        }
+
+        return $sensor ?? $derived;
     }
 
     /**

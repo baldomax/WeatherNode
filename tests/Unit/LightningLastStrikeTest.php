@@ -22,11 +22,28 @@ class LightningLastStrikeTest extends TestCase
         ]);
     }
 
-    public function test_prefers_sensor_provided_strike_timestamp(): void
+    public function test_uses_counter_increase_when_sensor_timestamp_is_stale(): void
     {
+        // The real-world bug: the sensor's lightning_time sticks on an early strike
+        // (~2h ago) while the daily counter keeps incrementing. The recent strike wins.
+        $staleSensorTime = now()->subHours(2)->startOfSecond();
+        $this->reading(now()->subMinutes(15), 7);
+        $strikeAt = now()->subMinutes(5)->startOfSecond();
+        $this->reading($strikeAt, 8, $staleSensorTime); // count ticked up; sensor time is stale
+
+        $this->assertSame(
+            $strikeAt->toIso8601String(),
+            WeatherReading::lastStrikeTime()?->toIso8601String()
+        );
+    }
+
+    public function test_uses_sensor_timestamp_when_more_recent_than_counter(): void
+    {
+        // Counter last increased 40 min ago, but the sensor reports a fresh strike.
+        $this->reading(now()->subMinutes(50), 2);
+        $this->reading(now()->subMinutes(40), 3); // last counter increase
         $sensorTime = now()->subMinutes(5)->startOfSecond();
-        $this->reading(now()->subMinutes(20), 1);
-        $this->reading(now(), 2, $sensorTime); // latest reading carries a real strike time
+        $this->reading(now()->subMinutes(1), 3, $sensorTime); // no new count, fresh sensor time
 
         $this->assertSame(
             $sensorTime->toIso8601String(),
