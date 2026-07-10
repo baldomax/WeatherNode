@@ -166,10 +166,16 @@ class EcowittPushParser
         if (isset($raw['pm25_co2']) && !isset($data['pm25_ch1'])) {
             $data['pm25_ch1'] = (float) $raw['pm25_co2'];
         }
-        if (isset($raw['pm10_co2'])) {
+        if (isset($raw['pm10'])) {
+            $data['pm10'] = (float) $raw['pm10'];
+        }
+        if (isset($raw['pm10_24h'])) {
+            $data['pm10_avg_24h'] = (float) $raw['pm10_24h'];
+        }
+        if (isset($raw['pm10_co2']) && !isset($data['pm10'])) {
             $data['pm10'] = (float) $raw['pm10_co2'];
         }
-        if (isset($raw['pm10_24h_co2'])) {
+        if (isset($raw['pm10_24h_co2']) && !isset($data['pm10_avg_24h'])) {
             $data['pm10_avg_24h'] = (float) $raw['pm10_24h_co2'];
         }
 
