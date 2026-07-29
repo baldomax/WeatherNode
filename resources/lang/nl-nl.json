@@ -603,7 +603,7 @@
     "Data Provided by": "Gegevens afkomstig van",
     "Data Retention Days": "Dagen waarop gegevens worden bewaard",
     "Data since": "Data sinds",
-    "Data since 2020": "Data sinds 2020",
+    "Data since :year": "Data sinds :year",
     "Data source": "Databron",
     "Data Sources": "Databronnen",
     "Database": "Database",

@@ -549,7 +549,7 @@
     "Data from our weatherstation": "Δεδομένα από τον καιρό σας",
     "Data Provided by": "Δεδομένα που παρέχονται από το",
     "Data since": "Δεδομένα από",
-    "Data since 2020": "Δεδομένα από το 2020",
+    "Data since :year": "Δεδομένα από το :year",
     "Data source": "Data source",
     "Database": "Βάση δεδομένων",
     "Database Size": "Μέγεθος βάσης δεδομένων",

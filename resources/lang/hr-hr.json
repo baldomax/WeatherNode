@@ -549,7 +549,7 @@
     "Data from our weatherstation": "Podaci s naše meteo postaje",
     "Data Provided by": "Podatke pruža",
     "Data since": "Podaci od",
-    "Data since 2020": "Podaci od 2020.",
+    "Data since :year": "Podaci od :year.",
     "Data source": "Data source",
     "Database": "Baza podataka",
     "Database Size": "Veličina baze podataka",

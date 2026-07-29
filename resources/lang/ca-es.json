@@ -549,7 +549,7 @@
     "Data from our weatherstation": "Dades de la nostra estació meteorològica",
     "Data Provided by": "Dades subministrades per ",
     "Data since": "Dades des de",
-    "Data since 2020": "Dades des del 2020",
+    "Data since :year": "Dades des del :year",
     "Data source": "Data source",
     "Database": "Base de dades",
     "Database Size": "Mida de la base de dades",

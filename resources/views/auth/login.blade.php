@@ -260,9 +260,27 @@
         <div class="max-w-7xl mx-auto px-4">
             <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-400">
                 <div class="flex items-center gap-4">
-                    <span>Ecowitt WH4000SE</span>
+                    @php
+                        $stationHardware = \App\Models\Setting::getValue('station.hardware', '');
+                        $stationStartDate = \App\Models\Setting::getValue('station.start_date', '');
+                        $stationStartYear = null;
+                        if (is_string($stationStartDate) && $stationStartDate !== '') {
+                            try {
+                                $stationStartYear = \Carbon\Carbon::parse($stationStartDate)->year;
+                            } catch (\Throwable) {
+                                $stationStartYear = null;
+                            }
+                        }
+                    @endphp
+                    @if($stationHardware)
+                    <span>{{ $stationHardware }}</span>
+                    @endif
+                    @if($stationHardware && $stationStartYear)
                     <span>•</span>
-                    <span>{{ __('Data since 2020') }}</span>
+                    @endif
+                    @if($stationStartYear)
+                    <span>{{ __('Data since :year', ['year' => $stationStartYear]) }}</span>
+                    @endif
                 </div>
                 <div class="flex items-center gap-4">
                     <a href="https://yr.no" class="hover:text-white transition-colors">Yr.no</a>

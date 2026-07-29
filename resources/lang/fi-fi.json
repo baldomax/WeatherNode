@@ -549,7 +549,7 @@
     "Data from our weatherstation": "Tiedot sääasemaltamme",
     "Data Provided by": "Tiedot tarjoaa",
     "Data since": "Tietoja alkaen",
-    "Data since 2020": "Tiedot vuodesta 2020 lähtien",
+    "Data since :year": "Tiedot vuodesta :year lähtien",
     "Data source": "Data source",
     "Database": "Tietokanta",
     "Database Size": "Tietokannan koko",

@@ -551,7 +551,7 @@
     "Data from our weatherstation": "Dati dal nostro weatherstation",
     "Data Provided by": "Dati forniti da",
     "Data since": "Dati dal",
-    "Data since 2020": "Dati dal 2020",
+    "Data since :year": "Dati dal :year",
     "Data source": "Data source",
     "Database": "Database",
     "Database Size": "Dimensione del database",

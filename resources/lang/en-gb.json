@@ -625,7 +625,7 @@
     "Data Provided by": "Data Provided by",
     "Data Retention Days": "Data Retention Days",
     "Data since": "Data since",
-    "Data since 2020": "Data since 2020",
+    "Data since :year": "Data since :year",
     "Data source": "Data source",
     "Data Sources": "Data Sources",
     "Database": "Database",
