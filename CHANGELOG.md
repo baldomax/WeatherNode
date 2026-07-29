@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.07.1] - 2026-07-30
+
+- Footer "Data since" year now uses `station.start_date` instead of a hardcoded 2020
+- Statistics "Most sunshine hours" is populated from Cumulus/WD sunshine data (with radiation estimate fallback)
+- Weather alerts widget shows up to 3 alerts with severity colors
+- Fixed Docker multi-arch image `manifest unknown` pull errors
+
 ## [Unreleased]
 
 ### Added
