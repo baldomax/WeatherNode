@@ -44,6 +44,15 @@
     $stationLocation = \App\Models\Setting::stationLocation();
     $stationLat = \App\Models\Setting::latitude();
     $stationLon = \App\Models\Setting::longitude();
+    $stationStartDate = \App\Models\Setting::getValue('station.start_date', '');
+    $stationStartYear = null;
+    if (is_string($stationStartDate) && $stationStartDate !== '') {
+        try {
+            $stationStartYear = \Carbon\Carbon::parse($stationStartDate)->year;
+        } catch (\Throwable) {
+            $stationStartYear = null;
+        }
+    }
     
     // Social media links
     $socialLinks = [];
@@ -139,10 +148,12 @@
                         <span class="ml-2 font-mono text-xs">{{ number_format($stationLat, 6) }}, {{ number_format($stationLon, 6) }}</span>
                     </li>
                     @endif
+                    @if($stationStartYear)
                     <li>
                         <span class="text-gray-500">{{ __('Data since') }}:</span>
-                        <span class="ml-2">2020</span>
+                        <span class="ml-2">{{ $stationStartYear }}</span>
                     </li>
+                    @endif
                 </ul>
             </div>
             @endif
