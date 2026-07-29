@@ -57,6 +57,8 @@ class RealtimeTxtParser
 
         $uv = $this->normalizeUv($this->getFloat($parts, 43));
         $solar = $this->getFloat($parts, 45);
+        // Cumulus realtime.txt field 56 (1-based) = SunshineHours so far today.
+        $solarHours = $this->getFloat($parts, 55);
 
         $data = [
             'recorded_at' => $recordedAt,
@@ -81,6 +83,7 @@ class RealtimeTxtParser
             'heat_index' => $this->convertTemp($this->getFloat($parts, 41), $tempUnits),
             'uv_index' => $uv,
             'solar_radiation' => $solar,
+            'solar_hours' => $solarHours,
         ];
 
         if ($solar !== null) {

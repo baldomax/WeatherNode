@@ -55,6 +55,8 @@ class ClientrawParser
             'rain_yearly' => $this->getFloat($parts, 9),
             'uv_index' => $this->getFloat($parts, 79),
             'solar_radiation' => $this->getFloat($parts, 127),
+            // Weather Display clientraw field 696 = Sunshine Hours (present on longer files).
+            'solar_hours' => $this->getFloat($parts, 696),
             'temp_1' => $this->getFloat($parts, 20),
             'temp_2' => $this->getFloat($parts, 21),
             'temp_3' => $this->getFloat($parts, 22),

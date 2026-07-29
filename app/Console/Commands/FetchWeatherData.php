@@ -220,6 +220,12 @@ class FetchWeatherData extends Command
             $summary->solar_max = $reading->solar_radiation;
         }
 
+        // Sunshine hours is a running daily total from Cumulus/WD when available.
+        if ($reading->solar_hours !== null
+            && ($summary->solar_hours === null || $reading->solar_hours > $summary->solar_hours)) {
+            $summary->solar_hours = $reading->solar_hours;
+        }
+
         // Update humidity high/low (incremental — no extra query needed)
         if ($reading->humidity !== null) {
             if ($summary->humidity_high === null || $reading->humidity > $summary->humidity_high) {
