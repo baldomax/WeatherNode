@@ -5001,13 +5001,18 @@
                         @endif
                     </div>
                     @if(count($ssrAlerts) > 0)
-                        <div class="text-sm space-y-2">
-                            @foreach(array_slice($ssrAlerts, 0, 2) as $alert)
-                                <div class="p-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10">
-                                    <div class="font-medium text-xs">{{ \Illuminate\Support\Str::limit((string) ($alert['title'] ?? __('Weather alert')), 40) }}</div>
-                                    <div class="text-xs text-gray-400">{{ (string) ($alert['warning_type_label'] ?? $alert['warning_type'] ?? __('Weather')) }}</div>
+                        <div class="text-sm space-y-1.5">
+                            @foreach(array_slice($ssrAlerts, 0, 3) as $alert)
+                                @php $alertColor = (string) ($alert['severity_color'] ?? '#FBEA55'); @endphp
+                                <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg border"
+                                     style="border-color: {{ $alertColor }}40; background-color: {{ $alertColor }}10">
+                                    <span class="shrink-0 w-2 h-2 rounded-full" style="background-color: {{ $alertColor }}"></span>
+                                    <span class="text-xs font-medium truncate min-w-0">{{ \Illuminate\Support\Str::limit((string) ($alert['title'] ?? $alert['warning_type_label'] ?? __('Weather alert')), 40) }}</span>
                                 </div>
                             @endforeach
+                            @if(count($ssrAlerts) > 3)
+                                <div class="text-xs text-gray-400 text-center">+{{ count($ssrAlerts) - 3 }}</div>
+                            @endif
                         </div>
                     @else
                         <div class="text-sm text-gray-400 text-center py-2">
@@ -5054,18 +5059,23 @@
                     </template>
                 </div>
                 <template x-if="alerts.length > 0">
-                    <div class="text-sm space-y-2">
-                        <template x-for="alert in alerts.slice(0, 2)" :key="alert.link">
-                            <div class="p-2 rounded-lg border" 
+                    <div class="text-sm space-y-1.5">
+                        {{-- key on the index: internal warnings have no link, duplicates break x-for --}}
+                        <template x-for="(alert, i) in alerts.slice(0, 3)" :key="i">
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg border"
                                  :style="'border-color: ' + (alert.severity_color || '#FBEA55') + '40; background-color: ' + (alert.severity_color || '#FBEA55') + '10'">
-                                <div class="font-medium text-xs" x-text="alert.title?.substring(0, 40)"></div>
-                                <div class="text-xs text-gray-400"
-                                     x-text="alert.warning_type_label
+                                <span class="shrink-0 w-2 h-2 rounded-full"
+                                      :style="'background-color: ' + (alert.severity_color || '#FBEA55')"></span>
+                                <span class="text-xs font-medium truncate min-w-0"
+                                      x-text="alert.title
+                                        || alert.warning_type_label
                                         || translations.warningTypes?.[alert.warning_type]
                                         || alert.warning_type
-                                        || translations.weather"></div>
+                                        || translations.weather"></span>
                             </div>
                         </template>
+                        <div x-show="alerts.length > 3" class="text-xs text-gray-400 text-center"
+                             x-text="'+' + (alerts.length - 3)"></div>
                     </div>
                 </template>
                 <template x-if="alerts.length === 0">
