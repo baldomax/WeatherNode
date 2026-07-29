@@ -45,6 +45,7 @@ class DailySummary extends Model
         'temp_avg' => 'float',
         'wind_max' => 'float',
         'rain_total' => 'float',
+        'solar_hours' => 'float',
     ];
 
     /**

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\DailySummary;
 use App\Models\WeatherReading;
+use App\Services\Weather\SunshineHoursCalculator;
 use Illuminate\Console\Command;
 
 class GenerateDailySummary extends Command
@@ -11,7 +12,7 @@ class GenerateDailySummary extends Command
     protected $signature = 'weather:summarize {date? : Date to summarize (Y-m-d format)}';
     protected $description = 'Generate daily summary from weather readings';
 
-    public function handle(): int
+    public function handle(SunshineHoursCalculator $sunshineHours): int
     {
         $date = $this->argument('date') ?? now()->subDay()->toDateString();
 
@@ -69,6 +70,7 @@ class GenerateDailySummary extends Command
             'rain_rate_max'          => $readings->max('rain_rate'),
             'uv_max'                 => $readings->max('uv_index'),
             'solar_max'              => $readings->max('solar_radiation'),
+            'solar_hours'            => $sunshineHours->resolveFromReadings($readings),
         ];
 
         // Use whereDate for reliable lookup on both SQLite and MySQL

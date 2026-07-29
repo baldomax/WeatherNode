@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\WeatherReading;
 use App\Services\Weather\EcowittPushParser;
 use App\Services\Weather\Normalization\WeatherReadingWriter;
+use App\Services\Weather\SunshineHoursCalculator;
 use App\Services\Ads\AdsConsentService;
 use App\Services\Mail\MailConfigService;
 use App\Services\Nlg\NlgProviderModelDiscovery;
@@ -2611,6 +2612,7 @@ class SettingsController extends Controller
                 'rain_rate_max' => $readings->max('rain_rate'),
                 'uv_max' => $readings->max('uv_index'),
                 'solar_max' => $readings->max('solar_radiation'),
+                'solar_hours' => app(SunshineHoursCalculator::class)->resolveFromReadings($readings),
             ]
         );
 

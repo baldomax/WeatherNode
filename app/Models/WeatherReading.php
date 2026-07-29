@@ -60,6 +60,7 @@ class WeatherReading extends Model
         // Solar & UV
         'uv_index',
         'solar_radiation',
+        'solar_hours',
         'lux',
         
         // Soil sensors (1-8)
@@ -141,6 +142,7 @@ class WeatherReading extends Model
         'rain_total' => 'float',
         'uv_index' => 'float',
         'solar_radiation' => 'float',
+        'solar_hours' => 'float',
         'water_temperature' => 'float',
         
         // Extra temps
