@@ -46,7 +46,7 @@
         };
 
         $seoSiteTitleRaw = \App\Models\Setting::getValue('seo.site_title', \App\Models\Setting::stationName());
-        $seoSiteDescriptionRaw = \App\Models\Setting::getValue('seo.site_description', __('Live weather in Uitgeest, North Holland. Live weather data from a local station.'));
+        $seoSiteDescriptionRaw = \App\Models\Setting::getValue('seo.site_description', __('Live weather data from a local station.'));
         $seoSiteKeywordsRaw = \App\Models\Setting::getValue('seo.site_keywords', '');
         $seoOgImageRaw = \App\Models\Setting::getValue('seo.og_image', '');
 
@@ -347,7 +347,7 @@
         // Update clock (station timezone; DST via IANA + Intl)
         function updateClock() {
             const now = new Date();
-            const locale = window.Meteo?.jsLocale || 'nl-NL';
+            const locale = window.Meteo?.jsLocale || 'en-US';
             const tz = window.Meteo?.stationTimezone || 'UTC';
             const opts = { timeZone: tz };
             const time = now.toLocaleTimeString(locale, { ...opts, hour: '2-digit', minute: '2-digit', second: '2-digit' });

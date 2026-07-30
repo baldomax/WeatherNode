@@ -139,8 +139,9 @@ const initDayCharts = async () => {
     const compass16 = (deg) => {
         if (deg === null || deg === undefined || Number.isNaN(deg)) return '';
         const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-        const i = Math.round(((deg % 360) / 22.5)) % 16;
-        return directions[i] || '';
+        const i = Math.round((((deg % 360) + 360) % 360) / 22.5) % 16;
+        const key = directions[i] || '';
+        return (strings.compass && strings.compass[key]) || key;
     };
 
     // Extract a field from sensor_* hourly objects into a flat array

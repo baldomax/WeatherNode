@@ -1,6 +1,6 @@
 const cfg = window.__METEO_DASHBOARD_CONFIG__ || {};
 const t = (key) => cfg.i18n?.[key] ?? key;
-const locale = window.Meteo?.jsLocale || 'nl-NL';
+const locale = window.Meteo?.jsLocale || 'en-US';
 const hybridSsrEnabled = window.__METEO_DASHBOARD_HYBRID__ === true;
 const initialPayload = (window.__METEO_DASHBOARD_INITIAL__ && typeof window.__METEO_DASHBOARD_INITIAL__ === 'object')
     ? window.__METEO_DASHBOARD_INITIAL__
@@ -956,11 +956,12 @@ function weatherDashboard() {
                         [cx-45, cy-76, 'rgba(255,255,255,0.5)', 7, 'normal', 'NW'],
                     ];
                     for (const [lx, ly, fill, fs, fw, txt] of labels) {
-                        svgParts.push(`<text x="${lx}" y="${ly}" text-anchor="middle" fill="${fill}" font-size="${fs}" font-weight="${fw}">${txt}</text>`);
+                        const label = t(txt);
+                        svgParts.push(`<text x="${lx}" y="${ly}" text-anchor="middle" fill="${fill}" font-size="${fs}" font-weight="${fw}">${label}</text>`);
                     }
                     // Center calm
                     svgParts.push(`<circle cx="${cx}" cy="${cy}" r="11" fill="rgba(15,23,42,0.8)" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>`);
-                    svgParts.push(`<text x="${cx}" y="${cy-2}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="5.5">Calm</text>`);
+                    svgParts.push(`<text x="${cx}" y="${cy-2}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="5.5">${t('Calm')}</text>`);
                     svgParts.push(`<text x="${cx}" y="${cy+6}" text-anchor="middle" fill="white" font-size="7" font-weight="bold">${calmPct}%</text>`);
 
                     const svgMarkup = `<svg viewBox="0 0 220 220" class="w-full mx-auto" style="max-width:280px;">${svgParts.join('')}</svg>`;
@@ -2486,9 +2487,13 @@ function weatherDashboard() {
                     const date = new Date(dateStr);
                     const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tz });
                     const dateStrNorm = date.toLocaleDateString('en-CA', { timeZone: tz });
-                    if (dateStrNorm === todayStr) return 'Vnd';
-                    const days = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
-                    return days[date.getDay()];
+                    if (dateStrNorm === todayStr) return t('Today');
+                    return date.toLocaleDateString(locale, { timeZone: tz, weekday: 'short' });
+                },
+
+                translateKey(key) {
+                    if (!key) return '';
+                    return t(key) || key;
                 },
                 
                 // Temperature chart helpers
@@ -3221,7 +3226,7 @@ function weatherDashboard() {
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
                         
-                        const lang = (window.Meteo?.jsLocale || 'en-GB').replace('_', '-');
+                        const lang = (window.Meteo?.jsLocale || 'en-US').replace('_', '-');
                         const dashboardUrl = '/api/weather/dashboard' + (lang ? '?lang=' + encodeURIComponent(lang) : '');
                         const res = await fetch(dashboardUrl, {
                             headers: this.getApiHeaders(),

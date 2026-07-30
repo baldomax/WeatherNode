@@ -55,6 +55,7 @@ Homestead.json
 Homestead.yaml
 freefilesync-exclude.txt
 docs/_archive/
+docs/superpowers/
 
 # Ecowitt runtime files and secrets
 ecowitt/ecco_lcl.arr

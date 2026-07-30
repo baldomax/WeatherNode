@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.07.2] - 2026-07-31
+
+- Localize weekly temperature chart day labels to the active site locale
+- Return English i18n keys from WeatherReading accessors (compass, Beaufort, UV, PM2.5)
+- Localize wind rose and history/day chart compass labels
+- Neutralize hardcoded MeteoUitgeest branding defaults to WeatherNode
+- Map realtime.txt average wind direction and daily max gust fields
+- Unify missing jsLocale fallback to en-US
+
 ## [2026.07.1] - 2026-07-30
 
 - Footer "Data since" year now uses `station.start_date` instead of a hardcoded 2020

@@ -199,7 +199,7 @@
                 'lines' => [
                     __('Speed') . ': ' . $ssrWindSpeedText . ' km/h',
                     __('Gust') . ': ' . $ssrWindGustText . ' km/h',
-                    __('Direction') . ': ' . ((string) ($ssrCurrent['wind_direction_compass'] ?? 'N')) . ' ' . ((string) ($ssrCurrent['wind_direction'] ?? '--')) . '°',
+                    __('Direction') . ': ' . __((string) ($ssrCurrent['wind_direction_compass'] ?? 'N')) . ' ' . ((string) ($ssrCurrent['wind_direction'] ?? '--')) . '°',
                 ],
             ];
         }
@@ -489,7 +489,7 @@
         };
 
         $seoSiteTitleRaw = \App\Models\Setting::getValue('seo.site_title', \App\Models\Setting::stationName());
-        $seoSiteDescriptionRaw = \App\Models\Setting::getValue('seo.site_description', __('Live weather in Uitgeest, North Holland. Live weather data from a local station.'));
+        $seoSiteDescriptionRaw = \App\Models\Setting::getValue('seo.site_description', __('Live weather data from a local station.'));
         $seoSiteKeywordsRaw = \App\Models\Setting::getValue('seo.site_keywords', '');
         $seoOgImageRaw = \App\Models\Setting::getValue('seo.og_image', '');
 
@@ -715,7 +715,7 @@
         $dashboardAdsConsentRequired = $dashboardAdsConsentService->requiresConsentForCountryWithMode($dashboardAdsConsentCountryCode, $dashboardAdsConsentMode);
 
         $dashboardWidgetProvider = \App\Models\Setting::getValue('radar.widget_provider', '');
-        $dashboardRadarProvider = $dashboardWidgetProvider ?: \App\Models\Setting::getValue('radar.provider', 'knmi');
+        $dashboardRadarProvider = $dashboardWidgetProvider ?: \App\Models\Setting::getValue('radar.provider', 'rainviewer');
         $dashboardRainviewerMode = $dashboardRadarProvider === 'rainviewer'
             ? ($dashboardWidgetProvider ? \App\Models\Setting::getValue('radar.widget_rainviewer_mode', 'api') : \App\Models\Setting::getValue('radar.rainviewer_mode', 'api'))
             : 'api';
@@ -949,8 +949,11 @@
             'Storm-force wind',
             'Extreme cold',
             'Roads may be slippery',
-            'View alerts',
-        ];
+                    'View alerts',
+                    // Wind compass points (English keys; locale files may remap e.g. NNE→NNO)
+                    'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                    'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
+                ];
 
         $dashboardI18n = [];
         foreach ($dashboardI18nKeys as $dashboardI18nKey) {
@@ -1949,7 +1952,7 @@
                         <div class="flex-1 space-y-3 text-sm">
                             <div class="flex justify-between">
                                 <span class="text-gray-400">{{ __('Direction') }}</span>
-                                <span class="font-bold" x-text="current ? (current.wind_direction_compass + ' ' + current.wind_direction + '°') : '--'">{{ isset($ssrCurrent['wind_direction']) && is_numeric($ssrCurrent['wind_direction']) ? (($ssrCurrent['wind_direction_compass'] ?? 'N') . ' ' . (int) $ssrCurrent['wind_direction'] . '°') : '--' }}</span>
+                                <span class="font-bold" x-text="current ? (translateKey(current.wind_direction_compass) + ' ' + current.wind_direction + '°') : '--'">{{ isset($ssrCurrent['wind_direction']) && is_numeric($ssrCurrent['wind_direction']) ? (__($ssrCurrent['wind_direction_compass'] ?? 'N') . ' ' . (int) $ssrCurrent['wind_direction'] . '°') : '--' }}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-400">{{ __('Wind gust') }}</span>
@@ -4532,7 +4535,7 @@
                         <img id="webcam-image" 
                              src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
                              x-bind:data-lazy-src="imageUrl"
-                             alt="{{ __('Webcam Uitgeest') }}" 
+                             alt="{{ __('Webcam') }}" 
                              class="w-full h-full object-cover"
                              loading="lazy"
                              decoding="async"
@@ -4652,7 +4655,7 @@
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-semibold">🛰️ {{ __('Precipitation radar') }}</h3>
                     @php
-                        $radarProvider = \App\Models\Setting::getValue('radar.provider', 'knmi');
+                        $radarProvider = \App\Models\Setting::getValue('radar.provider', 'rainviewer');
                         $providerLabels = [
                             'knmi' => 'KNMI',
                             'buienradar' => 'Buienradar',
@@ -4666,7 +4669,7 @@
                     @php
                         // Check if widget has separate provider setting
                         $widgetProvider = \App\Models\Setting::getValue('radar.widget_provider', '');
-                        $radarProvider = $widgetProvider ?: \App\Models\Setting::getValue('radar.provider', 'knmi');
+                        $radarProvider = $widgetProvider ?: \App\Models\Setting::getValue('radar.provider', 'rainviewer');
                         $radarUrl = \App\Models\Setting::getValue('radar.url', '');
                         $stationLat = \App\Models\Setting::latitude();
                         $stationLon = \App\Models\Setting::longitude();

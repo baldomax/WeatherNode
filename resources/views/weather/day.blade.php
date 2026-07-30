@@ -327,6 +327,7 @@
     'extra_humidity' => __('Humidity'),
     'sensor' => __('Sensor'),
     'channel' => __('Channel'),
+    'compass' => collect(\App\Support\WindCompass::POINTS)->mapWithKeys(fn ($point) => [$point => __($point)])->all(),
 ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) !!}
 </script>
 
@@ -410,11 +411,14 @@
 
             const clearRows = () => { tbody.innerHTML = ''; };
 
+            const compassLabels = @json(collect(\App\Support\WindCompass::POINTS)->mapWithKeys(fn ($point) => [$point => __($point)])->all());
+
             const compass16 = (deg) => {
                 if (deg === null || deg === undefined || Number.isNaN(deg)) return null;
                 const directions = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-                const i = Math.round(((deg % 360) / 22.5)) % 16;
-                return directions[i];
+                const i = Math.round((((deg % 360) + 360) % 360) / 22.5) % 16;
+                const key = directions[i];
+                return key ? (compassLabels[key] || key) : null;
             };
 
             const renderRows = (rows) => {

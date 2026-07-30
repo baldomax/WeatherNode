@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ __('Login') }} - MeteoUitgeest</title>
-    <meta name="description" content="{{ __('Log in to the MeteoUitgeest admin panel') }}">
+    <title>{{ __('Login') }} - WeatherNode</title>
+    <meta name="description" content="{{ __('Log in to the WeatherNode admin panel') }}">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -111,8 +111,8 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-lg font-bold">{{ __('Local weather and forecast in Uitgeest') }}</h1>
-                    <p class="text-xs text-gray-400">Waldijk • 52.52°N 4.71°E</p>
+                    <h1 class="text-lg font-bold">WeatherNode</h1>
+                    <p class="text-xs text-gray-400">{{ \App\Models\Setting::stationName() }}</p>
                 </div>
             </div>
             
@@ -296,7 +296,7 @@
         // Update clock (station timezone; DST via IANA + Intl)
         function updateClock() {
             const now = new Date();
-            const locale = window.Meteo?.jsLocale || 'nl-NL';
+            const locale = window.Meteo?.jsLocale || 'en-US';
             const tz = stationTimezone || 'UTC';
             const opts = { timeZone: tz };
             const timeStr = now.toLocaleTimeString(locale, { ...opts, hour: '2-digit', minute: '2-digit', second: '2-digit' });

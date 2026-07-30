@@ -218,7 +218,7 @@ function forecastPage() {
         view: 'daily',
         selectedDate: null,
         loading: true,
-        locale: window.Meteo?.jsLocale || 'nl-NL',
+        locale: window.Meteo?.jsLocale || 'en-US',
         units: window.Meteo?.activeUnits || 'metric',
 
         tempUnit() {
@@ -444,9 +444,11 @@ function forecastPage() {
         
         getWindDirection(degrees) {
             if (degrees === null || degrees === undefined) return '-';
-            const directions = ['N', 'NNO', 'NO', 'ONO', 'O', 'OZO', 'ZO', 'ZZO', 'Z', 'ZZW', 'ZW', 'WZW', 'W', 'WNW', 'NW', 'NNW'];
-            const index = Math.round(degrees / 22.5) % 16;
-            return directions[index];
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+            const labels = @json(collect(\App\Support\WindCompass::POINTS)->mapWithKeys(fn ($point) => [$point => __($point)])->all());
+            const index = Math.round((((degrees % 360) + 360) % 360) / 22.5) % 16;
+            const key = directions[index];
+            return labels[key] || key;
         },
         
         getFilteredHourly() {
