@@ -259,7 +259,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'navigation.alerts_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'navigation', 'description' => 'Show Alerts in navigation and allow route access'],
 
             // ===== Forecast Settings =====
-            ['key' => 'forecast.default_source', 'value' => 'fct_yrno_block.php', 'type' => 'select', 'group' => 'forecast', 'description' => 'Default forecast source', 'options' => 'fct_yrno_block.php:Yr.no,fct_wu_block.php:Weather Underground,fct_darksky_block.php:OpenWeatherMap,fct_wxsim_block.php:WXSIM,fct_ec_block.php:Environment Canada,fct_tempest_block.php:WeatherFlow Tempest'],
+            ['key' => 'forecast.default_source', 'value' => 'fct_yrno_block.php', 'type' => 'select', 'group' => 'forecast', 'description' => 'Default forecast source', 'options' => 'fct_yrno_block.php:Yr.no,fct_wu_block.php:Weather Underground,fct_darksky_block.php:OpenWeatherMap,fct_wxsim_block.php:WXSIM,fct_ec_block.php:Environment Canada,fct_tempest_block.php:WeatherFlow Tempest,fct_aemet_block.php:AEMET'],
             ['key' => 'forecast.sky_source', 'value' => 'ccn_metar_block.php', 'type' => 'select', 'group' => 'forecast', 'description' => 'Sky conditions source', 'options' => 'ccn_metar_block.php:METAR,ccn_ec_block.php:Environment Canada,ccn_noaa_block.php:NOAA'],
             // WXSIM plaintext forecast integration
             ['key' => 'wxsim.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'wxsim', 'description' => 'Enable WXSIM plaintext forecast integration'],
@@ -267,6 +267,10 @@ class SettingsSeeder extends Seeder
             // Environment Canada forecast integration
             ['key' => 'environment_canada.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'environment_canada', 'description' => 'Enable Environment Canada forecast integration'],
             ['key' => 'environment_canada.city_code', 'value' => '', 'type' => 'string', 'group' => 'environment_canada', 'description' => 'Override Environment Canada city code (e.g., on-118 for Toronto). Leave blank to auto-detect based on station location'],
+
+            // ===== AEMET =====
+            ['key' => 'aemet.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'aemet', 'description' => 'AEMET OpenData API Key'],
+            ['key' => 'aemet.municipio', 'value' => '', 'type' => 'string', 'group' => 'aemet', 'description' => 'AEMET Municipio Code (5 digits, e.g. 28079 for Madrid)'],
 
             // ===== WeatherFlow =====
             ['key' => 'weatherflow.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'weatherflow', 'description' => 'Enable WeatherFlow Tempest station'],
