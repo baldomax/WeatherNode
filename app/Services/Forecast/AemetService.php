@@ -37,11 +37,13 @@ class AemetService implements ForecastServiceInterface
                 $hourlyData = $this->fetchAemetEndpoint("prediccion/especifica/municipio/horaria/{$this->municipio}");
 
                 if ($dailyData && $hourlyData) {
-                    return [
+                    $raw = [
                         'daily' => $dailyData,
                         'hourly' => $hourlyData,
                         'updated_at' => now()->toIso8601String(),
                     ];
+                    $raw['forecast'] = $this->parseHourlyEntries($hourlyData);
+                    return $raw;
                 }
             } catch (\Exception $e) {
                 Log::error('AEMET API exception', ['error' => $e->getMessage()]);
@@ -81,12 +83,21 @@ class AemetService implements ForecastServiceInterface
     public function getHourlyForecast(int $hours = 48): array
     {
         $data = $this->fetchForecast();
-        if (!$data || empty($data['hourly'])) {
+        if (!$data) {
             return [];
         }
 
+        if (isset($data['forecast']) && is_array($data['forecast'])) {
+            return array_slice($data['forecast'], 0, $hours);
+        }
+
+        return $this->parseHourlyEntries($data['hourly'] ?? [], $hours);
+    }
+
+    private function parseHourlyEntries(array $hourlyRawData, int $hours = 48): array
+    {
         $forecast = [];
-        $municipioData = $data['hourly'][0] ?? [];
+        $municipioData = $hourlyRawData[0] ?? [];
         $dias = $municipioData['prediccion']['dia'] ?? [];
 
         foreach ($dias as $dia) {

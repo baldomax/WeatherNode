@@ -137,6 +137,7 @@ class LocalWarningService
             'fct_darksky_block.php' => "openweathermap_forecast_{$lat}_{$lon}",
             'fct_wu_block.php'      => "wunderground_forecast_{$lat}_{$lon}",
             'fct_ec_block.php'      => "ec_forecast_{$lat}_{$lon}",
+            'fct_aemet_block.php'   => "aemet_forecast_" . Setting::getValue('aemet.municipio', ''),
         ];
 
         $forecastData = Cache::get($sourceKeys[$source] ?? null)
@@ -525,6 +526,7 @@ class LocalWarningService
             'fct_darksky_block.php' => "openweathermap_forecast_{$lat}_{$lon}",
             'fct_wu_block.php'      => "wunderground_forecast_{$lat}_{$lon}",
             'fct_ec_block.php'      => "ec_forecast_{$lat}_{$lon}",
+            'fct_aemet_block.php'   => "aemet_forecast_" . Setting::getValue('aemet.municipio', ''),
         ];
 
         $forecastData = Cache::get($sourceKeys[$source] ?? null)
@@ -637,6 +639,7 @@ class LocalWarningService
             'fct_darksky_block.php' => "openweathermap_forecast_{$lat}_{$lon}",
             'fct_wu_block.php'      => "wunderground_forecast_{$lat}_{$lon}",
             'fct_ec_block.php'      => "ec_forecast_{$lat}_{$lon}",
+            'fct_aemet_block.php'   => "aemet_forecast_" . Setting::getValue('aemet.municipio', ''),
         ];
 
         $forecastData = Cache::get($sourceKeys[$source] ?? null)
