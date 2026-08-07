@@ -18,7 +18,7 @@ class AmbientWeatherService
     public function __construct()
     {
         $this->apiKey = $this->getDecryptedValue('ambient.api_key');
-        $this->applicationKey = 'your-application-key'; // Usually a static key
+        $this->applicationKey = $this->getDecryptedValue('ambient.application_key');
         $this->macAddress = Setting::getValue('ambient.mac_address', '');
     }
 
@@ -45,7 +45,7 @@ class AmbientWeatherService
      */
     public function isConfigured(): bool
     {
-        return !empty($this->apiKey);
+        return !empty($this->apiKey) && !empty($this->applicationKey);
     }
 
     /**

@@ -660,6 +660,24 @@ class SettingsController extends Controller
             $this->updateLiveDataSettings($request);
         }
 
+        if ($group === 'ambient' && $request->input('ambient_enabled') === '1') {
+            $apiKey = trim((string) $request->input('ambient_api_key', ''))
+                ?: trim((string) Setting::getValue('ambient.api_key', ''));
+            $applicationKey = trim((string) $request->input('ambient_application_key', ''))
+                ?: trim((string) Setting::getValue('ambient.application_key', ''));
+
+            $errors = [];
+            if (empty($apiKey)) {
+                $errors['ambient_api_key'] = 'The Ambient Weather API key is required when the integration is enabled.';
+            }
+            if (empty($applicationKey)) {
+                $errors['ambient_application_key'] = 'The Ambient Weather application key is required when the integration is enabled.';
+            }
+            if ($errors !== []) {
+                throw \Illuminate\Validation\ValidationException::withMessages($errors);
+            }
+        }
+
         if ($group === 'pollen') {
             $this->updatePollenSettings($request);
             Cache::forget('pollen_forecast');

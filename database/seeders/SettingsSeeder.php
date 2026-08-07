@@ -276,7 +276,8 @@ class SettingsSeeder extends Seeder
             // ===== Ambient Weather =====
             ['key' => 'ambient.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'ambient', 'description' => 'Enable Ambient Weather API'],
             ['key' => 'ambient.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'ambient', 'description' => 'Ambient Weather API Key'],
-            ['key' => 'ambient.device_id', 'value' => '', 'type' => 'string', 'group' => 'ambient', 'description' => 'Ambient Weather device MAC'],
+            ['key' => 'ambient.application_key', 'value' => '', 'type' => 'encrypted', 'group' => 'ambient', 'description' => 'Ambient Weather Application Key'],
+            ['key' => 'ambient.mac_address', 'value' => '', 'type' => 'string', 'group' => 'ambient', 'description' => 'Ambient Weather device MAC'],
 
             // ===== Davis WeatherLink =====
             ['key' => 'weatherlink.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'weatherlink', 'description' => 'Enable Davis WeatherLink Cloud'],

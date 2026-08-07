@@ -55,6 +55,16 @@
         </div>
     @endif
 
+    @if($errors->any())
+        <div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <ul class="list-disc pl-5 text-sm text-red-800 dark:text-red-200 space-y-1">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @if($group === 'advanced')
         <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
