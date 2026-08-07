@@ -68,7 +68,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          versions_json="$(gh api --paginate "${ENDPOINT}?per_page=100")"
+          versions_json="$(gh api --paginate --slurp "${ENDPOINT}?per_page=100" | jq 'add // []')"
 
           if [ "$(echo "${versions_json}" | jq 'length')" -eq 0 ]; then
             echo "No package versions found."
@@ -86,10 +86,17 @@ jobs:
               })
           ')"
 
+          if ! echo "${normalized}" | jq -e '
+            all(.[]; .digest | test("^sha256:[0-9a-f]{64}$"))
+          ' >/dev/null; then
+            echo "Package metadata contains an invalid manifest digest; aborting cleanup." >&2
+            exit 1
+          fi
+
           # Keep latest-tagged versions and the newest N year-based release tags.
           keep_latest_ids="$(echo "${normalized}" | jq -r '
             [ .[] | select(.tags | index("latest")) | .id ] | unique | .[]
-          ' || true)"
+          ')"
 
           keep_release_ids="$(echo "${normalized}" | jq -r --argjson keep "${KEEP_RELEASES}" '
             [ .[]
@@ -100,7 +107,7 @@ jobs:
             | map(.id)
             | unique
             | .[]
-          ' || true)"
+          ')"
 
           keep_ids="$(printf "%s\n%s\n" "${keep_latest_ids}" "${keep_release_ids}" | awk 'NF' | sort -u)"
 
@@ -118,8 +125,11 @@ jobs:
             owner_lc="$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')"
             registry_token="$(curl --fail --silent --show-error \
               --user "${ACTOR}:${GH_TOKEN}" \
-              "https://ghcr.io/token?service=ghcr.io&scope=repository:${owner_lc}/${PACKAGE}:pull" \
-              | jq -er '.token')"
+              --get \
+              --data-urlencode "service=ghcr.io" \
+              --data-urlencode "scope=repository:${owner_lc}/${PACKAGE}:pull" \
+              "https://ghcr.io/token" \
+              | jq -er '.token | select(type == "string" and length > 0)')"
 
             while IFS= read -r tag; do
               [ -n "${tag}" ] || continue
@@ -128,9 +138,47 @@ jobs:
                 -H "Authorization: Bearer ${registry_token}" \
                 -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
                 "https://ghcr.io/v2/${owner_lc}/${PACKAGE}/manifests/${encoded_tag}")"
-              child_digests="$(echo "${manifest_json}" | jq -r '(.manifests // []) | .[].digest')"
+              child_digests="$(echo "${manifest_json}" | jq -r --arg tag "${tag}" '
+                def is_index:
+                  . == "application/vnd.oci.image.index.v1+json"
+                  or . == "application/vnd.docker.distribution.manifest.list.v2+json";
+                def is_image:
+                  . == "application/vnd.oci.image.manifest.v1+json"
+                  or . == "application/vnd.docker.distribution.manifest.v2+json";
+                def valid_digest:
+                  type == "string" and test("^sha256:[0-9a-f]{64}$");
+
+                if .schemaVersion != 2 then
+                  error("Invalid schemaVersion for retained tag \($tag)")
+                elif (.mediaType | is_index) then
+                  if (.manifests | type) != "array" or (.manifests | length) == 0 then
+                    error("Retained index \($tag) has no child manifests")
+                  elif all(.manifests[]; .digest | valid_digest) then
+                    .manifests[].digest
+                  else
+                    error("Retained index \($tag) contains an invalid child digest")
+                  end
+                elif (.mediaType | is_image) then
+                  empty
+                else
+                  error("Unsupported media type for retained tag \($tag)")
+                end
+              ')"
               protected_child_digests="$(printf "%s\n%s\n" "${protected_child_digests}" "${child_digests}" | awk 'NF' | sort -u)"
             done <<< "${kept_tags}"
+          fi
+
+          missing_child_digests="$(echo "${normalized}" | jq -r --arg digests "${protected_child_digests}" '
+            [.[].digest] as $available
+            | ($digests | split("\n") | map(select(length > 0)))[]
+            | . as $digest
+            | select(($available | index($digest)) == null)
+          ')"
+
+          if [ -n "${missing_child_digests}" ]; then
+            echo "Retained indexes reference child manifests absent from package metadata; aborting cleanup:" >&2
+            printf "%s\n" "${missing_child_digests}" >&2
+            exit 1
           fi
 
           protected_child_ids="$(echo "${normalized}" | jq -r --arg digests "${protected_child_digests}" '
@@ -161,7 +209,7 @@ jobs:
           ' | sort -u)"
 
           # Filter out keep list.
-          final_delete_ids="$(comm -23 <(printf "%s\n" "${delete_ids}" | awk 'NF' | sort -u) <(printf "%s\n" "${keep_ids}" | awk 'NF' | sort -u) || true)"
+          final_delete_ids="$(comm -23 <(printf "%s\n" "${delete_ids}" | awk 'NF' | sort -u) <(printf "%s\n" "${keep_ids}" | awk 'NF' | sort -u))"
 
           if [ -z "${final_delete_ids}" ]; then
             echo "No versions to delete after retention filtering."
