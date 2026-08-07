@@ -1479,16 +1479,20 @@ function weatherDashboard() {
                 initImageRefresh() {
                     this.initLazyImageObserver();
 
-                    // Refresh webcam at configured interval (only when in image mode, not livestream)
-                    const webcamImg = document.getElementById('webcam-image');
+                    // The webcam lives inside x-if, so resolve it after Alpine renders and on every tick.
                     const webcamRefreshInterval = Number(cfg.webcamRefreshInterval || 60) * 1000;
-                    if (webcamImg) {
-                        this._intervals.push(setInterval(() => {
-                            if (this.isPageVisible && webcamImg && this.isWebcamInImageMode(webcamImg)) {
-                                this.refreshImage(webcamImg);
-                            }
-                        }, webcamRefreshInterval));
-                    }
+                    this.$nextTick(() => {
+                        const webcamImg = document.getElementById('webcam-image');
+                        if (webcamImg && this.isWebcamInImageMode(webcamImg)) {
+                            this.activateLazyImage(webcamImg);
+                        }
+                    });
+                    this._intervals.push(setInterval(() => {
+                        const webcamImg = document.getElementById('webcam-image');
+                        if (this.isPageVisible && webcamImg && this.isWebcamInImageMode(webcamImg)) {
+                            this.refreshImage(webcamImg);
+                        }
+                    }, webcamRefreshInterval));
 
                     // Refresh radar every 60 seconds (GIFs update less frequently)
                     const radarImg = document.getElementById('radar-image');
@@ -1503,7 +1507,6 @@ function weatherDashboard() {
                 },
 
                 isWebcamInImageMode(webcamImg) {
-                    // Only refresh when displayMode is exactly 'image', not 'stream' or 'both'
                     if (!webcamImg) {
                         return false;
                     }
@@ -1528,50 +1531,8 @@ function weatherDashboard() {
                         }
                     }
                     
-                    // Check if there's a visible stream iframe or video in the same container
-                    // This indicates we're in stream mode and shouldn't refresh
-                    const container = webcamImg.closest('.aspect-video');
-                    if (container) {
-                        const streamIframes = container.querySelectorAll('iframe');
-                        const streamVideos = container.querySelectorAll('video');
-                        
-                        for (let iframe of streamIframes) {
-                            const iframeStyle = window.getComputedStyle(iframe);
-                            if (iframeStyle.display !== 'none' && iframeStyle.visibility !== 'hidden' && iframe.offsetParent) {
-                                return false; // Stream iframe is visible, don't refresh
-                            }
-                        }
-                        for (let video of streamVideos) {
-                            const videoStyle = window.getComputedStyle(video);
-                            if (videoStyle.display !== 'none' && videoStyle.visibility !== 'hidden' && video.offsetParent) {
-                                return false; // Stream video is visible, don't refresh
-                            }
-                        }
-                    }
-                    
-                    // Access Alpine.js component's displayMode to check if it's image-only mode
-                    // Find the Alpine component that contains this image
-                    let alpineParent = webcamImg.closest('[x-data]');
-                    if (alpineParent) {
-                        // Try multiple ways to access Alpine data
-                        let alpineData = null;
-                        if (alpineParent._x_dataStack && alpineParent._x_dataStack[0]) {
-                            alpineData = alpineParent._x_dataStack[0];
-                        } else if (alpineParent.__x && alpineParent.__x.$data) {
-                            alpineData = alpineParent.__x.$data;
-                        } else if (window.Alpine && alpineParent._x_dataStack) {
-                            alpineData = alpineParent._x_dataStack[0];
-                        }
-                        
-                        if (alpineData && alpineData.displayMode !== undefined) {
-                            // Only refresh when displayMode is exactly 'image', not 'stream' or 'both'
-                            return alpineData.displayMode === 'image';
-                        }
-                    }
-                    
-                    // Fallback: if we can't access Alpine data, be conservative and don't refresh
-                    // This prevents unwanted refreshes during livestream
-                    return false;
+                    const displayMode = webcamImg.dataset.displayMode || 'image';
+                    return displayMode === 'image' || displayMode === 'both';
                 },
 
                 refreshImage(imgElement) {

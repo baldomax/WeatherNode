@@ -4176,6 +4176,8 @@
                      streamType: '{{ \App\Models\Setting::getValue('webcam.stream_type', 'none') }}',
                      imageUrl: '{{ \App\Models\Setting::getValue('webcam.url', 'https://www.meteouitgeest.nl/thumbnail/image.jpg') }}',
                      showStreamModal: false,
+                     imageUpdatedAt: null,
+                     imageLoadFailed: false,
                      // Determine initial streaming state immediately (do not rely on init()).
                      // Goal:
                      // - Phones/tablets OR small viewports: start paused (data saver, tap-to-play)
@@ -4223,6 +4225,17 @@
                          // Apply streaming state after Alpine has had a chance to process bindings.
                          // (Avoid relying on Alpine $nextTick being available in all contexts.)
                          setTimeout(() => this.applyStreamingState(), 0);
+                     },
+                     markImageLoaded() {
+                         this.imageUpdatedAt = new Date();
+                         this.imageLoadFailed = false;
+                     },
+                     formatImageUpdatedAt() {
+                         if (!this.imageUpdatedAt) return '';
+                         return this.imageUpdatedAt.toLocaleTimeString(document.documentElement.lang || undefined, {
+                             hour: '2-digit',
+                             minute: '2-digit'
+                         });
                      },
                      checkMobileData() {
                          // Phone/tablet UA only (used for autoplay decision so desktop/touchscreen still autoplays)
@@ -4413,7 +4426,7 @@
                     <h3 class="font-semibold">📷 {{ __('Webcam') }}</h3>
                     <div class="flex items-center gap-2">
                         <!-- Stop/Play stream button - only show when streaming is active -->
-                        <button x-show="displayMode === 'stream' || (displayMode === 'both' && streamType !== 'none')"
+                        <button x-show="displayMode === 'stream' && streamType !== 'none' && streamUrl"
                                 @click="toggleStream()"
                                 class="text-xs px-2 py-1 rounded transition-colors flex items-center gap-1"
                                 :class="isStreaming ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'"
@@ -4428,7 +4441,20 @@
                             <span x-text="isStreaming ? '{{ __('Stop') }}' : '{{ __('Play') }}'"></span>
                         </button>
                         <span class="text-xs text-gray-400" x-show="isStreaming">{{ __('Live') }}</span>
-                        <span class="text-xs text-yellow-400" x-show="!isStreaming">📱 {{ __('Data saver') }}</span>
+                        <span class="text-xs text-yellow-400" x-show="displayMode === 'stream' && !isStreaming">📱 {{ __('Data saver') }}</span>
+                        <span x-show="displayMode === 'image' || displayMode === 'both'"
+                              class="inline-flex max-w-36 items-center gap-1.5 whitespace-nowrap text-xs text-gray-400"
+                              style="display: none;">
+                            <span class="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                                  :class="imageLoadFailed ? 'bg-red-400' : (imageUpdatedAt ? 'bg-green-400' : 'bg-amber-400')"></span>
+                            <span x-show="!imageUpdatedAt && !imageLoadFailed">{{ __('Updating...') }}</span>
+                            <span x-show="imageUpdatedAt && !imageLoadFailed" class="truncate">
+                                {{ __('Updated') }} <span x-text="formatImageUpdatedAt()"></span>
+                            </span>
+                            <span x-show="imageLoadFailed"
+                                  class="truncate"
+                                  title="{{ __('Webcam not available') }}">{{ __('Webcam not available') }}</span>
+                        </span>
                     </div>
                 </div>
                 <div class="aspect-video bg-black/30 rounded-xl overflow-hidden relative">
@@ -4535,17 +4561,26 @@
                         <img id="webcam-image" 
                              src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
                              x-bind:data-lazy-src="imageUrl"
+                             x-bind:data-display-mode="displayMode"
                              alt="{{ __('Webcam') }}" 
                              class="w-full h-full object-cover"
                              loading="lazy"
                              decoding="async"
                              :class="(displayMode === 'both' && streamType !== 'none' && streamUrl && (getEmbedUrl() || (streamType === 'restreamer' && streamUrl.includes('/b/')))) ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''"
                              @click.stop="(displayMode === 'both' && streamType !== 'none' && streamUrl && (getEmbedUrl() || (streamType === 'restreamer' && streamUrl.includes('/b/')))) ? openStreamModal() : null"
-                             onerror="this.parentElement.innerHTML='<div class=\'absolute inset-0 flex items-center justify-center text-gray-500\'>📷 {{ __('Webcam not available') }}</div>'">
+                             x-on:load="markImageLoaded()"
+                             x-on:error="imageLoadFailed = true">
+                        <div x-show="imageLoadFailed"
+                             class="absolute inset-0 flex items-center justify-center bg-black/50 text-sm text-gray-300"
+                             style="display: none;">
+                            📷 {{ __('Webcam not available') }}
+                        </div>
                     </div>
                     
                     <!-- Live indicator -->
-                    <div class="absolute bottom-2 left-2 text-xs bg-black/50 px-2 py-1 rounded flex items-center gap-1.5 z-10">
+                    <div x-show="displayMode === 'stream' && isStreaming"
+                         class="absolute bottom-2 left-2 text-xs bg-black/50 px-2 py-1 rounded flex items-center gap-1.5 z-10"
+                         style="display: none;">
                         <span class="live-indicator inline-block w-2 h-2 bg-green-500 rounded-full shadow-lg shadow-green-500/50"></span>
                         {{ __('Live') }}
                     </div>

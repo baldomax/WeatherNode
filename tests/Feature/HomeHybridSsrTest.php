@@ -148,6 +148,53 @@ class HomeHybridSsrTest extends TestCase
         $this->assertStringContainsString("x-show=\"ssrFallbackVisible && isWidgetEnabled('astro_events') && astronomicalEvents.length === 0\"", $content);
     }
 
+    public function test_webcam_data_saver_is_only_shown_for_a_paused_stream(): void
+    {
+        $viewPath = resource_path('views/weather/dashboard.blade.php');
+        $content = file_get_contents($viewPath);
+
+        $this->assertIsString($content);
+        $this->assertStringContainsString(
+            "x-show=\"displayMode === 'stream' && !isStreaming\"",
+            $content,
+        );
+    }
+
+    public function test_webcam_refresh_requeries_the_conditional_image_and_supports_both_modes(): void
+    {
+        $jsPath = resource_path('js/pages/dashboard.js');
+        $contents = file_get_contents($jsPath);
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString(
+            "const webcamImg = document.getElementById('webcam-image');",
+            $contents,
+        );
+        $this->assertStringContainsString(
+            "return displayMode === 'image' || displayMode === 'both';",
+            $contents,
+        );
+    }
+
+    public function test_webcam_image_mode_shows_a_compact_refresh_status(): void
+    {
+        $viewPath = resource_path('views/weather/dashboard.blade.php');
+        $content = file_get_contents($viewPath);
+
+        $this->assertIsString($content);
+        $this->assertStringContainsString('imageUpdatedAt: null,', $content);
+        $this->assertStringContainsString('x-on:load="markImageLoaded()"', $content);
+        $this->assertStringContainsString('x-on:error="imageLoadFailed = true"', $content);
+        $this->assertStringContainsString(
+            "x-show=\"displayMode === 'image' || displayMode === 'both'\"",
+            $content,
+        );
+        $this->assertStringContainsString(
+            "x-show=\"displayMode === 'stream' && isStreaming\"",
+            $content,
+        );
+    }
+
     private function seedDashboardFixtureData(): void
     {
         WeatherReading::create([

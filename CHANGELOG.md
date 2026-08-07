@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.01] - 2026-08-07
+
+- Fix webcam image refresh after the dashboard renders conditional widgets
+- Refresh webcam snapshots in both image-only and image-with-stream modes
+- Show a compact, mobile-friendly image update time and failure status
+- Only show data saver controls for paused livestreams
+
 ## [2026.07.2] - 2026-07-31
 
 - Localize weekly temperature chart day labels to the active site locale
