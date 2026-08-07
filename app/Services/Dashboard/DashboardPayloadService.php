@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Models\WeatherReading;
 use App\Services\Alerts\AlertAggregatorService;
 use App\Services\AirQuality\WaqiService;
+use App\Support\StatTileRegistry;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -41,6 +42,7 @@ class DashboardPayloadService
         $layout = $this->readWidgetLayout();
         $payload['grid_cols'] = (int) ($layout['grid_cols'] ?? 3);
         $payload['widget_order'] = is_array($layout['widget_order'] ?? null) ? $layout['widget_order'] : [];
+        $payload['stat_order'] = StatTileRegistry::storedOrder();
 
         return $payload;
     }
@@ -570,8 +572,10 @@ class DashboardPayloadService
                 'model' => $reading?->station_model,
             ],
             'enabled_widgets' => $enabledWidgets,
+            'enabled_stats' => StatTileRegistry::enabledIds(),
             'grid_cols' => $gridCols,
             'widget_order' => $layout['widget_order'] ?? [],
+            'stat_order' => StatTileRegistry::storedOrder(),
             'effects' => $effectSettings,
         ];
     }

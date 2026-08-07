@@ -10,11 +10,13 @@ use App\Services\Weather\EcowittPushParser;
 use App\Services\Weather\Normalization\WeatherReadingWriter;
 use App\Services\Weather\SunshineHoursCalculator;
 use App\Services\Ads\AdsConsentService;
+use App\Services\Dashboard\DashboardPayloadService;
 use App\Services\Mail\MailConfigService;
 use App\Services\Nlg\NlgProviderModelDiscovery;
 use App\Services\OpenData\OpenDataProviderRegistry;
 use App\Services\Radar\RadarFutureFramesService;
 use App\Support\MenuFeatureMap;
+use App\Support\StatTileRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Artisan;
@@ -894,6 +896,11 @@ class SettingsController extends Controller
         ];
         $menuFeatures = MenuFeatureMap::all();
 
+        // Quick Stats bar: the compact tiles above the widget grid. Same
+        // enable/reorder model as widgets, separate registry and storage.
+        $availableStatTiles = StatTileRegistry::all();
+        $enabledStatTiles = StatTileRegistry::enabledIds();
+
         $enabledWidgetsValue = Setting::getValue('widgets.enabled', []);
         $enabledWidgets = is_array($enabledWidgetsValue) ? $enabledWidgetsValue : (json_decode($enabledWidgetsValue, true) ?: []);
         
@@ -959,6 +966,8 @@ class SettingsController extends Controller
             'menuFeatures' => $menuFeatures,
             'widgetFeatureRequirements' => $widgetFeatureRequirements,
             'widgetFeatureLabels' => $widgetFeatureLabels,
+            'availableStatTiles' => $availableStatTiles,
+            'enabledStatTiles' => $enabledStatTiles,
         ]);
     }
 
@@ -984,7 +993,15 @@ class SettingsController extends Controller
 
         Setting::setValue('widgets.enabled', $enabledWidgets, 'json', 'widgets');
         Setting::setValue('widgets.layout', $existingLayout, 'json', 'widgets');
-        
+
+        // Guarded by a marker input: an empty enabled_stat_tiles means "all tiles
+        // off", which is indistinguishable from a form that omits the section.
+        if ($request->boolean('stat_tiles_submitted')) {
+            $enabledStatTiles = StatTileRegistry::sanitizeEnabled((array) $request->input('enabled_stat_tiles', []));
+            Setting::setValue(StatTileRegistry::SETTING_ENABLED, $enabledStatTiles, 'json', 'widgets');
+        }
+
+
         // Save ad company and ad code if provided
         if ($request->has('ad_company')) {
             Setting::setValue('widgets.ad_company', $request->input('ad_company'), 'string', 'widgets');
@@ -1062,6 +1079,9 @@ class SettingsController extends Controller
         Setting::setValue('widgets.temp_chart_observed', $request->boolean('temp_chart_observed'), 'boolean', 'widgets');
 
         $this->clearSettingsCache();
+        // The payload caches enabled widgets and stat tiles for 30s; without this
+        // the dashboard keeps serving the old set right after saving.
+        app(DashboardPayloadService::class)->forgetDashboardPayloadCaches();
 
         return redirect()
             ->route('admin.settings.widgets')

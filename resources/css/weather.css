@@ -363,6 +363,52 @@ body:has(.weather-bg) {
 }
 
 /* ==========================================================================
+   Quick Stats Bar
+   ========================================================================== */
+
+/* auto-fit so tiles stretch to fill the row whatever the enabled count is —
+   the tile total is operator-configurable, so a fixed column count would
+   leave holes. The mobile minimum is sized so the default ten tiles still
+   land five to a row on a normal phone, matching the previous fixed grid. */
+.quick-stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
+    gap: 0.375rem;
+}
+
+@media (min-width: 640px) {
+    .quick-stats-bar {
+        grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+        gap: 0.5rem;
+    }
+}
+
+.stat-tile {
+    position: relative;
+    contain: layout style;
+}
+
+/* Tiles are far too small for a corner drag handle, so the whole tile drags. */
+.edit-mode .sortable-stat {
+    cursor: grab;
+}
+
+.edit-mode .sortable-stat:active {
+    cursor: grabbing;
+}
+
+.edit-mode .sortable-stat::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px dashed rgba(139, 92, 246, 0.5);
+    border-radius: 0.5rem;
+    pointer-events: none;
+    z-index: 10;
+    animation: borderPulse 2s ease-in-out infinite;
+}
+
+/* ==========================================================================
    Weather Effects - Rain
    ========================================================================== */
 

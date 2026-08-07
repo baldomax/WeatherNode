@@ -17,6 +17,7 @@ use App\Services\Dashboard\DashboardPayloadService;
 use App\Services\Forecast\ForecastServiceFactory;
 use App\Contracts\Nlg\Narrator;
 use App\Services\Nlg\ForecastNlgCacheService;
+use App\Support\StatTileRegistry;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -944,34 +945,43 @@ class WeatherController extends Controller
     }
 
     /**
-     * Save widget order from drag-and-drop on dashboard
+     * Save widget and Quick Stats tile order from drag-and-drop on dashboard
      * Route is protected by auth+admin middleware in web.php
      */
     public function saveWidgetOrder(Request $request, DashboardPayloadService $dashboardPayload): JsonResponse
     {
         $widgetOrder = $request->input('widget_order', []);
-        
-        if (empty($widgetOrder)) {
+        // Unknown ids are dropped rather than persisted; the bar renders strictly
+        // from the registry, so junk in the order would silently do nothing.
+        $statOrder = StatTileRegistry::sanitizeOrder((array) $request->input('stat_order', []));
+
+        if (empty($widgetOrder) && empty($statOrder)) {
             return response()->json(['success' => false, 'message' => 'No widget order provided']);
         }
 
         // Get current layout settings
         $layout = $this->readWidgetLayout();
-        
-        // Add widget order to layout
-        $layout['widget_order'] = $widgetOrder;
+
+        // Each side is optional: edit mode can save a stats-only reorder.
+        if (!empty($widgetOrder)) {
+            $layout['widget_order'] = $widgetOrder;
+        }
+        if (!empty($statOrder)) {
+            $layout['stat_order'] = $statOrder;
+        }
 
         Setting::setValue('widgets.layout', $layout, 'json', 'widgets');
 
         // Ensure dashboard API immediately serves the new layout (no stale 30s payload cache).
         $dashboardPayload->forgetDashboardPayloadCaches();
 
-        \Log::info('Widget order saved', ['order' => $widgetOrder]);
+        \Log::info('Widget order saved', ['order' => $widgetOrder, 'stat_order' => $statOrder]);
 
         return response()->json([
             'success' => true,
             'message' => 'Widget order saved!',
             'widget_order' => $widgetOrder,
+            'stat_order' => $statOrder,
         ]);
     }
 

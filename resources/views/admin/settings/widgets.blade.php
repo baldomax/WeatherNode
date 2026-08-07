@@ -183,8 +183,68 @@
                         </div>
                     @endforeach
                 </div>
+
+                <!-- Quick Stats Bar -->
+                <div class="mt-10">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('Quick Stats Bar') }}</h2>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">
+                            <span x-text="enabledStatCount"></span> {{ __('tiles enabled') }}
+                        </span>
+                    </div>
+                    <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                        {{ __('The compact strip of tiles at the very top of the dashboard. Switch tiles off here; drag them into the order you want on the dashboard itself using Edit layout.') }}
+                    </p>
+
+                    <div class="flex gap-2 mb-4">
+                        <button type="button" @click="setAllStatTiles(true)"
+                                class="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition">
+                            {{ __('Enable all') }}
+                        </button>
+                        <button type="button" @click="setAllStatTiles(false)"
+                                class="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition">
+                            {{ __('Disable all') }}
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        @foreach($availableStatTiles as $tileId => $tile)
+                            @php
+                                $tileFeature = $tile['feature'] ?? null;
+                                $tileFeatureLabel = $tileFeature !== null
+                                    ? ($widgetFeatureLabels[$tileFeature] ?? ucwords(str_replace('_', ' ', $tileFeature)))
+                                    : null;
+                                $isTileFeatureDisabled = $tileFeature !== null && !($menuFeatures[$tileFeature] ?? true);
+                            @endphp
+                            <div class="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-xl border transition-all"
+                                 :class="isStatTileEnabled('{{ $tileId }}') ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'"
+                                 data-stat-tile="{{ $tileId }}">
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">{{ __($tile['label']) }}</h3>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 leading-snug">{{ __($tile['description']) }}</p>
+                                    @if($isTileFeatureDisabled)
+                                        <p class="mt-1 text-[11px] text-amber-700 dark:text-amber-400 leading-snug">
+                                            {{ __('Hidden while :feature is disabled in Navigation settings.', ['feature' => $tileFeatureLabel]) }}
+                                            <a href="{{ route('admin.settings.group', 'navigation') }}" class="underline decoration-dotted hover:decoration-solid">{{ __('Manage') }}</a>
+                                        </p>
+                                    @endif
+                                </div>
+                                <div class="flex-shrink-0">
+                                    <button type="button"
+                                            @click="toggleStatTile('{{ $tileId }}')"
+                                            :class="isStatTileEnabled('{{ $tileId }}') ? 'bg-violet-600' : 'bg-gray-300 dark:bg-gray-600'"
+                                            class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2">
+                                        <span class="sr-only">{{ __('Toggle') }} {{ __($tile['label']) }}</span>
+                                        <span :class="isStatTileEnabled('{{ $tileId }}') ? 'translate-x-5' : 'translate-x-0'"
+                                              class="pointer-events-none relative inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
             </div>
-            
+
             <!-- Preview & Settings Sidebar -->
             <div class="space-y-6">
                 <!-- Quick Templates -->
@@ -655,7 +715,14 @@
         <template x-for="widgetId in enabledWidgets" :key="'input-' + widgetId">
             <input type="hidden" name="enabled_widgets[]" :value="widgetId">
         </template>
-        
+
+        {{-- Marks the stat tile section as present so "none enabled" is saved as
+             an empty list instead of read as "this form has no opinion". --}}
+        <input type="hidden" name="stat_tiles_submitted" value="1">
+        <template x-for="tileId in enabledStatTiles" :key="'stat-input-' + tileId">
+            <input type="hidden" name="enabled_stat_tiles[]" :value="tileId">
+        </template>
+
         <!-- Actions -->
         <div class="mt-8 flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
             <a href="{{ route('admin.settings.index') }}" class="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
@@ -676,6 +743,8 @@
 <script>
 const widgetLabels = @json($availableWidgets);
 const initialEnabled = @json($enabledWidgets);
+const statTileIds = Object.keys(@json($availableStatTiles));
+const initialEnabledStatTiles = @json($enabledStatTiles);
 const initialGridCols = parseInt('{{ $layout['grid_cols'] ?? 3 }}', 10);
 const initialRainVisualization = '{{ $rainVisualization ?? 'ripple' }}';
 const initialPressureVisualization = '{{ $pressureVisualization ?? 'sky' }}';
@@ -704,6 +773,7 @@ const templates = {
 function widgetManager() {
     return {
         enabledWidgets: [...initialEnabled],
+        enabledStatTiles: [...initialEnabledStatTiles],
         gridCols: initialGridCols,
         rainVisualization: initialRainVisualization,
         pressureVisualization: initialPressureVisualization,
@@ -714,7 +784,11 @@ function widgetManager() {
         get enabledCount() {
             return this.enabledWidgets.length;
         },
-        
+
+        get enabledStatCount() {
+            return this.enabledStatTiles.length;
+        },
+
         init() {
             // No widget ordering here anymore; cards are reordered on the dashboard itself.
         },
@@ -739,7 +813,28 @@ function widgetManager() {
         getWidgetLabel(widgetId) {
             return widgetLabels[widgetId]?.label || widgetId;
         },
-        
+
+        isStatTileEnabled(tileId) {
+            return this.enabledStatTiles.includes(tileId);
+        },
+
+        toggleStatTile(tileId) {
+            if (this.isStatTileEnabled(tileId)) {
+                this.enabledStatTiles = this.enabledStatTiles.filter(id => id !== tileId);
+            } else {
+                // Registry order, so the saved list stays readable.
+                this.enabledStatTiles = statTileIds.filter(
+                    id => id === tileId || this.enabledStatTiles.includes(id)
+                );
+            }
+            this.hasChanges = true;
+        },
+
+        setAllStatTiles(enabled) {
+            this.enabledStatTiles = enabled ? [...statTileIds] : [];
+            this.hasChanges = true;
+        },
+
         applyTemplate(templateName) {
             const template = templates[templateName];
             if (!template) return;
