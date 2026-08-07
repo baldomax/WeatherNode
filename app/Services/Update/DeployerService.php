@@ -717,18 +717,43 @@ class DeployerService
             symlink($sharedStorage, $releaseStorage);
         }
 
-        // Link database (for SQLite)
+        // Link the SQLite database file(s) into the release.
+        //
+        // Only the .sqlite files, never the whole database/ directory: that
+        // directory also holds database/migrations, so replacing it with a
+        // symlink to shared/ deleted every migration the release shipped.
+        // `migrate --force` in runPostDeploySteps then ran against shared/,
+        // which nothing ever seeds, and silently applied nothing — so schema
+        // changes never reached SQLite installs and the drift only surfaced
+        // later, as a missing column or setting.
         $sharedDatabase = $this->sharedPath . '/database';
         $releaseDatabase = $releaseDir . '/database';
-        
+
         if (File::exists($sharedDatabase)) {
-            // Only link if it's SQLite (contains .sqlite files)
-            $hasSqlite = !empty(File::glob($sharedDatabase . '/*.sqlite*'));
-            if ($hasSqlite) {
-                if (File::exists($releaseDatabase)) {
-                    File::deleteDirectory($releaseDatabase);
+            $sharedSqliteFiles = File::glob($sharedDatabase . '/*.sqlite*');
+
+            if (!empty($sharedSqliteFiles)) {
+                // A same-version redeploy can find the legacy whole-directory
+                // symlink still in place. Drop it (the shared target is left
+                // untouched) so the release gets a real directory again.
+                if (is_link($releaseDatabase)) {
+                    unlink($releaseDatabase);
                 }
-                symlink($sharedDatabase, $releaseDatabase);
+                if (!File::isDirectory($releaseDatabase)) {
+                    File::makeDirectory($releaseDatabase, 0755, true);
+                }
+
+                foreach ($sharedSqliteFiles as $sharedSqliteFile) {
+                    $releaseSqliteFile = $releaseDatabase . '/' . basename($sharedSqliteFile);
+
+                    // The zip never ships a .sqlite, but a stale link from an
+                    // earlier deploy of this same version can be here.
+                    if (is_link($releaseSqliteFile) || File::exists($releaseSqliteFile)) {
+                        File::delete($releaseSqliteFile);
+                    }
+
+                    symlink($sharedSqliteFile, $releaseSqliteFile);
+                }
             }
         }
     }
