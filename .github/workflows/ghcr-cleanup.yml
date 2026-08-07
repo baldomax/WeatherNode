@@ -60,6 +60,9 @@ jobs:
       - name: Delete old package versions
         env:
           ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
+          PACKAGE: ${{ steps.endpoint.outputs.package }}
+          OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
           KEEP_RELEASES: ${{ github.event.inputs.keep_release_tags || '6' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run || 'false' }}
         run: |
@@ -78,6 +81,7 @@ jobs:
             | map({
                 id: .id,
                 created_at: .created_at,
+                digest: (.name // ""),
                 tags: (.metadata.container.tags // [])
               })
           ')"
@@ -100,8 +104,51 @@ jobs:
 
           keep_ids="$(printf "%s\n%s\n" "${keep_latest_ids}" "${keep_release_ids}" | awk 'NF' | sort -u)"
 
+          # Multi-arch images store their platform manifests as untagged package versions.
+          # Resolve every retained tag's index and protect the child digests it references.
+          kept_tags="$(echo "${normalized}" | jq -r --arg ids "${keep_ids}" '
+            ($ids | split("\n") | map(select(length > 0))) as $keep
+            | .[]
+            | select((.id | tostring) as $id | $keep | index($id))
+            | .tags[]
+          ' | sort -u)"
+
+          protected_child_digests=""
+          if [ -n "${kept_tags}" ]; then
+            owner_lc="$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')"
+            registry_token="$(curl --fail --silent --show-error \
+              --user "${ACTOR}:${GH_TOKEN}" \
+              "https://ghcr.io/token?service=ghcr.io&scope=repository:${owner_lc}/${PACKAGE}:pull" \
+              | jq -er '.token')"
+
+            while IFS= read -r tag; do
+              [ -n "${tag}" ] || continue
+              encoded_tag="$(jq -rn --arg value "${tag}" '$value | @uri')"
+              manifest_json="$(curl --fail --silent --show-error \
+                -H "Authorization: Bearer ${registry_token}" \
+                -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
+                "https://ghcr.io/v2/${owner_lc}/${PACKAGE}/manifests/${encoded_tag}")"
+              child_digests="$(echo "${manifest_json}" | jq -r '(.manifests // []) | .[].digest')"
+              protected_child_digests="$(printf "%s\n%s\n" "${protected_child_digests}" "${child_digests}" | awk 'NF' | sort -u)"
+            done <<< "${kept_tags}"
+          fi
+
+          protected_child_ids="$(echo "${normalized}" | jq -r --arg digests "${protected_child_digests}" '
+            ($digests | split("\n") | map(select(length > 0))) as $protected
+            | .[]
+            | select(.digest as $digest | $protected | index($digest))
+            | .id
+          ')"
+
+          keep_ids="$(printf "%s\n%s\n" "${keep_ids}" "${protected_child_ids}" | awk 'NF' | sort -u)"
+
+          if [ -n "${protected_child_digests}" ]; then
+            echo "Protected child manifests referenced by retained tags:"
+            printf "%s\n" "${protected_child_digests}"
+          fi
+
           # Delete:
-          # - untagged versions
+          # - untagged versions not referenced by retained multi-arch indexes
           # - versions tagged with main-*
           # - old release-tagged versions beyond keep window
           delete_ids="$(echo "${normalized}" | jq -r '
