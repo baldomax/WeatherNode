@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.4] - 2026-08-09
+
+- Fix Docker containers on MySQL or Postgres stalling at startup with an empty log: the entrypoint derived a SQLite path from `DB_DATABASE`, which is a schema name on those drivers, and ended up recursively chowning the whole application directory (#34)
+- Radar tiles are no longer written into the cache store. On MySQL the cache table cannot hold PNG bytes, so tiles were either served as a blank pixel and then 500, or silently truncated and re-fetched every time (#37)
+- Docker now uses a file-backed cache instead of the database, and the entrypoint re-checks ownership after its own bootstrap commands, which is what made a file cache fail before
+- The php-fpm pool is sized from the container's memory limit rather than the stock 5 workers, so a dashboard load no longer queues behind its own radar tiles. `PHP_FPM_MAX_CHILDREN` overrides it
+- Fix the published `weathernode-deploy.zip.sha256` not matching the zip, which made `shasum -c` fail on a perfectly good download. In-app updates were unaffected, they use GitHub's own asset digest
+- Fix the update check being scheduled twice when `updater.notify_email` was enabled, which sent admins two emails a day
+
 ## [2026.08.3] - 2026-08-09
 
 - Visitor analytics now reads the daily rollup instead of rebuilding every chart from raw logs on each request, which took roughly 700ms on a busy site and grew with traffic
