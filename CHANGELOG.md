@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.5] - 2026-08-10
+
+- Add API documentation covering the public endpoints, authentication and integration examples (`docs/API.md`, linked from the README)
+- Show ready-to-copy curl examples on the admin API keys page
+- Allowlist those examples in the secret scan; their `X-API-Key: YOUR_API_KEY` placeholder tripped a false positive
+
 ## [2026.08.4] - 2026-08-09
 
 - Fix Docker containers on MySQL or Postgres stalling at startup with an empty log: the entrypoint derived a SQLite path from `DB_DATABASE`, which is a schema name on those drivers, and ended up recursively chowning the whole application directory (#34)
