@@ -8,13 +8,44 @@ FIRST_RUN_MARKER="$APP_DIR/storage/app/.docker-initialized"
 # mounted outside the app directory; mounting it over $APP_DIR/database would
 # also cover database/migrations, which a named volume only ever copies from
 # the image once, silently freezing migrations at the version that created it.
-SQLITE_PATH="${DB_DATABASE:-/var/lib/weathernode/database.sqlite}"
-SQLITE_DIR="$(dirname "$SQLITE_PATH")"
+#
+# Only meaningful on SQLite. On MySQL and Postgres, DB_DATABASE is a schema
+# name, and DOCKER.md tells people to set DB_DATABASE=weathernode, so this used
+# to leave SQLITE_DIR as `dirname weathernode` = "." — the application
+# directory, since the script cd's there. The ownership fixups below then
+# recursively chowned the whole app, copying every file out of the image layer
+# on overlayfs. Reported as a multi-hour startup with an empty log.
+#
+# Left empty for other drivers. Every consumer is [ -d ] / [ -f ] guarded, so
+# empty makes them all no-ops.
+if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
+    SQLITE_PATH="${DB_DATABASE:-/var/lib/weathernode/database.sqlite}"
+    SQLITE_DIR="$(dirname "$SQLITE_PATH")"
+else
+    SQLITE_PATH=""
+    SQLITE_DIR=""
+fi
 
 # Migrations as shipped in the image, at a path no volume is mounted over.
 PRISTINE_MIGRATIONS="/opt/weathernode/migrations"
 
 cd "$APP_DIR"
+
+# Recursive chown is expensive on overlayfs, so skip it when the directory is
+# already owned correctly. Checks the directory itself, which is enough for the
+# case this exists for: a volume arriving with restrictive host-side ownership.
+chown_if_needed() {
+    target="$1"
+    [ -d "$target" ] || return 0
+
+    owner="$(stat -c '%U:%G' "$target" 2>/dev/null || echo '')"
+    if [ "$owner" = 'www-data:www-data' ]; then
+        return 0
+    fi
+
+    echo "[entrypoint] Fixing ownership of $target..."
+    chown -R www-data:www-data "$target" || true
+}
 
 ensure_writable_paths() {
     mkdir -p "$APP_DIR/storage/logs" "$APP_DIR/storage/app" "$APP_DIR/bootstrap/cache"
@@ -53,19 +84,27 @@ ensure_writable_paths() {
 
     # Mounted volumes can come in with restrictive host-side ownership/permissions.
     # Normalize write access at startup so Laravel can write logs/cache/sqlite.
+    #
+    # Only ever aimed at volume mounts, never at image content: chown -R against
+    # an image-layer path forces overlayfs to copy every file up into the
+    # container's writable layer, on every recreate.
     if [ "$(id -u)" -eq 0 ]; then
-        chown -R www-data:www-data "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" || true
-        [ -d "$SQLITE_DIR" ] && chown -R www-data:www-data "$SQLITE_DIR" || true
+        chown_if_needed "$APP_DIR/storage"
+        chown_if_needed "$APP_DIR/bootstrap/cache"
+        [ -n "$SQLITE_DIR" ] && chown_if_needed "$SQLITE_DIR"
     fi
 
     chmod 775 "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" || true
-    [ -d "$SQLITE_DIR" ] && chmod 775 "$SQLITE_DIR" || true
+    [ -n "$SQLITE_DIR" ] && [ -d "$SQLITE_DIR" ] && chmod 775 "$SQLITE_DIR" || true
     find "$APP_DIR/storage" -type d -exec chmod 775 {} \; || true
     find "$APP_DIR/storage" -type f -exec chmod 664 {} \; || true
     find "$APP_DIR/bootstrap/cache" -type f -exec chmod 664 {} \; || true
     [ -f "$SQLITE_PATH" ] && chmod 664 "$SQLITE_PATH" || true
 }
 
+# Before any filesystem work, so a stall here shows up in `docker logs` instead
+# of presenting as a container that is Up with an empty log.
+echo "[entrypoint] Preparing filesystem (database driver: ${DB_CONNECTION:-sqlite})..."
 ensure_writable_paths
 
 case "${APP_KEY:-}" in
