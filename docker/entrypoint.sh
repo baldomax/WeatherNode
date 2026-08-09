@@ -16,6 +16,25 @@ PRISTINE_MIGRATIONS="/opt/weathernode/migrations"
 
 cd "$APP_DIR"
 
+# Recursive chown is expensive on overlayfs, so only do it when something is
+# actually mis-owned. The find stops at the first offender, so the common case
+# where everything is already correct costs a traversal and no writes.
+#
+# Checks every entry rather than just the top directory: the failure this
+# guards against is a root-owned directory nested inside an already-correct
+# storage/, created by the artisan commands this script runs as root.
+fix_ownership() {
+    target="$1"
+    [ -d "$target" ] || return 0
+
+    if [ -z "$(find "$target" ! -user www-data -print -quit 2>/dev/null)" ]; then
+        return 0
+    fi
+
+    echo "[entrypoint] Fixing ownership under $target..."
+    chown -R www-data:www-data "$target" || true
+}
+
 ensure_writable_paths() {
     mkdir -p "$APP_DIR/storage/logs" "$APP_DIR/storage/app" "$APP_DIR/bootstrap/cache"
 
@@ -54,8 +73,9 @@ ensure_writable_paths() {
     # Mounted volumes can come in with restrictive host-side ownership/permissions.
     # Normalize write access at startup so Laravel can write logs/cache/sqlite.
     if [ "$(id -u)" -eq 0 ]; then
-        chown -R www-data:www-data "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" || true
-        [ -d "$SQLITE_DIR" ] && chown -R www-data:www-data "$SQLITE_DIR" || true
+        fix_ownership "$APP_DIR/storage"
+        fix_ownership "$APP_DIR/bootstrap/cache"
+        [ -d "$SQLITE_DIR" ] && fix_ownership "$SQLITE_DIR"
     fi
 
     chmod 775 "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" || true
@@ -113,6 +133,20 @@ if [ ! -f "$FIRST_RUN_MARKER" ]; then
     fi
 
     touch "$FIRST_RUN_MARKER"
+fi
+
+# Re-check ownership after the artisan commands above.
+#
+# Those run as root, and anything they write under storage/ is created
+# root-owned, after the fixup at the top has already run. php-fpm then serves
+# as www-data and cannot write there. With the database cache store this went
+# unnoticed, because nothing created storage/framework/cache/data in the first
+# place; on a file-backed cache every page 500s with
+# "file_put_contents(...): Failed to open stream: No such file or directory",
+# which reads as a missing path rather than a permissions problem.
+if [ "$(id -u)" -eq 0 ]; then
+    fix_ownership "$APP_DIR/storage"
+    fix_ownership "$APP_DIR/bootstrap/cache"
 fi
 
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf

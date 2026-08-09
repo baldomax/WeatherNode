@@ -20,6 +20,11 @@ x-weathernode-env: &weathernode-env
   DB_CONNECTION: "sqlite"
   DB_DATABASE: "/var/lib/weathernode/database.sqlite"
   SESSION_SECURE_COOKIE: "false"
+  # Laravel defaults CACHE_STORE to `database`. That is a reasonable default for
+  # shared hosting, but a poor one for a container that already has a persistent
+  # storage volume: every cache write becomes a row write, and on MySQL with
+  # durable commits that is an fsync per write.
+  CACHE_STORE: "file"
   CONTAINERIZED: "true"
   DOCKER_AUTO_MIGRATE: "true"
   DOCKER_AUTO_SEED: "true"
@@ -56,6 +61,13 @@ services:
     pull_policy: always
     container_name: weathernode-scheduler
     restart: unless-stopped
+    # Must match the user php-fpm runs as in the app container. Both share the
+    # storage volume, and with a file-backed cache a root-owned cache directory
+    # makes every page 500 with "Failed to open stream: No such file or
+    # directory", which reads as a missing path rather than a permissions
+    # problem. This container overrides the entrypoint, so it never runs the
+    # ownership fixups that would otherwise paper over it.
+    user: "www-data"
     environment: *weathernode-env
     depends_on:
       app:
