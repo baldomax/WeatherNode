@@ -309,8 +309,11 @@ $loggedSchedulerTask('weather-summary', 'weather:summarize', 'weather-summary.lo
 // is derived from the app key so installs do not all hit the API at once.
 // Deliberately not read from settings: this file is evaluated on every artisan
 // call, including `migrate` on a database that has no settings table yet.
+// The sign-bit mask matters: crc32() returns a signed int on 32-bit PHP, and a
+// negative minute would render an invalid cron expression that kills every
+// schedule:run on that host — shared-hosting installs can still be 32-bit.
 Schedule::command('updater:check --notify')
-    ->dailyAt(sprintf('03:%02d', crc32((string) config('app.key')) % 60))
+    ->dailyAt(sprintf('03:%02d', (crc32((string) config('app.key')) & 0x7FFFFFFF) % 60))
     ->withoutOverlapping();
 
 // Warm phenology + OG caches after the daily summary is written (00:05) so the first
