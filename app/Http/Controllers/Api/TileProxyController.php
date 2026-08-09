@@ -67,29 +67,23 @@ class TileProxyController extends Controller
             return response('Invalid tile path', 400);
         }
         
-        // Generate cache key from the path
-        $cacheKey = 'radar_tile_' . md5($path);
-        
-        // Check memory cache first (fastest)
-        $tileData = Cache::get($cacheKey);
-        
-        if ($tileData) {
-            return $this->tileResponse($tileData, true);
-        }
-        
-        // Check file cache
+        // Tiles are cached on disk only, never in the cache store.
+        //
+        // This used to also Cache::put the raw PNG, on the assumption the cache
+        // was in-memory. Laravel defaults CACHE_STORE to `database`, and the
+        // cache table's value column is mediumtext/utf8mb4, so on MySQL the
+        // bytes are either rejected outright (strict mode: "Incorrect string
+        // value: '\x89PNG...'") or silently truncated to nothing (non-strict,
+        // where the read then fails to unserialize). Either way it was never a
+        // working cache, just a per-tile write into the database that could
+        // never be read back.
         $filePath = 'radar-tiles/' . $path;
-        
+
         if (Storage::disk('local')->exists($filePath)) {
-            $tileData = Storage::disk('local')->get($filePath);
-            
-            // Store in memory cache for faster subsequent access
-            Cache::put($cacheKey, $tileData, self::TILE_CACHE_TTL);
-            
-            return $this->tileResponse($tileData, true);
+            return $this->tileResponse(Storage::disk('local')->get($filePath), true);
         }
 
-        // Cache miss: fetch upstream, then cache both in DB cache and local file cache.
+        // Miss: fetch upstream and store it on disk.
         $frames = $this->resolveLatestFrames(refreshIfStale: true);
         $host = $this->resolveRainViewerHost($frames);
         $upstreamUrl = "{$host}/" . ltrim($path, '/');
@@ -102,7 +96,6 @@ class TileProxyController extends Controller
                 $tileData = $response->body();
                 if ($tileData !== '') {
                     Storage::disk('local')->put($filePath, $tileData);
-                    Cache::put($cacheKey, $tileData, self::TILE_CACHE_TTL);
                     return $this->tileResponse($tileData, false);
                 }
             }
@@ -124,7 +117,6 @@ class TileProxyController extends Controller
         // Upstream miss/error fallback: reuse the latest cached tile for the same map cell.
         $fallbackTileData = $this->findCachedFallbackTileData($path);
         if ($fallbackTileData !== null) {
-            Cache::put($cacheKey, $fallbackTileData, self::TILE_CACHE_TTL);
             return $this->tileResponse($fallbackTileData, true);
         }
 
@@ -145,10 +137,16 @@ class TileProxyController extends Controller
             return response('Unsupported upstream URL', 400);
         }
 
-        $cacheKey = 'radar_future_image_' . md5($rawUrl);
-        $cached = Cache::get($cacheKey);
-        if (is_string($cached) && $cached !== '') {
-            return $this->tileResponse($cached, true);
+        // On disk for the same reason as tiles: an image in the cache store is
+        // rejected or silently truncated on MySQL. Kept under radar-tiles/ so
+        // the existing hourly cleanup prunes these too.
+        $filePath = 'radar-tiles/future/' . md5($rawUrl) . '.img';
+
+        if (Storage::disk('local')->exists($filePath)) {
+            $age = now()->timestamp - Storage::disk('local')->lastModified($filePath);
+            if ($age < self::FUTURE_IMAGE_CACHE_TTL) {
+                return $this->tileResponse(Storage::disk('local')->get($filePath), true);
+            }
         }
 
         try {
@@ -157,7 +155,7 @@ class TileProxyController extends Controller
             if ($upstream->successful() && str_contains($contentType, 'image/')) {
                 $body = $upstream->body();
                 if ($body !== '') {
-                    Cache::put($cacheKey, $body, self::FUTURE_IMAGE_CACHE_TTL);
+                    Storage::disk('local')->put($filePath, $body);
                     return $this->tileResponse($body, false);
                 }
             }
