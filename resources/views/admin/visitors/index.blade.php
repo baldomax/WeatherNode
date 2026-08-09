@@ -54,12 +54,18 @@
             </label>
             <label for="range" class="text-sm text-gray-600 dark:text-gray-300">{{ __('Range') }}</label>
             <select id="range" name="range" class="rounded-lg border-gray-200 dark:border-gray-700 dark:bg-gray-900 text-sm" onchange="this.form.submit()">
-                {{-- Spans longer than the data goes back are still selectable
-                     (data accumulates), but flagged so a short chart does not
+                {{-- Options come from the controller and grow by a year for
+                     each year of history. Spans longer than the data goes back
+                     stay selectable, but are flagged so a short chart does not
                      look like missing data. --}}
-                @foreach([30, 90, 365] as $rangeOption)
+                @foreach(($rangeOptions ?? [30, 90, 365]) as $rangeOption)
                     <option value="{{ $rangeOption }}" @selected($range === $rangeOption)>
-                        {{ $rangeOption }} {{ __('days') }}@if(($availableDays ?? 0) > 0 && $availableDays < $rangeOption) ({{ __('partial') }})@endif
+                        @if($rangeOption % 365 === 0)
+                            {{ trans_choice(':count year|:count years', intdiv($rangeOption, 365), ['count' => intdiv($rangeOption, 365)]) }}
+                        @else
+                            {{ $rangeOption }} {{ __('days') }}
+                        @endif
+                        @if(($availableDays ?? 0) > 0 && $availableDays < $rangeOption) ({{ __('partial') }})@endif
                     </option>
                 @endforeach
             </select>

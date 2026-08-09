@@ -249,6 +249,78 @@ class VisitorStatsTest extends TestCase
         $response->assertDontSee('days of data exist so far', false);
     }
 
+    /**
+     * Rollup rows are kept indefinitely, so once an install passes a year the
+     * selector has to grow or year two is collected and unreachable.
+     */
+    public function test_the_selector_gains_a_year_for_each_year_of_history(): void
+    {
+        $admin = $this->adminUser();
+
+        $this->log(now()->subDays(200)->setTime(9, 0)->toDateTimeString());
+        $this->artisan('visitorlog:rollup')->assertExitCode(0);
+        VisitorStatsCache::flush();
+        $this->assertSame(
+            [30, 90, 365],
+            $this->actingAs($admin)->get(route('admin.visitors.index'))->viewData('rangeOptions'),
+            'under a year of data offers no year-two option'
+        );
+
+        $this->log(now()->subDays(400)->setTime(9, 0)->toDateTimeString());
+        $this->artisan('visitorlog:rollup')->assertExitCode(0);
+        VisitorStatsCache::flush();
+        $this->assertSame(
+            [30, 90, 365, 730],
+            $this->actingAs($admin)->get(route('admin.visitors.index'))->viewData('rangeOptions'),
+            'past a year, two years becomes selectable'
+        );
+
+        $this->log(now()->subDays(800)->setTime(9, 0)->toDateTimeString());
+        $this->artisan('visitorlog:rollup')->assertExitCode(0);
+        VisitorStatsCache::flush();
+        $response = $this->actingAs($admin)->get(route('admin.visitors.index'));
+        $this->assertSame(
+            [30, 90, 365, 730, 1095],
+            $response->viewData('rangeOptions'),
+            'and another year after that'
+        );
+
+        // The labels the operator actually sees.
+        $response->assertSee('value="730"', false);
+        $response->assertSee('2 years', false);
+        $response->assertSee('3 years', false);
+        $response->assertSee('30 days', false);
+    }
+
+    public function test_year_two_data_is_actually_reachable(): void
+    {
+        $this->log(now()->subDays(500)->setTime(9, 0)->toDateTimeString());
+        $this->log(now()->subDays(10)->setTime(9, 0)->toDateTimeString());
+        $this->artisan('visitorlog:rollup')->assertExitCode(0);
+        VisitorStatsCache::flush();
+
+        $admin = $this->adminUser();
+
+        $oneYear = $this->actingAs($admin)->get(route('admin.visitors.index', ['range' => 365]));
+        $this->assertSame(1, $oneYear->viewData('totals')['pageviews'], 'the 500-day-old visit is outside a year');
+
+        VisitorStatsCache::flush();
+        $twoYears = $this->actingAs($admin)->get(route('admin.visitors.index', ['range' => 730]));
+        $this->assertSame(2, $twoYears->viewData('totals')['pageviews'], 'two years should reach it');
+    }
+
+    public function test_a_range_beyond_every_option_is_clamped(): void
+    {
+        $this->log(now()->subDay()->setTime(9, 0)->toDateTimeString());
+        $this->artisan('visitorlog:rollup')->assertExitCode(0);
+        VisitorStatsCache::flush();
+
+        $response = $this->actingAs($this->adminUser())->get(route('admin.visitors.index', ['range' => 99999]));
+
+        $response->assertOk();
+        $this->assertSame(365, $response->viewData('range'));
+    }
+
     public function test_the_page_still_renders_with_no_data_at_all(): void
     {
         $response = $this->actingAs($this->adminUser())->get(route('admin.visitors.index'));

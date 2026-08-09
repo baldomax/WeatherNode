@@ -42,12 +42,10 @@ class VisitorLogController extends Controller
     public function index(Request $request)
     {
         $range = (int) $request->query('range', 30);
-        $range = max(7, min($range, 365));
-        $fromDate = now()->subDays($range - 1)->startOfDay();
         $showBots = $request->query('show_bots', '0') === '1';
 
         try {
-            return $this->buildVisitorIndex($request, $range, $fromDate, $showBots);
+            return $this->buildVisitorIndex($request, $range, $showBots);
         } catch (\Illuminate\Database\QueryException $e) {
             report($e);
             return $this->visitorIndexErrorView($range, $showBots, 'database', $e->getMessage());
@@ -84,19 +82,25 @@ class VisitorLogController extends Controller
             'analyticsData' => $emptyData,
             'lastRollupDate' => null,
             'availableDays' => 0,
+            'rangeOptions' => [30, 90, 365],
             'error' => $message,
         ]);
     }
 
-    private function buildVisitorIndex(Request $request, int $range, Carbon $fromDate, bool $showBots)
+    private function buildVisitorIndex(Request $request, int $range, bool $showBots)
     {
         // Explicit check using same connection as web app (CLI migrate may use different config)
         if (! Schema::hasTable('visitor_logs') || ! Schema::hasTable('visitor_daily_stats')) {
             $hint = 'visitor_logs and/or visitor_daily_stats are missing. Run: php artisan migrate --force. If you already ran migrate, ensure the web app uses the same DB as the CLI (check .env and config).';
-            return $this->visitorIndexErrorView($range, $showBots, 'database', $hint);
+            return $this->visitorIndexErrorView($this->clampRange($range, [30, 90, 365]), $showBots, 'database', $hint);
         }
 
         $today = now()->startOfDay();
+        $availableDays = $this->availableDays($today);
+        $rangeOptions = $this->rangeOptions($availableDays);
+        $range = $this->clampRange($range, $rangeOptions);
+        $fromDate = $today->copy()->subDays($range - 1);
+
         $segment = $showBots ? VisitorDailyStat::SEGMENT_ALL : VisitorDailyStat::SEGMENT_HUMANS;
 
         // Cached on the calendar day so a stale entry can never outlive the
@@ -115,9 +119,43 @@ class VisitorLogController extends Controller
             'totals' => $totals,
             'analyticsData' => $analyticsData,
             'lastRollupDate' => $lastRollupTimestamp ? Carbon::parse($lastRollupTimestamp) : null,
-            'availableDays' => $this->availableDays($today),
+            'availableDays' => $availableDays,
+            'rangeOptions' => $rangeOptions,
             'error' => null,
         ]);
+    }
+
+    /**
+     * Selectable spans, growing by a year for each year the install runs.
+     *
+     * Rollup rows are kept indefinitely, so history accumulates whether or not
+     * anyone can view it. A fixed 365-day ceiling meant year two was collected
+     * and then unreachable. Longer spans cost almost nothing now that this
+     * reads the rollup: the work scales with days, not pageviews, so a decade
+     * is a few thousand rows.
+     *
+     * @return array<int, int>
+     */
+    private function rangeOptions(int $availableDays): array
+    {
+        $options = [30, 90, 365];
+
+        // ceil, so a year appears as soon as any of it has data rather than
+        // once it is complete. The shortfall notice covers the difference.
+        $years = (int) ceil($availableDays / 365);
+        for ($year = 2; $year <= $years; $year++) {
+            $options[] = $year * 365;
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param  array<int, int>  $rangeOptions
+     */
+    private function clampRange(int $range, array $rangeOptions): int
+    {
+        return max(7, min($range, max($rangeOptions)));
     }
 
     /**
