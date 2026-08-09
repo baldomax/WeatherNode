@@ -7,7 +7,11 @@ paths = [
   '''database/seeders/SettingsSeeder\.php''',
   '''resources/js/pages/dashboard\.js''',
   '''resources/lang/ca-es\.json''',
-  '''resources/lang/de-de\.json'''
+  '''resources/lang/de-de\.json''',
+  # API documentation: curl examples carry an "X-API-Key: YOUR_API_KEY"
+  # placeholder header, which trips the curl-auth-header rule.
+  '''docs/API\.md''',
+  '''resources/views/admin/api-keys/index\.blade\.php'''
 ]
 regexes = [
   '''meteouitgeest_ads_consent_v1''',

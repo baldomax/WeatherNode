@@ -125,6 +125,7 @@ Detailed admin operations live in [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
 🔐 API and security
 
 - JSON API is protected by API keys. You manage keys at /admin/api-keys.
+- Authentication, endpoints, response details, and integration examples are documented in [docs/API.md](docs/API.md).
 - Optional secure push mode for Ecowitt receivers.
 
 📡 Community telemetry
