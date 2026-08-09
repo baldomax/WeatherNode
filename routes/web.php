@@ -480,6 +480,7 @@ Route::prefix('admin')
         Route::post('/updates/releases/delete', [UpdateController::class, 'deleteRelease'])->name('updates.releases.delete');
         Route::post('/updates/backups/delete', [UpdateController::class, 'deleteBackup'])->name('updates.backups.delete');
         Route::post('/updates/retention', [UpdateController::class, 'updateRetention'])->name('updates.retention.update');
+        Route::post('/updates/notifications', [UpdateController::class, 'updateNotificationSettings'])->name('updates.notifications.update');
 
         // API Keys Management
         Route::get('/api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');
