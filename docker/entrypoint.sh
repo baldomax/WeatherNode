@@ -35,6 +35,71 @@ fix_ownership() {
     chown -R www-data:www-data "$target" || true
 }
 
+# Size the php-fpm pool to the memory the container actually has.
+#
+# The stock pool ships pm.max_children = 5. A dashboard load is one payload
+# request plus a burst of radar tiles, so five workers saturate immediately and
+# the payload queues behind the tiles.
+#
+# Raising it blindly is the wrong fix: this runs on everything from a Raspberry
+# Pi to a VPS, and pm = dynamic means the ceiling is free at idle but a burst
+# against too high a ceiling turns a slow page into an OOM kill. Slow beats
+# dead, so the ceiling is derived from the limit rather than guessed.
+#
+# Set PHP_FPM_MAX_CHILDREN to override.
+configure_php_fpm_pool() {
+    max_children="${PHP_FPM_MAX_CHILDREN:-}"
+
+    if [ -z "$max_children" ]; then
+        # cgroup v2, then v1, then the host's total as a last resort.
+        mem_bytes=""
+        if [ -r /sys/fs/cgroup/memory.max ]; then
+            mem_bytes="$(cat /sys/fs/cgroup/memory.max 2>/dev/null)"
+        elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
+            mem_bytes="$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)"
+        fi
+
+        # "max", or a sentinel so large it means unlimited: fall back to total RAM.
+        case "$mem_bytes" in
+            ''|max|*[!0-9]*) mem_bytes="" ;;
+        esac
+        if [ -z "$mem_bytes" ] || [ "$mem_bytes" -gt 1099511627776 ] 2>/dev/null; then
+            mem_kb="$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+            mem_bytes=$((mem_kb * 1024))
+        fi
+
+        mem_mb=$((mem_bytes / 1048576))
+
+        # Measured ~55 MB resident per worker serving the dashboard; 64 leaves
+        # headroom. Only 60% of memory is handed to php-fpm, since nginx, the
+        # scheduler and possibly a database live here too.
+        if [ "$mem_mb" -gt 0 ]; then
+            max_children=$(( (mem_mb * 60 / 100) / 64 ))
+        else
+            max_children=5
+        fi
+
+        [ "$max_children" -lt 5 ] && max_children=5
+        [ "$max_children" -gt 32 ] && max_children=32
+    fi
+
+    start_servers=$(( max_children / 4 ))
+    [ "$start_servers" -lt 2 ] && start_servers=2
+    max_spare=$(( max_children / 2 ))
+    [ "$max_spare" -lt "$start_servers" ] && max_spare="$start_servers"
+
+    cat > /usr/local/etc/php-fpm.d/zz-weathernode.conf <<CONF
+[www]
+pm = dynamic
+pm.max_children = ${max_children}
+pm.start_servers = ${start_servers}
+pm.min_spare_servers = 2
+pm.max_spare_servers = ${max_spare}
+CONF
+
+    echo "[entrypoint] php-fpm pool: max_children=${max_children} (container memory: ${mem_mb:-unknown} MB)"
+}
+
 ensure_writable_paths() {
     mkdir -p "$APP_DIR/storage/logs" "$APP_DIR/storage/app" "$APP_DIR/bootstrap/cache"
 
@@ -87,6 +152,7 @@ ensure_writable_paths() {
 }
 
 ensure_writable_paths
+configure_php_fpm_pool
 
 case "${APP_KEY:-}" in
     ""|"base64:REPLACE_WITH_YOUR_GENERATED_KEY"|"REPLACE_WITH_YOUR_APP_KEY")
