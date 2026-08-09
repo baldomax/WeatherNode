@@ -121,14 +121,18 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           COMMIT="$(git rev-parse --short=16 HEAD)"
           echo "${TAG}" > VERSION
+          # No sha256 field here on purpose: release.json ships inside the zip,
+          # so it can never hold the hash of the archive containing it. It used
+          # to be filled in after hashing and re-added with `zip -u`, which
+          # changed the zip after the hash was taken and left every published
+          # checksum stale. The authoritative hash is the .sha256 asset.
           cat > release.json <<'JSON'
           {
             "name": "WeatherNode",
             "version": "__TAG__",
             "commit": "__COMMIT__",
             "built_at_utc": "__BUILT_AT__",
-            "artifact": "weathernode-deploy.zip",
-            "sha256": ""
+            "artifact": "weathernode-deploy.zip"
           }
           JSON
           BUILT_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
@@ -142,14 +146,15 @@ jobs:
             app bootstrap config database public resources routes storage artisan composer.json composer.lock \
             vendor VERSION release.json
 
-      - name: Compute sha256 and update release.json
+      # Nothing may modify the zip after this point, or the published checksum
+      # stops matching the artifact people download.
+      - name: Compute sha256 of the finished zip
         id: checksum
         run: |
           SHA="$(sha256sum weathernode-deploy.zip | awk '{print $1}')"
           echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
-          sed -i "s/\"sha256\": \"\"/\"sha256\": \"${SHA}\"/" release.json
-          zip -u weathernode-deploy.zip release.json
           printf '%s  weathernode-deploy.zip\n' "${SHA}" > weathernode-deploy.zip.sha256
+          sha256sum -c weathernode-deploy.zip.sha256
 
       - name: Create GitHub Release and upload asset
         uses: softprops/action-gh-release@v2

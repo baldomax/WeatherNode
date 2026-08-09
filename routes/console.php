@@ -436,11 +436,11 @@ $loggedSchedulerTask('db-reclaim-space', 'db:reclaim-space', 'db-reclaim-space.l
     ->weeklyOn(0, '04:10')
     ->withoutOverlapping();
 
-// Check for updates daily (notify admins if new version available)
-if (config('updater.notify_email', false)) {
-    $loggedSchedulerTask('update-check', 'updater:check --notify', 'update-check.log')
-        ->dailyAt('02:00');
-}
+// The update check is scheduled unconditionally further up, near the other
+// maintenance tasks. There used to be a second copy here behind
+// updater.notify_email; with that setting on, both ran and admins got two
+// emails a day. The command sends the notification itself when the setting is
+// enabled, so one schedule covers both the banner and the email.
 
 // =============================================================================
 // TELEMETRY (community stations)
