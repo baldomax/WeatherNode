@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.2] - 2026-08-09
+
+- Quick Stats bar tiles can now be toggled in Settings → Dashboard Widgets and reordered on the dashboard in edit mode (#13)
+- Fix Docker upgrades silently skipping database migrations: migrations now run from a copy inside the image that no volume can cover; the data volume moves to `/var/lib/weathernode` (optional cleanup, existing compose files keep working — see DOCKER.md)
+- Fix the in-app updater deleting a release's migrations on SQLite installs, so `migrate` ran against an empty folder and reported success
+- Show a banner in the admin area when a new release is available (checked daily, can be turned off on the Updates page)
+- Stop browser-caching the dashboard for admins so settings changes show up without a hard refresh
+- Note: migrations skipped by either bug are applied on the first start after this update — take a backup before upgrading
+
 ## [2026.08.01] - 2026-08-07
 
 - Fix webcam image refresh after the dashboard renders conditional widgets
@@ -28,13 +37,6 @@ All notable changes to this project will be documented in this file.
 - Fixed Docker multi-arch image `manifest unknown` pull errors
 
 ## [Unreleased]
-
-### Fixed
-
-- **Docker upgrades stopped applying database migrations.** The SQLite volume was mounted at `/var/www/html/database`, which also holds `database/migrations`. Docker only copies a named volume's contents from the image the first time the volume is created, so that directory stayed frozen at whatever shipped the day the install was set up. Every later image pull ran new code against old migrations while `migrate` reported success.
-  - Migrations are now applied from a copy inside the image that no volume can cover, so existing installs are fixed without touching their compose file. Any migrations skipped while the old layout was in place are applied on the first start after upgrading.
-  - The data volume moves to `/var/lib/weathernode`, outside the application directory. This is optional cleanup, not a required step. Nothing is copied or moved: it is the same volume mounted at a different path. See DOCKER.md, "Upgrading from a pre-2026.08 compose file".
-  - Affected installs show a notice in the admin area until the volume is moved.
 
 ### Added
 
