@@ -4,14 +4,41 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\VisitorDailyStat;
-use App\Models\VisitorLog;
+use App\Support\VisitorStatsCache;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class VisitorLogController extends Controller
 {
+    /** Buckets stored as JSON on each rollup row, and how many to show. */
+    private const BUCKETS = [
+        'top_pages' => 10,
+        'referrers' => 10,
+        'countries' => 10,
+        'devices' => 10,
+        'browsers' => 10,
+        'oses' => 10,
+        'search_engines' => 10,
+        'search_terms' => 10,
+        'status_codes' => 10,
+    ];
+
+    /** Bucket name => [raw log column, label used when the column is empty]. */
+    private const BUCKET_COLUMNS = [
+        'top_pages' => ['path', null],
+        'referrers' => ['referrer_host', 'Direct'],
+        'countries' => ['country_code', 'Unknown'],
+        'devices' => ['device_type', 'Unknown'],
+        'browsers' => ['browser_family', 'Other'],
+        'oses' => ['os_family', 'Other'],
+        'search_engines' => ['search_engine', 'Unknown'],
+        'search_terms' => ['search_terms', null],
+        'status_codes' => ['status_code', null],
+    ];
+
     public function index(Request $request)
     {
         $range = (int) $request->query('range', 30);
@@ -32,20 +59,10 @@ class VisitorLogController extends Controller
 
     private function visitorIndexErrorView(int $range, bool $showBots, string $reason, ?string $detail = null): \Illuminate\View\View
     {
-        $emptyData = [
-            'dates' => [],
-            'pageviews' => [],
-            'uniques' => [],
-            'referrers' => [],
-            'countries' => [],
-            'devices' => [],
-            'browsers' => [],
-            'oses' => [],
-            'search_engines' => [],
-            'search_terms' => [],
-            'top_pages' => [],
-            'status_codes' => [],
-        ];
+        $emptyData = array_merge(
+            ['dates' => [], 'pageviews' => [], 'uniques' => []],
+            array_fill_keys(array_keys(self::BUCKETS), [])
+        );
         $totals = [
             'pageviews' => 0,
             'uniques' => 0,
@@ -66,11 +83,12 @@ class VisitorLogController extends Controller
             'totals' => $totals,
             'analyticsData' => $emptyData,
             'lastRollupDate' => null,
+            'availableDays' => 0,
             'error' => $message,
         ]);
     }
 
-    private function buildVisitorIndex(Request $request, int $range, \Illuminate\Support\Carbon $fromDate, bool $showBots)
+    private function buildVisitorIndex(Request $request, int $range, Carbon $fromDate, bool $showBots)
     {
         // Explicit check using same connection as web app (CLI migrate may use different config)
         if (! Schema::hasTable('visitor_logs') || ! Schema::hasTable('visitor_daily_stats')) {
@@ -78,103 +96,208 @@ class VisitorLogController extends Controller
             return $this->visitorIndexErrorView($range, $showBots, 'database', $hint);
         }
 
-        if ($showBots) {
-            // Use aggregated stats (includes bots)
-            $stats = VisitorDailyStat::query()
-                ->where('date', '>=', $fromDate->toDateString())
-                ->orderBy('date')
-                ->get();
+        $today = now()->startOfDay();
+        $segment = $showBots ? VisitorDailyStat::SEGMENT_ALL : VisitorDailyStat::SEGMENT_HUMANS;
 
-            $dates = $stats->pluck('date')->map(fn ($date) => $date->format('Y-m-d'))->all();
-            $pageviews = $stats->pluck('pageviews')->all();
-            $uniques = $stats->pluck('uniques')->all();
+        // Cached on the calendar day so a stale entry can never outlive the
+        // nightly rollup, on top of the short TTL and the version bump the
+        // rollup itself triggers.
+        $signature = implode(':', [$range, $segment, $today->toDateString()]);
 
-            $totals = [
-                'pageviews' => $stats->sum('pageviews'),
-                'uniques' => $stats->sum('uniques'),
-                'avg_response_ms' => $this->weightedAverageResponseMs($stats),
-                'days' => $stats->count(),
-            ];
-
-            $topPages = $this->sumBuckets($stats, 'top_pages', 10);
-            $referrers = $this->sumBuckets($stats, 'referrers', 10);
-            $countries = $this->sumBuckets($stats, 'countries', 10);
-            $devices = $this->sumBuckets($stats, 'devices', 10);
-            $browsers = $this->sumBuckets($stats, 'browsers', 10);
-            $oses = $this->sumBuckets($stats, 'oses', 10);
-            $searchEngines = $this->sumBuckets($stats, 'search_engines', 10);
-            $searchTerms = $this->sumBuckets($stats, 'search_terms', 10);
-            $statusCodes = $this->sumBuckets($stats, 'status_codes', 10);
-
-            $lastRollupDate = $stats->last()?->date;
-        } else {
-            // Aggregate from DB (avoids loading all rows into memory on high-traffic prod)
-            $base = fn () => DB::table('visitor_logs')
-                ->where('occurred_at', '>=', $fromDate)
-                ->where('is_bot', false);
-
-            $dailyRows = (clone $base())
-                ->selectRaw('DATE(occurred_at) as date, COUNT(*) as pageviews, COUNT(DISTINCT ip_hash) as uniques, COALESCE(SUM(response_ms), 0) as total_response_ms')
-                ->groupBy(DB::raw('DATE(occurred_at)'))
-                ->orderBy('date')
-                ->get();
-
-            $dates = $dailyRows->pluck('date')->map(fn ($d) => is_string($d) ? $d : $d->format('Y-m-d'))->all();
-            $pageviews = $dailyRows->pluck('pageviews')->all();
-            $uniques = $dailyRows->pluck('uniques')->all();
-            $totalPageviews = $dailyRows->sum('pageviews');
-            $totalResponseMs = $dailyRows->sum('total_response_ms');
-
-            $totalsRow = (clone $base())
-                ->selectRaw('COUNT(*) as pageviews, COUNT(DISTINCT ip_hash) as uniques, COALESCE(SUM(response_ms), 0) as total_response_ms')
-                ->first();
-            $totals = [
-                'pageviews' => (int) ($totalsRow->pageviews ?? 0),
-                'uniques' => (int) ($totalsRow->uniques ?? 0),
-                'avg_response_ms' => $totalPageviews > 0 ? (int) round($totalResponseMs / $totalPageviews) : null,
-                'days' => count($dates),
-            ];
-
-            $topPages = $this->aggregateFromDb($base(), 'path', 10);
-            $referrers = $this->aggregateFromDb($base(), 'referrer_host', 10, 'Direct');
-            $countries = $this->aggregateFromDb($base(), 'country_code', 10, 'Unknown');
-            $devices = $this->aggregateFromDb($base(), 'device_type', 10, 'Unknown');
-            $browsers = $this->aggregateFromDb($base(), 'browser_family', 10, 'Other');
-            $oses = $this->aggregateFromDb($base(), 'os_family', 10, 'Other');
-            $searchEngines = $this->aggregateFromDb((clone $base())->whereNotNull('search_engine')->where('search_engine', '!=', ''), 'search_engine', 10, 'Unknown');
-            $searchTerms = $this->aggregateFromDb((clone $base())->whereNotNull('search_terms')->where('search_terms', '!=', ''), 'search_terms', 10);
-            $statusCodes = $this->aggregateFromDb($base(), 'status_code', 10);
-
-            $lastDate = (clone $base())->selectRaw('MAX(occurred_at) as last_at')->value('last_at');
-            $lastRollupDate = $lastDate ? \Illuminate\Support\Carbon::parse($lastDate)->startOfDay() : null;
-        }
-
-        $analyticsData = [
-            'dates' => $dates,
-            'pageviews' => $pageviews,
-            'uniques' => $uniques,
-            'referrers' => $referrers,
-            'countries' => $countries,
-            'devices' => $devices,
-            'browsers' => $browsers,
-            'oses' => $oses,
-            'search_engines' => $searchEngines,
-            'search_terms' => $searchTerms,
-            'top_pages' => $topPages,
-            'status_codes' => $statusCodes,
-        ];
+        [$analyticsData, $totals, $lastRollupTimestamp] = VisitorStatsCache::remember(
+            $signature,
+            fn () => $this->assemble($fromDate, $today, $segment)
+        );
 
         return view('admin.visitors.index', [
             'range' => $range,
             'showBots' => $showBots,
             'totals' => $totals,
             'analyticsData' => $analyticsData,
-            'lastRollupDate' => $lastRollupDate,
+            'lastRollupDate' => $lastRollupTimestamp ? Carbon::parse($lastRollupTimestamp) : null,
+            'availableDays' => $this->availableDays($today),
             'error' => null,
         ]);
     }
 
-    private function sumBuckets(Collection $stats, string $field, int $limit): array
+    /**
+     * How far back the data actually goes, so the range selector can stop
+     * offering spans nobody can fill.
+     *
+     * Raw logs are purged at visitorlog.retention_days while aggregates are
+     * kept indefinitely, so asking for 365 days used to silently return 90
+     * with nothing saying so.
+     */
+    private function availableDays(Carbon $today): int
+    {
+        $earliestAggregate = VisitorDailyStat::query()->min('date');
+        $earliestLog = DB::table('visitor_logs')->min('occurred_at');
+
+        $candidates = array_filter([$earliestAggregate, $earliestLog]);
+        if ($candidates === []) {
+            return 0;
+        }
+
+        $earliest = collect($candidates)
+            ->map(fn ($value) => Carbon::parse($value)->startOfDay())
+            ->min();
+
+        return (int) $earliest->diffInDays($today) + 1;
+    }
+
+    /**
+     * Historical days come from the rollup, today comes from raw logs.
+     *
+     * The rollup runs just after midnight for the previous day, so today is
+     * never in it. Reading a single day back out of visitor_logs keeps the page
+     * live without the whole-range scan the page used to do on every request.
+     *
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>, 2: ?string}
+     */
+    private function assemble(Carbon $fromDate, Carbon $today, string $segment): array
+    {
+        $stats = VisitorDailyStat::query()
+            ->where('segment', $segment)
+            // Carbon rather than Y-m-d strings, to match how the date cast
+            // stores these ("Y-m-d 00:00:00").
+            ->where('date', '>=', $fromDate->copy()->startOfDay())
+            ->where('date', '<', $today->copy()->startOfDay())
+            ->orderBy('date')
+            ->get();
+
+        $series = [];
+        foreach ($stats as $stat) {
+            $series[$stat->date->format('Y-m-d')] = [
+                'pageviews' => (int) $stat->pageviews,
+                'uniques' => (int) $stat->uniques,
+            ];
+        }
+
+        $buckets = [];
+        foreach (array_keys(self::BUCKETS) as $bucket) {
+            $buckets[$bucket] = $this->sumBuckets($stats, $bucket);
+        }
+
+        $totalPageviews = (int) $stats->sum('pageviews');
+        $totalUniques = (int) $stats->sum('uniques');
+        $totalResponseMs = (int) $stats->sum('total_response_ms');
+
+        $todayStats = $this->todaySoFar($today, $segment);
+        if ($todayStats['pageviews'] > 0) {
+            $series[$today->format('Y-m-d')] = [
+                'pageviews' => $todayStats['pageviews'],
+                'uniques' => $todayStats['uniques'],
+            ];
+            $totalPageviews += $todayStats['pageviews'];
+            $totalUniques += $todayStats['uniques'];
+            $totalResponseMs += $todayStats['total_response_ms'];
+
+            foreach ($todayStats['buckets'] as $bucket => $counts) {
+                foreach ($counts as $label => $count) {
+                    $buckets[$bucket][$label] = ($buckets[$bucket][$label] ?? 0) + $count;
+                }
+            }
+        }
+
+        foreach ($buckets as $bucket => $counts) {
+            arsort($counts);
+            $buckets[$bucket] = array_slice($counts, 0, self::BUCKETS[$bucket], true);
+        }
+
+        ksort($series);
+
+        $analyticsData = array_merge([
+            'dates' => array_keys($series),
+            'pageviews' => array_column($series, 'pageviews'),
+            'uniques' => array_column($series, 'uniques'),
+        ], $buckets);
+
+        // Uniques are per-day distinct counts, so summing them over-counts
+        // anyone who visited on more than one day. Kept as-is for continuity
+        // with the previous rollup-backed view; the label in the UI says
+        // "unique visits" rather than "unique visitors" for that reason.
+        $totals = [
+            'pageviews' => $totalPageviews,
+            'uniques' => $totalUniques,
+            'avg_response_ms' => $totalPageviews > 0 ? (int) round($totalResponseMs / $totalPageviews) : null,
+            'days' => count($series),
+        ];
+
+        $lastDate = array_key_last($series);
+
+        return [$analyticsData, $totals, $lastDate];
+    }
+
+    /**
+     * Aggregate the current day straight from raw logs.
+     *
+     * Bounded to one day, so this stays cheap regardless of the selected range,
+     * and the (is_bot, occurred_at) index covers the filter.
+     *
+     * @return array{pageviews: int, uniques: int, total_response_ms: int, buckets: array<string, array<string, int>>}
+     */
+    private function todaySoFar(Carbon $today, string $segment): array
+    {
+        $base = function () use ($today, $segment) {
+            $query = DB::table('visitor_logs')->where('occurred_at', '>=', $today);
+            if ($segment === VisitorDailyStat::SEGMENT_HUMANS) {
+                $query->where('is_bot', false);
+            }
+
+            return $query;
+        };
+
+        $totalsRow = $base()
+            ->selectRaw('COUNT(*) as pageviews, COUNT(DISTINCT ip_hash) as uniques, COALESCE(SUM(response_ms), 0) as total_response_ms')
+            ->first();
+
+        $pageviews = (int) ($totalsRow->pageviews ?? 0);
+        if ($pageviews === 0) {
+            return ['pageviews' => 0, 'uniques' => 0, 'total_response_ms' => 0, 'buckets' => []];
+        }
+
+        // One streamed pass rather than a GROUP BY per bucket.
+        //
+        // Grouping in SQL let the planner choose the index on the grouped
+        // column and scan the whole table to avoid a sort, instead of using
+        // occurred_at to narrow to today first. On 200k rows that turned a
+        // 1ms query into 106ms, nine times over. Reading a single day through
+        // a cursor is bounded work with no planner involved, and it is one
+        // query instead of nine.
+        $columns = array_values(array_map(fn ($spec) => $spec[0], self::BUCKET_COLUMNS));
+
+        $buckets = array_fill_keys(array_keys(self::BUCKET_COLUMNS), []);
+        foreach ($base()->select(array_unique($columns))->cursor() as $row) {
+            foreach (self::BUCKET_COLUMNS as $bucket => [$column, $defaultKey]) {
+                $label = $row->{$column} ?? null;
+                if ($label === null || $label === '') {
+                    if ($defaultKey === null) {
+                        continue;
+                    }
+                    $label = $defaultKey;
+                }
+
+                $buckets[$bucket][$label] = ($buckets[$bucket][$label] ?? 0) + 1;
+            }
+        }
+
+        foreach ($buckets as $bucket => $counts) {
+            arsort($counts);
+            $buckets[$bucket] = array_slice($counts, 0, self::BUCKETS[$bucket], true);
+        }
+
+        return [
+            'pageviews' => $pageviews,
+            'uniques' => (int) ($totalsRow->uniques ?? 0),
+            'total_response_ms' => (int) ($totalsRow->total_response_ms ?? 0),
+            'buckets' => $buckets,
+        ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function sumBuckets(Collection $stats, string $field): array
     {
         $totals = [];
         foreach ($stats as $stat) {
@@ -187,87 +310,6 @@ class VisitorLogController extends Controller
             }
         }
 
-        arsort($totals);
-
-        if ($limit > 0 && count($totals) > $limit) {
-            $totals = array_slice($totals, 0, $limit, true);
-        }
-
         return $totals;
-    }
-
-    private function weightedAverageResponseMs(Collection $stats): ?int
-    {
-        $totalResponseMs = 0;
-        $totalRequests = 0;
-
-        foreach ($stats as $stat) {
-            $totalResponseMs += ($stat->total_response_ms ?? 0);
-            $totalRequests += ($stat->pageviews ?? 0);
-        }
-
-        if ($totalRequests === 0) {
-            return null;
-        }
-
-        return (int) round($totalResponseMs / $totalRequests);
-    }
-
-    private function aggregateFromLogs(Collection $logs, string $field, int $limit, ?string $defaultKey = null): array
-    {
-        $counts = $logs->groupBy($field)->map->count();
-
-        $result = [];
-        foreach ($counts as $key => $count) {
-            $label = $key;
-            if ($label === null || $label === '') {
-                if ($defaultKey === null) {
-                    continue;
-                }
-                $label = $defaultKey;
-            }
-
-            $result[$label] = (int) $count;
-        }
-
-        arsort($result);
-
-        if ($limit > 0 && count($result) > $limit) {
-            $result = array_slice($result, 0, $limit, true);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Run aggregation on visitor_logs in the DB (avoids loading all rows).
-     */
-    private function aggregateFromDb(\Illuminate\Database\Query\Builder $query, string $field, int $limit, ?string $defaultKey = null): array
-    {
-        $rows = (clone $query)
-            ->selectRaw($field . ' as label, COUNT(*) as cnt')
-            ->groupBy($field)
-            ->orderByDesc('cnt')
-            ->when($limit > 0, fn ($q) => $q->limit($limit * 2))
-            ->get();
-
-        $result = [];
-        foreach ($rows as $row) {
-            $label = $row->label;
-            if ($label === null || $label === '') {
-                if ($defaultKey === null) {
-                    continue;
-                }
-                $label = $defaultKey;
-            }
-            $result[$label] = (int) $row->cnt;
-        }
-
-        arsort($result);
-        if ($limit > 0 && count($result) > $limit) {
-            $result = array_slice($result, 0, $limit, true);
-        }
-
-        return $result;
     }
 }
