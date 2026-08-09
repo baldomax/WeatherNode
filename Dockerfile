@@ -63,6 +63,17 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interactio
 
 RUN chmod +x /var/www/html/docker/entrypoint.sh
 
+# Keep a copy of the migrations somewhere no volume can be mounted over.
+#
+# Installs created before the data volume moved still mount it at
+# /var/www/html/database, which covers database/migrations. Docker only seeds a
+# named volume from the image when the volume is first created, so that
+# directory is frozen at whatever shipped the day it was made and every later
+# image pull runs new code against old migrations. The entrypoint migrates from
+# this copy instead, which nothing can shadow.
+RUN mkdir -p /opt/weathernode \
+    && cp -R /var/www/html/database/migrations /opt/weathernode/migrations
+
 # Create writable dirs (discovery runs at runtime with .env)
 RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
