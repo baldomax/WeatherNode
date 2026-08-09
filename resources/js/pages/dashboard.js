@@ -41,7 +41,9 @@ function weatherDashboard() {
                 lightning: null,
                 batteryStatus: {},
                 enabledWidgets: cfg.enabledWidgets || [],
+                enabledStatTiles: cfg.enabledStatTiles || [],
                 widgetOrder: [],
+                statOrder: [],
                 gridCols: 3,
                 editMode: false,
                 sortableInstances: [],
@@ -2953,6 +2955,15 @@ function weatherDashboard() {
                             this.widgetOrder = data.widget_order;
                         }
                     }
+                    // An empty list is a valid state here ("Disable all" in admin),
+                    // so unlike widgets this is not guarded on length.
+                    if (Array.isArray(data.enabled_stats)
+                        && JSON.stringify(data.enabled_stats) !== JSON.stringify(this.enabledStatTiles)) {
+                        this.enabledStatTiles = data.enabled_stats;
+                    }
+                    if (Array.isArray(data.stat_order) && data.stat_order.length > 0) {
+                        this.statOrder = data.stat_order;
+                    }
 
                     if (Array.isArray(data.pressure_history) && data.pressure_history.length > 0) {
                         this.pressureHistory = data.pressure_history;
@@ -3144,6 +3155,14 @@ function weatherDashboard() {
                         this.$nextTick(() => this.applyWidgetOrder());
                     }
 
+                    const newStatOrderKey = Array.isArray(this.statOrder) && this.statOrder.length
+                        ? JSON.stringify(this.statOrder)
+                        : '';
+                    if (!this.editMode && newStatOrderKey && newStatOrderKey !== (this._lastAppliedStatOrder ?? '')) {
+                        this._lastAppliedStatOrder = newStatOrderKey;
+                        this.$nextTick(() => this.applyStatOrder());
+                    }
+
                     const resolvedLastUpdate = this.resolveLastUpdateTimestamp(data);
                     if (resolvedLastUpdate !== null) {
                         this.lastDataTime = resolvedLastUpdate;
@@ -3243,6 +3262,11 @@ function weatherDashboard() {
                 // Check if a widget is enabled
                 isWidgetEnabled(widgetId) {
                     return this.enabledWidgets.includes(widgetId);
+                },
+
+                // Check if a Quick Stats tile is enabled
+                isStatTileEnabled(tileId) {
+                    return this.enabledStatTiles.includes(tileId);
                 },
 
                 /**
@@ -3394,11 +3418,15 @@ function weatherDashboard() {
                         document.body.classList.add('edit-mode');
                         this.$nextTick(async () => {
                             await this.initSortable();
-                            this.collectWidgetOrder(); // Collect initial order
+                            // Collect initial order
+                            this.collectWidgetOrder();
+                            this.collectStatOrder();
                         });
                     } else {
                         document.body.classList.remove('edit-mode');
-                        this.collectWidgetOrder(); // Collect final order before saving
+                        // Collect final order before saving
+                        this.collectWidgetOrder();
+                        this.collectStatOrder();
                         this.destroySortable();
                         this.saveWidgetOrder();
                     }
@@ -3463,6 +3491,21 @@ function weatherDashboard() {
                         
                         this.sortableInstances.push(sortable);
                     });
+
+                    // Quick Stats tiles: own group so they cannot be dropped into
+                    // the widget columns, and no handle — the tiles are too small
+                    // to give one up without covering the value.
+                    const statsBar = document.getElementById('sortable-stats');
+                    if (statsBar) {
+                        this.sortableInstances.push(new Sortable(statsBar, {
+                            animation: 200,
+                            ghostClass: 'sortable-ghost',
+                            chosenClass: 'sortable-chosen',
+                            draggable: '.sortable-stat',
+                            group: 'dashboard-stats',
+                            onEnd: () => this.collectStatOrder()
+                        }));
+                    }
                 },
 
                 destroySortable() {
@@ -3491,13 +3534,26 @@ function weatherDashboard() {
                     this.widgetOrder = order;
                 },
 
+                collectStatOrder() {
+                    const statsBar = document.getElementById('sortable-stats');
+                    if (!statsBar) return;
+
+                    // Disabled tiles sit in the DOM hidden; they must not take a
+                    // place in the saved order.
+                    const tiles = Array.from(statsBar.querySelectorAll('.sortable-stat'))
+                        .filter((tile) => tile.offsetParent !== null);
+
+                    this.statOrder = Array.from(new Set(tiles.map((tile) => tile.dataset.stat).filter(Boolean)));
+                },
+
                 async saveWidgetOrder() {
                     // Check if we have any widgets to save (works for both array and object)
-                    const hasWidgets = Array.isArray(this.widgetOrder) 
-                        ? this.widgetOrder.length > 0 
+                    const hasWidgets = Array.isArray(this.widgetOrder)
+                        ? this.widgetOrder.length > 0
                         : Object.keys(this.widgetOrder || {}).length > 0;
-                    
-                    if (!hasWidgets) return;
+                    const hasStats = Array.isArray(this.statOrder) && this.statOrder.length > 0;
+
+                    if (!hasWidgets && !hasStats) return;
                     
                     this.showToast('Opslaan...', 'info');
                     
@@ -3510,7 +3566,7 @@ function weatherDashboard() {
                                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
                             },
                             credentials: 'same-origin',
-                            body: JSON.stringify({ widget_order: this.widgetOrder })
+                            body: JSON.stringify({ widget_order: this.widgetOrder, stat_order: this.statOrder })
                         });
                         
                         if (!response.ok) {
@@ -3583,7 +3639,7 @@ function weatherDashboard() {
                     else if (Array.isArray(this.widgetOrder)) {
                         const container = document.getElementById('sortable-widgets');
                         if (!container) return;
-                        
+
                         this.widgetOrder.forEach((widgetId) => {
                             const widget = findWidgetById(widgetId);
                             if (widget) {
@@ -3591,6 +3647,20 @@ function weatherDashboard() {
                             }
                         });
                     }
+                },
+
+                applyStatOrder() {
+                    if (!Array.isArray(this.statOrder) || !this.statOrder.length) return;
+
+                    const container = document.getElementById('sortable-stats');
+                    if (!container) return;
+
+                    this.statOrder.forEach((tileId) => {
+                        const tile = container.querySelector(`.sortable-stat[data-stat="${tileId}"]`);
+                        if (tile) {
+                            container.appendChild(tile);
+                        }
+                    });
                 },
 
                 /**
