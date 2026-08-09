@@ -565,6 +565,16 @@ class DeployerService
         $this->extractZipSafely($zip, $tempDir);
         $zip->close();
 
+        // A retried deploy reuses the release directory, and one deployed by
+        // the old code still has database/ as a symlink into shared/. The copy
+        // below follows directory symlinks, so without this the zip's
+        // database/migrations would land in shared/ and then be orphaned when
+        // linkSharedDirectories() replaces the symlink with a real directory.
+        $legacyDatabaseLink = $destination . '/database';
+        if (is_link($legacyDatabaseLink)) {
+            unlink($legacyDatabaseLink);
+        }
+
         // Move contents from temp to final destination
         // Handle case where ZIP contains a single root folder
         $contents = File::directories($tempDir);

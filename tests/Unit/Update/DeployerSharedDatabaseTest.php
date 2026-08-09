@@ -144,6 +144,37 @@ class DeployerSharedDatabaseTest extends TestCase
     }
 
     /**
+     * A retried deploy extracts into a release directory that already exists,
+     * and one created by the old deployer still has database/ as a symlink to
+     * shared/. File::copyDirectory follows directory symlinks, so without the
+     * guard in extractZip the zip's migrations landed in shared/ and were then
+     * orphaned when linkSharedDirectories replaced the symlink. This models
+     * the true order: symlink first, then extraction.
+     */
+    public function test_extracting_over_a_legacy_symlink_keeps_migrations_in_the_release(): void
+    {
+        $releaseDir = $this->root . '/releases/v2026.08.02';
+        File::makeDirectory($releaseDir, 0755, true);
+        $sharedDatabase = dirname($this->makeSharedSqlite());
+        symlink($sharedDatabase, $releaseDir . '/database');
+
+        $zipPath = $this->root . '/release.zip';
+        $zip = new \ZipArchive();
+        $zip->open($zipPath, \ZipArchive::CREATE);
+        $zip->addFromString('database/migrations/2026_08_07_090000_add_quick_stats_tile_settings.php', '<?php');
+        $zip->addFromString('artisan', '<?php');
+        $zip->close();
+
+        $deployer = new DeployerService();
+        (new ReflectionMethod($deployer, 'extractZip'))->invoke($deployer, $zipPath, $releaseDir);
+
+        $this->assertFalse(is_link($releaseDir . '/database'), 'the legacy symlink must be gone before the copy');
+        $this->assertFileExists($this->migrationPath($releaseDir), 'migrations must land in the release, not shared');
+        $this->assertFileDoesNotExist($sharedDatabase . '/migrations/2026_08_07_090000_add_quick_stats_tile_settings.php', 'shared must not be polluted with app files');
+        $this->assertFileExists($sharedDatabase . '/database.sqlite', 'the live database must be untouched');
+    }
+
+    /**
      * cleanupOldReleases() calls File::deleteDirectory() straight on an old
      * release, unlike deleteRelease() which unlinks shared symlinks first.
      */
