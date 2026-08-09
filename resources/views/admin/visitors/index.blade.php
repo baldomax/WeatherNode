@@ -34,6 +34,11 @@
                 @if(!$showBots)
                     <span class="text-xs text-blue-600 dark:text-blue-400">({{ __('Bots excluded') }})</span>
                 @endif
+                @if(($availableDays ?? 0) > 0 && $availableDays < $range)
+                    <span class="text-xs text-amber-600 dark:text-amber-400">
+                        {{ __('— only :days days of data exist so far', ['days' => $availableDays]) }}
+                    </span>
+                @endif
             </p>
             @if($lastRollupDate)
                 <p class="text-xs text-gray-400 dark:text-gray-500">
@@ -49,9 +54,20 @@
             </label>
             <label for="range" class="text-sm text-gray-600 dark:text-gray-300">{{ __('Range') }}</label>
             <select id="range" name="range" class="rounded-lg border-gray-200 dark:border-gray-700 dark:bg-gray-900 text-sm" onchange="this.form.submit()">
-                <option value="30" @selected($range === 30)>30 {{ __('days') }}</option>
-                <option value="90" @selected($range === 90)>90 {{ __('days') }}</option>
-                <option value="365" @selected($range === 365)>365 {{ __('days') }}</option>
+                {{-- Options come from the controller and grow by a year for
+                     each year of history. Spans longer than the data goes back
+                     stay selectable, but are flagged so a short chart does not
+                     look like missing data. --}}
+                @foreach(($rangeOptions ?? [30, 90, 365]) as $rangeOption)
+                    <option value="{{ $rangeOption }}" @selected($range === $rangeOption)>
+                        @if($rangeOption % 365 === 0)
+                            {{ trans_choice(':count year|:count years', intdiv($rangeOption, 365), ['count' => intdiv($rangeOption, 365)]) }}
+                        @else
+                            {{ $rangeOption }} {{ __('days') }}
+                        @endif
+                        @if(($availableDays ?? 0) > 0 && $availableDays < $rangeOption) ({{ __('partial') }})@endif
+                    </option>
+                @endforeach
             </select>
         </form>
     </div>

@@ -6,8 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class VisitorDailyStat extends Model
 {
+    /** Every request, bots included. */
+    public const SEGMENT_ALL = 'all';
+
+    /** Requests with is_bot = false. */
+    public const SEGMENT_HUMANS = 'humans';
+
     protected $fillable = [
         'date',
+        'segment',
         'pageviews',
         'uniques',
         'total_response_ms',

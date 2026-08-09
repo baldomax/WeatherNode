@@ -428,6 +428,14 @@ $loggedSchedulerTask('cache-cleanup', 'cache:clean-expired', 'cache-cleanup.log'
 $loggedSchedulerTask('radar-cleanup', 'radar:clean-tiles', 'radar-cleanup.log')
     ->hourly();
 
+// Return space freed by the purges above to the filesystem. SQLite reuses
+// deleted pages but never shrinks the file, so a long-running install can be
+// mostly empty space. No-ops unless enough has built up to be worth the
+// rewrite, and weekly + off-peak because VACUUM takes an exclusive lock.
+$loggedSchedulerTask('db-reclaim-space', 'db:reclaim-space', 'db-reclaim-space.log')
+    ->weeklyOn(0, '04:10')
+    ->withoutOverlapping();
+
 // Check for updates daily (notify admins if new version available)
 if (config('updater.notify_email', false)) {
     $loggedSchedulerTask('update-check', 'updater:check --notify', 'update-check.log')
