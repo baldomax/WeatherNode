@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.3] - 2026-08-09
+
+- Visitor analytics now reads the daily rollup instead of rebuilding every chart from raw logs on each request, which took roughly 700ms on a busy site and grew with traffic
+- The rollup stores bot-excluded figures too, so the default view can use it; historical days are filled in automatically on the first nightly run after upgrading
+- Days the scheduler previously missed are now picked up rather than being lost when the raw logs age out
+- Fix `visitorlog:rollup --date=` failing when that day already had a row
+- The range selector says how much data actually exists, and gains another year for each year the install has been running
+- New weekly job returns space freed by the nightly purges to the filesystem; SQLite never shrank the file on its own, and a real install was 64% empty space
+- Note: the visitor page reads the rollup, so figures fill in after the first nightly run (or run `php artisan visitorlog:rollup` to do it now)
+
 ## [2026.08.2] - 2026-08-09
 
 - Quick Stats bar tiles can now be toggled in Settings → Dashboard Widgets and reordered on the dashboard in edit mode (#13)
