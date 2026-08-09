@@ -31,20 +31,88 @@ PRISTINE_MIGRATIONS="/opt/weathernode/migrations"
 
 cd "$APP_DIR"
 
-# Recursive chown is expensive on overlayfs, so skip it when the directory is
-# already owned correctly. Checks the directory itself, which is enough for the
-# case this exists for: a volume arriving with restrictive host-side ownership.
-chown_if_needed() {
+# Recursive chown is expensive on overlayfs, so only do it when something is
+# actually mis-owned. The find stops at the first offender, so the common case
+# where everything is already correct costs a traversal and no writes.
+#
+# Checks every entry rather than just the top directory: the failure this
+# guards against is a root-owned directory nested inside an already-correct
+# storage/, created by the artisan commands this script runs as root.
+fix_ownership() {
     target="$1"
     [ -d "$target" ] || return 0
 
-    owner="$(stat -c '%U:%G' "$target" 2>/dev/null || echo '')"
-    if [ "$owner" = 'www-data:www-data' ]; then
+    if [ -z "$(find "$target" ! -user www-data -print -quit 2>/dev/null)" ]; then
         return 0
     fi
 
-    echo "[entrypoint] Fixing ownership of $target..."
+    echo "[entrypoint] Fixing ownership under $target..."
     chown -R www-data:www-data "$target" || true
+}
+
+# Size the php-fpm pool to the memory the container actually has.
+#
+# The stock pool ships pm.max_children = 5. A dashboard load is one payload
+# request plus a burst of radar tiles, so five workers saturate immediately and
+# the payload queues behind the tiles.
+#
+# Raising it blindly is the wrong fix: this runs on everything from a Raspberry
+# Pi to a VPS, and pm = dynamic means the ceiling is free at idle but a burst
+# against too high a ceiling turns a slow page into an OOM kill. Slow beats
+# dead, so the ceiling is derived from the limit rather than guessed.
+#
+# Set PHP_FPM_MAX_CHILDREN to override.
+configure_php_fpm_pool() {
+    max_children="${PHP_FPM_MAX_CHILDREN:-}"
+
+    if [ -z "$max_children" ]; then
+        # cgroup v2, then v1, then the host's total as a last resort.
+        mem_bytes=""
+        if [ -r /sys/fs/cgroup/memory.max ]; then
+            mem_bytes="$(cat /sys/fs/cgroup/memory.max 2>/dev/null)"
+        elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
+            mem_bytes="$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)"
+        fi
+
+        # "max", or a sentinel so large it means unlimited: fall back to total RAM.
+        case "$mem_bytes" in
+            ''|max|*[!0-9]*) mem_bytes="" ;;
+        esac
+        if [ -z "$mem_bytes" ] || [ "$mem_bytes" -gt 1099511627776 ] 2>/dev/null; then
+            mem_kb="$(awk '/MemTotal/ {print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+            mem_bytes=$((mem_kb * 1024))
+        fi
+
+        mem_mb=$((mem_bytes / 1048576))
+
+        # Measured ~55 MB resident per worker serving the dashboard; 64 leaves
+        # headroom. Only 60% of memory is handed to php-fpm, since nginx, the
+        # scheduler and possibly a database live here too.
+        if [ "$mem_mb" -gt 0 ]; then
+            max_children=$(( (mem_mb * 60 / 100) / 64 ))
+        else
+            max_children=5
+        fi
+
+        [ "$max_children" -lt 5 ] && max_children=5
+        [ "$max_children" -gt 32 ] && max_children=32
+    fi
+
+    start_servers=$(( max_children / 4 ))
+    [ "$start_servers" -lt 2 ] && start_servers=2
+    max_spare=$(( max_children / 2 ))
+    [ "$max_spare" -lt "$start_servers" ] && max_spare="$start_servers"
+
+    cat > /usr/local/etc/php-fpm.d/zz-weathernode.conf <<CONF
+[www]
+pm = dynamic
+pm.max_children = ${max_children}
+pm.start_servers = ${start_servers}
+pm.min_spare_servers = 2
+pm.max_spare_servers = ${max_spare}
+CONF
+
+    echo "[entrypoint] php-fpm pool: max_children=${max_children} (container memory: ${mem_mb:-unknown} MB)"
 }
 
 ensure_writable_paths() {
@@ -89,9 +157,9 @@ ensure_writable_paths() {
     # an image-layer path forces overlayfs to copy every file up into the
     # container's writable layer, on every recreate.
     if [ "$(id -u)" -eq 0 ]; then
-        chown_if_needed "$APP_DIR/storage"
-        chown_if_needed "$APP_DIR/bootstrap/cache"
-        [ -n "$SQLITE_DIR" ] && chown_if_needed "$SQLITE_DIR"
+        fix_ownership "$APP_DIR/storage"
+        fix_ownership "$APP_DIR/bootstrap/cache"
+        [ -n "$SQLITE_DIR" ] && fix_ownership "$SQLITE_DIR"
     fi
 
     chmod 775 "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" || true
@@ -106,6 +174,7 @@ ensure_writable_paths() {
 # of presenting as a container that is Up with an empty log.
 echo "[entrypoint] Preparing filesystem (database driver: ${DB_CONNECTION:-sqlite})..."
 ensure_writable_paths
+configure_php_fpm_pool
 
 case "${APP_KEY:-}" in
     ""|"base64:REPLACE_WITH_YOUR_GENERATED_KEY"|"REPLACE_WITH_YOUR_APP_KEY")
@@ -152,6 +221,20 @@ if [ ! -f "$FIRST_RUN_MARKER" ]; then
     fi
 
     touch "$FIRST_RUN_MARKER"
+fi
+
+# Re-check ownership after the artisan commands above.
+#
+# Those run as root, and anything they write under storage/ is created
+# root-owned, after the fixup at the top has already run. php-fpm then serves
+# as www-data and cannot write there. With the database cache store this went
+# unnoticed, because nothing created storage/framework/cache/data in the first
+# place; on a file-backed cache every page 500s with
+# "file_put_contents(...): Failed to open stream: No such file or directory",
+# which reads as a missing path rather than a permissions problem.
+if [ "$(id -u)" -eq 0 ]; then
+    fix_ownership "$APP_DIR/storage"
+    fix_ownership "$APP_DIR/bootstrap/cache"
 fi
 
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
