@@ -11,6 +11,7 @@ use App\Services\Update\ReleaseNotesParser;
 use App\Services\Update\BackupService;
 use App\Models\UpdateLog;
 use App\Models\Setting;
+use App\Support\UpdateAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -51,6 +52,17 @@ class UpdateController extends Controller
         $backups = $this->backupService->getBackups();
         $keepReleases = (int) Setting::getValue('updater.keep_releases', config('updater.keep_releases', 5));
         $keepBackups = (int) Setting::getValue('updater.backup_keep_count', config('updater.backup_keep_count', 5));
+        $updateCheckEnabled = UpdateAvailability::enabled();
+        $lastUpdateCheckAt = UpdateAvailability::checkedAt();
+        if ($lastUpdateCheckAt !== null) {
+            try {
+                $lastUpdateCheckAt = \Carbon\Carbon::parse($lastUpdateCheckAt)
+                    ->timezone(Setting::timezone())
+                    ->diffForHumans();
+            } catch (\Throwable) {
+                $lastUpdateCheckAt = null;
+            }
+        }
 
         // Parse release notes
         $notesParser = app(ReleaseNotesParser::class);
@@ -76,7 +88,9 @@ class UpdateController extends Controller
             'keepReleases',
             'keepBackups',
             'releaseNotes',
-            'updateHistory'
+            'updateHistory',
+            'updateCheckEnabled',
+            'lastUpdateCheckAt'
         ));
     }
 
@@ -94,6 +108,24 @@ class UpdateController extends Controller
         Setting::setValue('updater.backup_keep_count', $data['keep_backups'], 'integer', 'updater');
 
         return back()->with('status', __('Retention settings saved.'));
+    }
+
+    /**
+     * Turn the daily release check (and its admin banner) on or off.
+     *
+     * Separate from the retention form because that one is only shown when the
+     * in-app updater is enabled, while the banner is useful to every install.
+     */
+    public function updateNotificationSettings(Request $request)
+    {
+        Setting::setValue(
+            UpdateAvailability::SETTING_ENABLED,
+            $request->boolean('check_enabled'),
+            'boolean',
+            'updater'
+        );
+
+        return back()->with('status', __('Update check settings saved.'));
     }
 
     /**

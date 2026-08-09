@@ -249,6 +249,29 @@
         </div>
     @endif
 
+    {{-- Update checks: useful whether or not the in-app updater is enabled, so
+         deliberately outside the config('updater.enabled') gate below. --}}
+    <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ __('Update checks') }}</h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            {{ __('Once a day, check GitHub for a newer release and show a banner in the admin area when one is available. The check runs on the scheduler, never during a page load.') }}
+            @if($lastUpdateCheckAt)
+                <span class="block mt-1 text-xs text-gray-500 dark:text-gray-400">{{ __('Last checked: :when', ['when' => $lastUpdateCheckAt]) }}</span>
+            @endif
+        </p>
+        <form method="POST" action="{{ route('admin.updates.notifications.update') }}" class="flex items-center gap-4">
+            @csrf
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="check_enabled" value="1" @checked($updateCheckEnabled)
+                       class="rounded border-gray-300 dark:border-gray-600 text-emerald-600 focus:ring-emerald-500">
+                {{ __('Check for new releases') }}
+            </label>
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg">
+                {{ __('Save') }}
+            </button>
+        </form>
+    </div>
+
     <!-- Retention (auto-prune counts) -->
     @if(config('updater.enabled'))
         <div class="mb-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">

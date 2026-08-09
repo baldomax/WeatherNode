@@ -304,6 +304,15 @@ $loggedSchedulerTask('poll-knmi-wms', 'weather:poll-external --source=knmi_wms -
 $loggedSchedulerTask('weather-summary', 'weather:summarize', 'weather-summary.log')
     ->dailyAt('00:05');
 
+// Record the newest release once a day so the admin area can show an update
+// banner without any page load having to call GitHub. Off-peak, and the minute
+// is derived from the app key so installs do not all hit the API at once.
+// Deliberately not read from settings: this file is evaluated on every artisan
+// call, including `migrate` on a database that has no settings table yet.
+Schedule::command('updater:check --notify')
+    ->dailyAt(sprintf('03:%02d', crc32((string) config('app.key')) % 60))
+    ->withoutOverlapping();
+
 // Warm phenology + OG caches after the daily summary is written (00:05) so the first
 // visitor/share after midnight never hits a cold cache. (Fire weather is refreshed on a
 // 15-minute cadence below, because it tracks today's DailySummary as the day warms up.)

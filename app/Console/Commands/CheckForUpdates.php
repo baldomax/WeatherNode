@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Services\Update\GithubReleaseService;
 use App\Services\VersionService;
+use App\Support\UpdateAvailability;
 use App\Support\Versioning;
 use App\Models\User;
 use App\Notifications\UpdateAvailableNotification;
@@ -17,6 +18,11 @@ class CheckForUpdates extends Command
 
     public function handle(GithubReleaseService $githubService)
     {
+        if (!UpdateAvailability::enabled()) {
+            $this->info('Update checks are disabled.');
+            return 0;
+        }
+
         $this->info('Checking for updates...');
 
         $latestRelease = $githubService->getLatestRelease();
@@ -35,6 +41,10 @@ class CheckForUpdates extends Command
 
         $this->info("Current version: {$currentVersion}");
         $this->info("Latest version: {$latestVersion}");
+
+        // Recorded whether or not it is newer, so the admin banner can decide at
+        // render time and stop showing as soon as the running version catches up.
+        UpdateAvailability::remember($latestVersion);
 
         $comparison = Versioning::compare($currentVersion, $latestVersion);
 

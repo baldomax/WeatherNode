@@ -704,6 +704,7 @@
 
             <!-- Page Content -->
             <main id="main-content" class="flex-1 overflow-y-auto p-4 md:p-6">
+                @include('admin.partials.update-available-notice')
                 @yield('content')
             </main>
 
