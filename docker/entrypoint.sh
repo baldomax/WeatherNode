@@ -11,6 +11,9 @@ FIRST_RUN_MARKER="$APP_DIR/storage/app/.docker-initialized"
 SQLITE_PATH="${DB_DATABASE:-/var/lib/weathernode/database.sqlite}"
 SQLITE_DIR="$(dirname "$SQLITE_PATH")"
 
+# Migrations as shipped in the image, at a path no volume is mounted over.
+PRISTINE_MIGRATIONS="/opt/weathernode/migrations"
+
 cd "$APP_DIR"
 
 ensure_writable_paths() {
@@ -21,24 +24,28 @@ ensure_writable_paths() {
     if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
         mkdir -p "$SQLITE_DIR"
 
-        # Refuse to start on a new image with a pre-2026.08 compose file.
+        # Keep using a database left in the pre-2026.08 location.
         #
-        # That combination puts the live database in the volume still mounted at
-        # $APP_DIR/database, while DB_DATABASE points somewhere with no volume
-        # behind it. Starting anyway would create a blank database, migrate it,
-        # and look healthy while the real data sat untouched in the old volume
-        # until the next `docker compose down` removed it. Moving the file is not
-        # the answer either: it would relocate live data out of the volume and
-        # onto the container filesystem.
+        # A new image with an un-edited compose file still has the volume over
+        # $APP_DIR/database, so the live database is there while DB_DATABASE
+        # points at a path with no volume behind it. Carrying on regardless
+        # would create a blank database, migrate it, and look perfectly healthy
+        # while the real data sat in the old volume until the next
+        # `docker compose down` removed it.
+        #
+        # So use the file where it actually is. Not moved: that would relocate
+        # live data out of the volume and onto the container filesystem, which
+        # the next recreate would discard.
         if [ ! -f "$SQLITE_PATH" ] && [ -f "$APP_DIR/database/database.sqlite" ]; then
-            echo "ERROR: found a database at $APP_DIR/database/database.sqlite but DB_DATABASE points to $SQLITE_PATH."
-            echo ""
-            echo "The data volume moved out of the application directory. Update docker-compose.yml:"
-            echo "  - db_data:/var/www/html/database    ->    - db_data:/var/lib/weathernode"
-            echo "and set DB_DATABASE: \"/var/lib/weathernode/database.sqlite\""
-            echo ""
-            echo "Your database is untouched. The same volume simply mounts at the new path."
-            exit 1
+            echo "[entrypoint] NOTE: using the database at $APP_DIR/database/database.sqlite."
+            echo "[entrypoint] The data volume has moved out of the application directory. When convenient, update docker-compose.yml:"
+            echo "[entrypoint]     - db_data:/var/www/html/database    ->    - db_data:/var/lib/weathernode"
+            echo "[entrypoint]   and set DB_DATABASE: \"/var/lib/weathernode/database.sqlite\""
+            echo "[entrypoint] Same volume, new mount point, so nothing is copied or moved. Migrations apply correctly either way."
+            SQLITE_PATH="$APP_DIR/database/database.sqlite"
+            SQLITE_DIR="$(dirname "$SQLITE_PATH")"
+            DB_DATABASE="$SQLITE_PATH"
+            export DB_DATABASE
         fi
 
         touch "$SQLITE_PATH"
@@ -72,7 +79,20 @@ esac
 
 if [ "${DOCKER_AUTO_MIGRATE:-true}" = "true" ]; then
     echo "[entrypoint] Running database migrations..."
-    php artisan migrate --force --no-interaction
+
+    # Migrate from the image's own copy when it is available. A volume mounted
+    # over $APP_DIR/database hides the migrations the image shipped, and Docker
+    # only seeds a named volume once, so without this an upgraded container
+    # runs new code against the migrations its volume was created with and
+    # reports success having applied nothing.
+    #
+    # Laravel records migrations by filename, so which directory they were run
+    # from makes no difference to the migrations table.
+    if [ -d "$PRISTINE_MIGRATIONS" ]; then
+        php artisan migrate --force --no-interaction --path="$PRISTINE_MIGRATIONS" --realpath
+    else
+        php artisan migrate --force --no-interaction
+    fi
 fi
 
 if [ ! -f "$FIRST_RUN_MARKER" ]; then

@@ -144,8 +144,12 @@ from the image the first time the volume is created, so every later image pull
 ran new code against the migrations the volume was created with. New migrations
 were never applied and `migrate` reported success anyway.
 
-The volume now mounts outside the application directory. Update two things in
-`docker-compose.yml`:
+**Nothing breaks if you do nothing.** The container keeps using the database
+where it already is, and migrations are applied from a copy inside the image
+that no volume can cover, so an old compose file gets its migrations correctly.
+The startup log points out the change each time.
+
+When convenient, move the volume out of the application directory:
 
 ```yaml
     volumes:
@@ -162,13 +166,8 @@ and add to the environment block:
 Your database is not moved or copied. It is the same volume mounted at a
 different path, and the SQLite file sits at the volume root either way.
 
-The container refuses to start if it finds a database at the old path while
-`DB_DATABASE` points at the new one, rather than quietly creating a blank
-database next to your real one. If you see that error, you have the new image
-with the old compose file: apply the two changes above.
-
 Any migrations skipped while the old layout was in place are applied on the
-first start after the change.
+first start after upgrading, whichever layout you are on.
 
 ### 4) Read-only volume symptoms
 
