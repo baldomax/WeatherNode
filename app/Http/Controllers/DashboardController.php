@@ -20,6 +20,6 @@ class DashboardController extends Controller
                 'dashboardHybridSsrEnabled' => $hybridEnabled,
                 'ssrDashboard' => $ssrDashboard,
             ])
-            ->header('Cache-Control', 'private, max-age=30, stale-while-revalidate=30');
+            ->header('Cache-Control', DashboardPayloadService::browserCacheControl($request->user()));
     }
 }

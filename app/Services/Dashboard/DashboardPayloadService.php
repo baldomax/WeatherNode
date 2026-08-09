@@ -7,13 +7,31 @@ use App\Models\Setting;
 use App\Models\WeatherReading;
 use App\Services\Alerts\AlertAggregatorService;
 use App\Services\AirQuality\WaqiService;
+use App\Support\StatTileRegistry;
 use Carbon\Carbon;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class DashboardPayloadService
 {
     private const DASHBOARD_PAYLOAD_KEYS_CACHE_KEY = 'dashboard_payload_keys';
+
+    /**
+     * Browser cache policy for dashboard responses (the page and its payload).
+     *
+     * Visitors and wall displays get a short window so repeat views stay cheap.
+     * Admins must not: they change a setting and navigate straight back to the
+     * dashboard, and a cached copy would keep showing the old configuration for
+     * up to a minute — long enough to read as "my change did nothing" and send
+     * them reaching for a hard refresh.
+     */
+    public static function browserCacheControl(?Authenticatable $user): string
+    {
+        return ($user?->is_admin ?? false)
+            ? 'private, no-cache, no-store, must-revalidate'
+            : 'private, max-age=30, stale-while-revalidate=30';
+    }
 
     public function getDashboardPayload(Request $request): array
     {
@@ -41,6 +59,7 @@ class DashboardPayloadService
         $layout = $this->readWidgetLayout();
         $payload['grid_cols'] = (int) ($layout['grid_cols'] ?? 3);
         $payload['widget_order'] = is_array($layout['widget_order'] ?? null) ? $layout['widget_order'] : [];
+        $payload['stat_order'] = StatTileRegistry::storedOrder();
 
         return $payload;
     }
@@ -570,8 +589,10 @@ class DashboardPayloadService
                 'model' => $reading?->station_model,
             ],
             'enabled_widgets' => $enabledWidgets,
+            'enabled_stats' => StatTileRegistry::enabledIds(),
             'grid_cols' => $gridCols,
             'widget_order' => $layout['widget_order'] ?? [],
+            'stat_order' => StatTileRegistry::storedOrder(),
             'effects' => $effectSettings,
         ];
     }

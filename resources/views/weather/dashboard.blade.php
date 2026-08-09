@@ -963,6 +963,7 @@
         $dashboardConfig = [
             'canUseDebugOverrides' => auth()->check() && auth()->user() && auth()->user()->is_admin,
             'enabledWidgets' => $dashboardEnabledWidgets,
+            'enabledStatTiles' => \App\Support\StatTileRegistry::enabledIds(),
             'stationName' => \App\Models\Setting::stationName(),
             'stationLocation' => \App\Models\Setting::stationLocation(),
             'tempChartShowNowLine' => (bool) \App\Models\Setting::getValue('widgets.temp_chart_now_line', true),
@@ -1286,74 +1287,8 @@
             </div>
         </div>
 
-        <!-- Quick Stats Bar: on mobile smaller fonts + line-clamp so labels/value fit -->
-        <div class="grid grid-cols-5 gap-1.5 sm:gap-2 mb-4 lg:grid-cols-10">
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('Today') }}</div>
-                <div class="leading-tight">
-                    <div class="text-xs sm:text-base font-bold text-weather-warm data-value truncate">
-                        <span class="text-[8px] font-normal opacity-60">↑</span><span x-text="formatTemp(todayHigh)"></span>
-                    </div>
-                    <div class="text-[10px] sm:text-xs font-semibold text-weather-cold truncate">
-                        <span class="text-[8px] font-normal opacity-60">↓</span><span x-text="formatTemp(todayLow)"></span>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('Max wind') }}</div>
-                <div class="text-xs sm:text-lg font-bold data-value truncate" x-text="formatWind(current?.wind_gust)">{{ $ssrWindGustText }}</div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('Precipitation') }}</div>
-                <div class="text-xs sm:text-lg font-bold text-weather-rain data-value truncate" x-text="formatRain(current?.rain_daily)"></div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('AQI') }}</div>
-                <div class="text-xs sm:text-lg font-bold data-value truncate" :style="'color: ' + (airQuality?.category?.color || '#22c55e')" x-text="airQuality?.aqi ?? '--'">{{ isset($ssrAirQuality['aqi']) ? (int) $ssrAirQuality['aqi'] : '--' }}</div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('UV Index') }}</div>
-                <div class="text-xs sm:text-lg font-bold data-value truncate" x-text="current?.uv_index ?? '0'"></div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('Earthquakes') }}</div>
-                <div class="text-xs sm:text-lg font-bold data-value truncate" x-text="earthquakes.length > 0 ? earthquakes.length : '✓'">{{ $ssrEarthquakeCountLabel }}</div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('Next Rain') }}</div>
-                <div class="text-[10px] sm:text-base font-bold data-value line-clamp-2 break-words leading-tight min-h-[1.5rem] sm:min-h-0 sm:truncate"
-                     :class="nextRainInfo() ? 'text-blue-400' : 'text-gray-500'"
-                     x-text="nextRainLabel()">{{ $ssrNextRainLabel }}</div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('Advisory') }}</div>
-                <div class="text-[10px] sm:text-base font-bold data-value line-clamp-2 break-words leading-tight min-h-[1.5rem] sm:min-h-0 sm:truncate"
-                     :class="tempAdvisory()?.color ?? 'text-gray-400'"
-                     x-text="tempAdvisory()?.label ?? '--'">{{ $ssrTempAdvisoryLabel }}</div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('vs. Yesterday') }}</div>
-                <div class="text-[10px] sm:text-sm font-bold data-value line-clamp-2 break-words leading-tight min-h-[1.5rem] sm:min-h-0 sm:truncate"
-                     :class="tempVsYesterday()?.color ?? 'text-gray-500'"
-                     x-text="tempVsYesterday()?.label ?? '--'">{{ $ssrTempVsYesterdayLabel }}</div>
-            </div>
-            <div class="bg-weather-card card-3d rounded-lg p-1.5 sm:p-3 text-center border border-white/5"
-                 @mouseenter="tiltCard($event)" @mouseleave="resetCard($event)" @mousemove="tiltCard($event)">
-                <div class="text-[8px] sm:text-[10px] text-gray-400 line-clamp-2 break-words min-h-[2rem] sm:min-h-0 sm:truncate leading-tight">{{ __('Best time') }}</div>
-                <div class="text-[10px] sm:text-base font-bold data-value line-clamp-2 break-words leading-tight min-h-[1.5rem] sm:min-h-0 sm:truncate"
-                     :class="bestOutdoorColor()"
-                     x-text="bestOutdoorLabel()">{{ $ssrBestOutdoorLabel }}</div>
-            </div>
-        </div>
+        {{-- Quick Stats Bar: registry-driven, toggled in admin, reordered in edit mode --}}
+        @include('weather.partials.quick-stats')
 
         <!-- Main Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">

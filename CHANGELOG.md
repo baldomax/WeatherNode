@@ -29,6 +29,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Docker upgrades stopped applying database migrations.** The SQLite volume was mounted at `/var/www/html/database`, which also holds `database/migrations`. Docker only copies a named volume's contents from the image the first time the volume is created, so that directory stayed frozen at whatever shipped the day the install was set up. Every later image pull ran new code against old migrations while `migrate` reported success.
+  - Migrations are now applied from a copy inside the image that no volume can cover, so existing installs are fixed without touching their compose file. Any migrations skipped while the old layout was in place are applied on the first start after upgrading.
+  - The data volume moves to `/var/lib/weathernode`, outside the application directory. This is optional cleanup, not a required step. Nothing is copied or moved: it is the same volume mounted at a different path. See DOCKER.md, "Upgrading from a pre-2026.08 compose file".
+  - Affected installs show a notice in the admin area until the volume is moved.
+
 ### Added
 
 - **In-page weather alert toasts** — non-intrusive slide-down notifications at the top-center of the dashboard for extreme conditions
