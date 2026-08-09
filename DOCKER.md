@@ -16,7 +16,7 @@ This document describes running WeatherNode in Docker and how to use it.
 | PHP 8.2+ with extensions | Use official `php:8.2-fpm` and install `pdo`, `pdo_sqlite`, `pdo_mysql`, `mbstring`, `xml`, `curl`, `zip`, `gd`, `fileinfo` (see DEPLOYMENT.md). |
 | Composer | Run `composer install --no-dev` in the image build. |
 | Node/npm (frontend build) | Multi-stage build: run `npm ci && npm run build` in a Node stage and copy `public/build` into the PHP image. No Node in the final image. |
-| SQLite or MySQL | SQLite: named volume for `database/`. MySQL: use a `mysql` service in `docker-compose` and set `DB_*` in `.env`. |
+| SQLite or MySQL | SQLite: named volume at `/var/lib/weathernode`, outside the app directory. MySQL: use a `mysql` service in `docker-compose` and set `DB_*` in `.env`. |
 | Web server (document root = `public/`) | Nginx runs in the same image via supervisord. |
 | Laravel scheduler (cron) | A second container from the same image runs `php artisan schedule:run` every minute. |
 | Writable storage | Named volumes for `storage/` and `bootstrap/cache`. |
@@ -52,7 +52,7 @@ Run commands from the repository root (the folder containing `docker-compose.yml
    Open http://localhost:8080 (or the port you set in docker-compose).
 
   On startup, the `app` container now:
-   - normalizes mounted volume permissions for `storage/`, `bootstrap/cache`, and `database/`
+   - normalizes mounted volume permissions for `storage/`, `bootstrap/cache`, and the SQLite directory
    - runs `php artisan migrate --force` (default on every start)
    - runs first-run bootstrap once (`storage:link`, `db:seed`, optional `admin:create` via env)
 
@@ -73,7 +73,7 @@ make docker-rebuild
 ## What’s included
 
 - **Dockerfile**: Multi-stage build (Node for `npm run build`, then PHP 8.2-FPM + Nginx). Final image runs Nginx and PHP-FPM via supervisord.
-- **docker-compose.yml**: `app` (web), `scheduler` (runs `schedule:run` every minute), compose-managed environment values (no `.env` copy required), and volumes for `storage/`, `bootstrap/cache`, and SQLite `database/`.
+- **docker-compose.yml**: `app` (web), `scheduler` (runs `schedule:run` every minute), compose-managed environment values (no `.env` copy required), and volumes for `storage/`, `bootstrap/cache`, and the SQLite database at `/var/lib/weathernode`.
 - **docker/entrypoint.sh**: startup bootstrap for migrations and one-time first-run initialization.
 - **.dockerignore**: Keeps build context small (excludes `.git`, `node_modules`, `vendor`, `storage/logs`, etc.).
 
@@ -136,11 +136,45 @@ curl -I http://192.168.1.15:8089/admin
 
 Expected `Location` should include `:8089` (for unauthenticated users, usually `/login`).
 
-### 3) Read-only volume symptoms
+### 3) Upgrading from a pre-2026.08 compose file
+
+The SQLite volume used to be mounted at `/var/www/html/database`. That path also
+holds `database/migrations`, and Docker only copies a named volume's contents
+from the image the first time the volume is created, so every later image pull
+ran new code against the migrations the volume was created with. New migrations
+were never applied and `migrate` reported success anyway.
+
+The volume now mounts outside the application directory. Update two things in
+`docker-compose.yml`:
+
+```yaml
+    volumes:
+-     - db_data:/var/www/html/database
++     - db_data:/var/lib/weathernode
+```
+
+and add to the environment block:
+
+```yaml
+  DB_DATABASE: "/var/lib/weathernode/database.sqlite"
+```
+
+Your database is not moved or copied. It is the same volume mounted at a
+different path, and the SQLite file sits at the volume root either way.
+
+The container refuses to start if it finds a database at the old path while
+`DB_DATABASE` points at the new one, rather than quietly creating a blank
+database next to your real one. If you see that error, you have the new image
+with the old compose file: apply the two changes above.
+
+Any migrations skipped while the old layout was in place are applied on the
+first start after the change.
+
+### 4) Read-only volume symptoms
 
 If first boot returns HTTP 500 with messages like:
 - `laravel.log could not be opened in append mode`
 - `attempt to write a readonly database`
 
 the mounted volume permissions are too restrictive for PHP-FPM (`www-data`).
-The container startup now normalizes writable paths (`storage`, `bootstrap/cache`, `database`) automatically, but existing installations with strict host policies (for example Unraid) may need one manual ownership/permission correction once.
+The container startup now normalizes writable paths (`storage`, `bootstrap/cache`, and the SQLite directory) automatically, but existing installations with strict host policies (for example Unraid) may need one manual ownership/permission correction once.

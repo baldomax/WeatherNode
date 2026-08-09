@@ -12,7 +12,13 @@ x-weathernode-env: &weathernode-env
   #   https://www.base64decode.org/
   APP_KEY: "base64:REPLACE_WITH_YOUR_GENERATED_KEY"
   # SQLite by default (stored in the db_data volume).
+  # The volume is mounted outside the app directory on purpose: mounting it over
+  # /var/www/html/database would also cover database/migrations, and Docker only
+  # seeds a named volume from the image the first time it is created. Every later
+  # image pull would then run new code against the migrations the volume was
+  # created with.
   DB_CONNECTION: "sqlite"
+  DB_DATABASE: "/var/lib/weathernode/database.sqlite"
   SESSION_SECURE_COOKIE: "false"
   CONTAINERIZED: "true"
   DOCKER_AUTO_MIGRATE: "true"
@@ -37,7 +43,7 @@ services:
     volumes:
       - storage_data:/var/www/html/storage
       - cache_data:/var/www/html/bootstrap/cache
-      - db_data:/var/www/html/database
+      - db_data:/var/lib/weathernode
     # Optional: use MySQL instead of SQLite — uncomment below and set DB_* in .env
     # depends_on:
     #   mysql:
@@ -57,7 +63,7 @@ services:
     volumes:
       - storage_data:/var/www/html/storage
       - cache_data:/var/www/html/bootstrap/cache
-      - db_data:/var/www/html/database
+      - db_data:/var/lib/weathernode
     entrypoint: ["/bin/sh", "-c"]
     command:
       - "while true; do php /var/www/html/artisan schedule:run --no-interaction; sleep 60; done"
