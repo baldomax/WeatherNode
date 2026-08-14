@@ -2125,11 +2125,16 @@ function weatherDashboard() {
 
                 startRadarAnimation() {
                     this.stopRadarAnimation();
-                    this.showRadarFrame(this._radarCurrentFrameIndex);
 
                     if (document.body.classList.contains('theme-flat') || this._radarFrames.length <= 1) {
+                        if (this._radarFrames.length > 1) {
+                            this._radarCurrentFrameIndex = this._radarFrames.length - 1;
+                        }
+                        this.showRadarFrame(this._radarCurrentFrameIndex);
                         return;
                     }
+
+                    this.showRadarFrame(this._radarCurrentFrameIndex);
 
                     const frameDelay = Math.max(250, Number(cfg.rainviewerFrameDelay || 1000));
                     this._radarAnimationInterval = setInterval(() => {
