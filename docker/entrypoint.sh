@@ -164,9 +164,13 @@ ensure_writable_paths() {
 
     chmod 775 "$APP_DIR/storage" "$APP_DIR/bootstrap/cache" || true
     [ -n "$SQLITE_DIR" ] && [ -d "$SQLITE_DIR" ] && chmod 775 "$SQLITE_DIR" || true
-    find "$APP_DIR/storage" -type d -exec chmod 775 {} \; || true
-    find "$APP_DIR/storage" -type f -exec chmod 664 {} \; || true
-    find "$APP_DIR/bootstrap/cache" -type f -exec chmod 664 {} \; || true
+    # -exec ... + batches the paths into as few chmod calls as possible. With
+    # \; it is one fork per file, and storage/ holds the file cache: an install
+    # with 45k cached entries spent ~2 minutes here on every container recreate,
+    # before the first log line after this function.
+    find "$APP_DIR/storage" -type d -exec chmod 775 {} + || true
+    find "$APP_DIR/storage" -type f -exec chmod 664 {} + || true
+    find "$APP_DIR/bootstrap/cache" -type f -exec chmod 664 {} + || true
     [ -f "$SQLITE_PATH" ] && chmod 664 "$SQLITE_PATH" || true
 }
 
