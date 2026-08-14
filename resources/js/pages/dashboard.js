@@ -1698,6 +1698,7 @@ function weatherDashboard() {
                         attributionControl: false,
                         maxZoom: 7,
                         minZoom: 0,
+                        zoomAnimation: false,
                     });
 
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
