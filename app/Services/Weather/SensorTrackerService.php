@@ -291,7 +291,19 @@ class SensorTrackerService
         if ($id === 'co2') {
             return __('CO2 sensor');
         }
-        // Battery keys: wh26batt, batt1, soilbatt1, etc.
+        // Battery keys: wh26batt, batt1, soilbatt1, pm25batt1, leakbatt1, leafbatt1, ...
+        if (preg_match('/^batt(\d+)$/', $id, $m)) {
+            return __('Battery sensor :n', ['n' => $m[1]]);
+        }
+        if (preg_match('/^(soil|pm25|leak|leaf)batt(\d+)$/', $id, $m)) {
+            $kinds = [
+                'soil' => 'Battery soil sensor :n',
+                'pm25' => 'Battery PM2.5 sensor :n',
+                'leak' => 'Battery leak sensor :n',
+                'leaf' => 'Battery leaf sensor :n',
+            ];
+            return __($kinds[$m[1]], ['n' => $m[2]]);
+        }
         if (str_ends_with($id, 'batt')) {
             return __('Battery :id', ['id' => $id]);
         }

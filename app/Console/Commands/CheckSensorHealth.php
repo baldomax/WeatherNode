@@ -144,30 +144,57 @@ class CheckSensorHealth extends Command
         }
     }
 
+    private const ALERTED_CACHE_KEY = 'alert_sent_sensor_failures';
+
+    /**
+     * Sensor IDs we have already sent an alert for. Older builds stored a bare
+     * boolean here; treat that as "nothing recorded" so it re-alerts once.
+     */
+    private function alreadyAlertedSensorIds(): array
+    {
+        $alerted = Cache::get(self::ALERTED_CACHE_KEY, []);
+
+        return is_array($alerted) ? $alerted : [];
+    }
+
     private function sendSensorFailureAlertIfNeeded(array $failed, string $details): void
     {
-        $cacheKey = 'alert_sent_sensor_failures';
+        $alerted = $this->alreadyAlertedSensorIds();
+        $currentIds = array_column($failed, 'id');
 
-        if (!Cache::get($cacheKey, false)) {
-            $this->sendAlert(
-                (string) __("One or more weather sensors have stopped reporting"),
-                $details
+        // Only stay quiet while the failing set is one we have already reported;
+        // a newly failing sensor is worth another alert.
+        if (empty(array_diff($currentIds, $alerted))) {
+            return;
+        }
+
+        // Record the alert only once it has actually gone out, otherwise a
+        // failure detected before notifications are configured is never sent.
+        $delivered = $this->sendAlert(
+            (string) __("One or more weather sensors have stopped reporting"),
+            $details
+        );
+
+        if ($delivered) {
+            Cache::put(
+                self::ALERTED_CACHE_KEY,
+                array_values(array_unique(array_merge($alerted, $currentIds))),
+                now()->addHours(24)
             );
-            Cache::put($cacheKey, true, now()->addHours(24));
         }
     }
 
     private function clearSensorFailureAlertIfNeeded(): void
     {
-        $cacheKey = 'alert_sent_sensor_failures';
-
-        if (Cache::get($cacheKey, false)) {
-            $this->sendAlert(
-                (string) __("Weather sensors back to normal"),
-                (string) __("All previously failing sensors are reporting again.")
-            );
-            Cache::forget($cacheKey);
+        if ($this->alreadyAlertedSensorIds() === [] && !Cache::has(self::ALERTED_CACHE_KEY)) {
+            return;
         }
+
+        $this->sendAlert(
+            (string) __("Weather sensors back to normal"),
+            (string) __("All previously failing sensors are reporting again.")
+        );
+        Cache::forget(self::ALERTED_CACHE_KEY);
     }
 
     private function checkForecastData()
@@ -299,7 +326,7 @@ class CheckSensorHealth extends Command
      * Send alert through the shared notification channel, so the recipient
      * configured in Admin → Settings → Notifications applies here too.
      */
-    private function sendAlert(string $subject, string $message)
+    private function sendAlert(string $subject, string $message): bool
     {
         Log::warning($subject . ': ' . $message);
 
@@ -311,5 +338,7 @@ class CheckSensorHealth extends Command
         } else {
             $this->warn("Alert not delivered (check Admin → Settings → Notifications): {$subject}");
         }
+
+        return $delivered;
     }
 }

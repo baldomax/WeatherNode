@@ -271,9 +271,10 @@
                     <span class="inline-flex items-center px-2 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-medium {{ $chip[0] }}"
                           @if($sensor['last_seen']) title="{{ __('Last seen') }}: {{ $sensor['last_seen']->format('Y-m-d H:i') }}" @endif>
                         <span class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full {{ $chip[1] }} mr-1.5 md:mr-2"></span>
-                        {{ $sensor['label'] }}
+                        <span>{{ $sensor['label'] }}</span>
                         @if($sensor['state'] !== 'ok' && $sensor['minutes_ago'] !== null)
-                            <span class="ml-1.5 opacity-75">{{ $sensor['last_seen']->diffForHumans() }}</span>
+                            <span class="mx-1.5 opacity-50" aria-hidden="true">&middot;</span>
+                            <span class="opacity-75 whitespace-nowrap">{{ $sensor['last_seen']->diffForHumans() }}</span>
                         @endif
                     </span>
                 @endforeach

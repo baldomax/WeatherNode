@@ -125,6 +125,60 @@ class CheckSensorHealthCommandTest extends TestCase
         $this->assertMailSentContaining('reporting again');
     }
 
+    /**
+     * The "already alerted" flag used to be set even when delivery failed, so a
+     * failure detected before notifications were configured silenced the alert
+     * for 24 hours after they were.
+     */
+    public function test_retries_the_alert_after_a_failed_delivery(): void
+    {
+        Setting::setValue('notifications.enabled', '0', 'boolean', 'notifications');
+
+        WeatherReading::create([
+            'recorded_at' => now()->subHours(4),
+            'temperature' => 17.2,
+            'wind_speed' => 9.0,
+        ]);
+        WeatherReading::create([
+            'recorded_at' => now()->subMinute(),
+            'temperature' => 18.1,
+        ]);
+
+        $this->artisan('weather:check-sensor-health')->assertExitCode(0);
+        $this->assertNoMailSentContaining('Wind sensor');
+
+        Setting::setValue('notifications.enabled', '1', 'boolean', 'notifications');
+
+        $this->artisan('weather:check-sensor-health')->assertExitCode(0);
+
+        $this->assertMailSentContaining('Wind sensor');
+    }
+
+    public function test_alerts_again_when_a_further_sensor_stops(): void
+    {
+        WeatherReading::create([
+            'recorded_at' => now()->subHours(4),
+            'temperature' => 17.2,
+            'wind_speed' => 9.0,
+        ]);
+        WeatherReading::create([
+            'recorded_at' => now()->subMinutes(10),
+            'temperature' => 18.1,
+            'rain_daily' => 0.4,
+        ]);
+
+        $this->artisan('weather:check-sensor-health')->assertExitCode(0);
+        $this->assertMailSentContaining('Wind sensor');
+        $this->assertNoMailSentContaining('Rain gauge');
+
+        // The rain gauge now falls past the threshold too.
+        $this->travel(35)->minutes();
+
+        $this->artisan('weather:check-sensor-health')->assertExitCode(0);
+
+        $this->assertMailSentContaining('Rain gauge');
+    }
+
     public function test_honours_the_configured_failure_threshold(): void
     {
         Setting::setValue('sensor_health.fail_minutes', '360', 'integer', 'sensor_health');

@@ -189,4 +189,12 @@ class SensorTrackerServiceTest extends TestCase
         $this->assertSame('Wind sensor', SensorTrackerService::sensorIdToLabel('wind'));
         $this->assertSame('Rain gauge', SensorTrackerService::sensorIdToLabel('rain'));
     }
+
+    /** batt1..8 are the extra channels' batteries; the raw key is not a label. */
+    public function test_labels_numbered_ecowitt_battery_channels(): void
+    {
+        $this->assertSame('Battery sensor 2', SensorTrackerService::sensorIdToLabel('batt2'));
+        $this->assertSame('Battery soil sensor 1', SensorTrackerService::sensorIdToLabel('soilbatt1'));
+        $this->assertSame('Battery wh65batt', SensorTrackerService::sensorIdToLabel('wh65batt'));
+    }
 }
