@@ -400,9 +400,9 @@ UPDATER_NOTIFY_EMAIL=true
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
                 <h3 class="font-semibold text-gray-800 dark:text-white mb-3">{{ __('Configure Email Alerts') }}</h3>
                 <ol class="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-decimal list-inside">
-                    <li>{{ __('Go to') }} <a href="{{ route('admin.settings.index') }}" class="text-blue-600 hover:underline">{{ __('Settings') }}</a></li>
-                    <li>{{ __('Add setting') }} <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">alerts.enabled</code> = <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">true</code></li>
-                    <li>{{ __('Add setting') }} <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">alerts.email</code> = <code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">your-email@example.com</code></li>
+                    <li>{{ __('Go to') }} <a href="{{ route('admin.settings.notifications') }}" class="text-blue-600 hover:underline">{{ __('Admin → Settings → Notifications') }}</a></li>
+                    <li>{{ __('Turn on') }} <strong>{{ __('Enable Notifications') }}</strong>, {{ __('pick a method and enter the email address that should receive alerts') }}</li>
+                    <li>{{ __('Keep') }} <strong>{{ __('Sensor Offline') }}</strong> {{ __('enabled, and set the thresholds under') }} <strong>{{ __('Individual Sensor Tracking') }}</strong></li>
                     <li>{{ __('Configure mail provider in') }} <a href="{{ route('admin.settings.mail') }}" class="text-blue-600 hover:underline">{{ __('Admin → Settings → Mail') }}</a>:
                         <ul class="ml-6 mt-2 space-y-1 list-disc">
                             <li><strong>{{ __('OAuth2 (Recommended)') }}:</strong> {{ __('For Gmail and Microsoft/Office 365. Enter Client ID and Client Secret, then click "Authorize" to complete OAuth flow. Token refresh is automatic.') }}</li>

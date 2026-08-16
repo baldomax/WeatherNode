@@ -1403,6 +1403,11 @@ class SettingsController extends Controller
             'source_file_stale' => Setting::getValue('notifications.source_file_stale', true),
             'cache_missing' => Setting::getValue('notifications.cache_missing', false),
             'api_error' => Setting::getValue('notifications.api_error', false),
+
+            // Per-sensor health tracking (drives the "sensor offline" alerts)
+            'sensor_health_enabled' => Setting::getValue('sensor_health.enabled', true),
+            'sensor_health_fail_minutes' => (int) Setting::getValue('sensor_health.fail_minutes', 30),
+            'sensor_health_track_days' => (int) Setting::getValue('sensor_health.track_days', 7),
         ];
 
         return view('admin.settings.notifications', [
@@ -1439,6 +1444,16 @@ class SettingsController extends Controller
         Setting::setValue('notifications.source_file_stale', $sourceFileStale, 'boolean', 'notifications');
         Setting::setValue('notifications.cache_missing', $cacheMissing, 'boolean', 'notifications');
         Setting::setValue('notifications.api_error', $apiError, 'boolean', 'notifications');
+
+        // Per-sensor health tracking. Bounds match CheckSensorHealth so a value
+        // saved here can never disable detection by being out of range.
+        $sensorHealthEnabled = ($request->input('sensor_health_enabled') === '1');
+        $failMinutes = max(15, min(10080, (int) $request->input('sensor_health_fail_minutes', 30)));
+        $trackDays = max(1, min(30, (int) $request->input('sensor_health_track_days', 7)));
+
+        Setting::setValue('sensor_health.enabled', $sensorHealthEnabled, 'boolean', 'sensors');
+        Setting::setValue('sensor_health.fail_minutes', $failMinutes, 'integer', 'sensors');
+        Setting::setValue('sensor_health.track_days', $trackDays, 'integer', 'sensors');
 
         $this->clearSettingsCache();
 
