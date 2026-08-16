@@ -2,12 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Weather\SensorTrackerService;
 use Illuminate\Console\Command;
 use App\Models\WeatherReading;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use App\Models\Setting;
 
 class CheckSensorHealth extends Command
@@ -103,11 +103,18 @@ class CheckSensorHealth extends Command
 
         $trackDays = (int) Setting::getValue('sensor_health.track_days', 7);
         $trackDays = max(1, min(30, $trackDays));
-        $failMinutes = (int) Setting::getValue('sensor_health.fail_minutes', 120);
+        $failMinutes = (int) Setting::getValue('sensor_health.fail_minutes', 30);
         $failMinutes = max(15, min(10080, $failMinutes)); // 15 min .. 7 days
 
-        $tracker = app(SensorTrackerService::class);
-        $failed = $tracker->getFailedSensors($trackDays, $failMinutes);
+        // One scan drives both the alert and the states the admin UI reads.
+        $states = app(SensorTrackerService::class)->refreshSensorStates($trackDays, $failMinutes);
+
+        $failed = [];
+        foreach ($states as $state) {
+            if ($state['state'] === 'failed') {
+                $failed[] = ['id' => $state['id'], 'last_seen' => $state['last_seen']];
+            }
+        }
 
         $failedForCache = array_map(function ($item) {
             return [
@@ -289,41 +296,20 @@ class CheckSensorHealth extends Command
     }
 
     /**
-     * Send alert via configured notification channel
+     * Send alert through the shared notification channel, so the recipient
+     * configured in Admin → Settings → Notifications applies here too.
      */
     private function sendAlert(string $subject, string $message)
     {
-        // Log to Laravel log
         Log::warning($subject . ': ' . $message);
 
-        // Get notification settings
-        $alertEmail = Setting::getValue('alerts.email');
-        $alertsEnabled = Setting::getValue('alerts.enabled', false);
+        $delivered = app(NotificationDispatcher::class)
+            ->send($subject, ['message' => $message], 'sensor_offline');
 
-        if (!$alertsEnabled) {
-            $this->warn('Alerts are disabled in settings. Enable in admin panel to receive notifications.');
-            return;
-        }
-
-        if (!$alertEmail) {
-            $this->warn('No alert email configured. Set alerts.email in admin panel.');
-            return;
-        }
-
-        // Send email alert
-        try {
-            Mail::raw($message, function ($mail) use ($subject, $alertEmail) {
-                $mail->to($alertEmail)
-                     ->subject("[WeatherNode] {$subject}");
-            });
-
-            $this->info("Alert sent to: {$alertEmail}");
-        } catch (\Exception $e) {
-            $this->error("Failed to send email alert: " . $e->getMessage());
-            Log::error('Failed to send sensor health alert email', [
-                'error' => $e->getMessage(),
-                'subject' => $subject,
-            ]);
+        if ($delivered) {
+            $this->info("Alert notification sent: {$subject}");
+        } else {
+            $this->warn("Alert not delivered (check Admin → Settings → Notifications): {$subject}");
         }
     }
 }
