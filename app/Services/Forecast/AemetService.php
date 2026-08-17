@@ -4,6 +4,7 @@ namespace App\Services\Forecast;
 
 use App\Contracts\Forecast\ForecastServiceInterface;
 use App\Models\Setting;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -143,6 +144,7 @@ class AemetService implements ForecastServiceInterface
         $forecast = [];
         $municipioData = $hourlyRawData[0] ?? [];
         $dias = $municipioData['prediccion']['dia'] ?? [];
+        $timezone = Setting::timezone();
 
         foreach ($dias as $dia) {
             $dateStr = substr((string) ($dia['fecha'] ?? ''), 0, 10);
@@ -182,10 +184,18 @@ class AemetService implements ForecastServiceInterface
                     $windDir = $this->directionStringToDegrees((string) ($this->firstScalar($wind['direccion'] ?? null) ?? ''));
                 }
 
-                $time = $dateStr . 'T' . $hourKey . ':00:00Z';
-                
+                // AEMET publishes the hourly values in local time, so build the
+                // timestamp in the station zone and emit it with its offset.
+                // Only intervals of six hours or more are given in UTC.
+                $localTime = Carbon::createFromFormat('Y-m-d H:i', $dateStr . ' ' . $hourKey . ':00', $timezone);
+                if (!$localTime) {
+                    continue;
+                }
+
+                $time = $localTime->toIso8601String();
+
                 // Only add future/current hours (roughly)
-                if (strtotime($time) < time() - 3600) {
+                if ($localTime->getTimestamp() < time() - 3600) {
                     continue;
                 }
 

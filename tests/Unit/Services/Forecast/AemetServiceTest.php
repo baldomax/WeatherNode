@@ -163,6 +163,35 @@ class AemetServiceTest extends TestCase
         $this->assertSame('rain', $first['symbol']);
     }
 
+    /**
+     * AEMET publishes the hourly values in local time. Emitting them with a
+     * "Z" suffix made the dashboard read 12:00 local as 12:00 UTC and render
+     * it as 14:00 in Spanish summer time.
+     */
+    public function test_emits_hourly_times_in_local_time_not_utc(): void
+    {
+        Setting::setValue('station.timezone', 'Europe/Madrid', 'string', 'station');
+        $this->configure();
+        $date = now('Europe/Madrid')->addDay()->format('Y-m-d');
+        Http::fake([
+            'opendata.aemet.es/opendata/api/*' => Http::response(['estado' => 200, 'datos' => self::DATOS_URL]),
+            self::DATOS_URL => Http::response([[
+                'prediccion' => ['dia' => [[
+                    'fecha' => $date . 'T00:00:00',
+                    'temperatura' => [['periodo' => '12', 'value' => '21']],
+                ]]],
+            ]]),
+        ]);
+
+        $first = (new AemetService())->getHourlyForecast()[0];
+
+        // However the consumer reads it, it must resolve back to 12:00 in Madrid.
+        $this->assertSame(
+            '12:00',
+            \Carbon\Carbon::parse($first['time'], 'UTC')->setTimezone('Europe/Madrid')->format('H:i')
+        );
+    }
+
     public function test_tolerates_a_day_entry_with_no_date(): void
     {
         $this->configure();
