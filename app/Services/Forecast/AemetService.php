@@ -10,74 +10,118 @@ use Illuminate\Support\Facades\Log;
 
 class AemetService implements ForecastServiceInterface
 {
+    /** Seconds to wait before retrying after a failed fetch, so a slow or down AEMET is not re-hit per request. */
+    private const FAILURE_COOLDOWN = 300;
+
+    private const REQUEST_TIMEOUT = 15;
+
     private string $apiKey;
     private string $municipio;
     private string $baseUrl = 'https://opendata.aemet.es/opendata/api/';
 
     public function __construct()
     {
-        $this->apiKey = Setting::getValue('aemet.api_key', '');
-        $this->municipio = Setting::getValue('aemet.municipio', '');
+        // getValue() returns null for an encrypted setting holding an empty
+        // value, which is what the seeder writes, so coalesce before assigning.
+        $this->apiKey = trim((string) (Setting::getValue('aemet.api_key', '') ?? ''));
+        $this->municipio = trim((string) (Setting::getValue('aemet.municipio', '') ?? ''));
     }
 
     public function fetchForecast(): ?array
     {
-        if (empty($this->apiKey) || empty($this->municipio)) {
-            Log::error('AEMET API key or municipio not configured');
+        if ($this->apiKey === '' || $this->municipio === '') {
+            Log::warning('AEMET API key or municipio not configured');
+            return null;
+        }
+
+        // The municipio is interpolated into the request path, so it has to be
+        // the 5 digit INE code the setting asks for and nothing else.
+        if (!preg_match('/^\d{5}$/', $this->municipio)) {
+            Log::error('AEMET municipio must be a 5 digit INE code', ['municipio' => $this->municipio]);
             return null;
         }
 
         $cacheKey = "aemet_forecast_{$this->municipio}";
-        
-        return Cache::remember($cacheKey, 1800, function () {
-            try {
-                // Fetch daily forecast
-                $dailyData = $this->fetchAemetEndpoint("prediccion/especifica/municipio/diaria/{$this->municipio}");
-                // Fetch hourly forecast
-                $hourlyData = $this->fetchAemetEndpoint("prediccion/especifica/municipio/horaria/{$this->municipio}");
+        $cooldownKey = $cacheKey . '_cooldown';
 
-                if ($dailyData && $hourlyData) {
-                    $raw = [
-                        'daily' => $dailyData,
-                        'hourly' => $hourlyData,
-                        'updated_at' => now()->toIso8601String(),
-                    ];
-                    $raw['forecast'] = $this->parseHourlyEntries($hourlyData);
-                    return $raw;
-                }
-            } catch (\Exception $e) {
-                Log::error('AEMET API exception', ['error' => $e->getMessage()]);
-            }
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
 
+        // Cache::remember() treats a cached null as a miss, so caching the
+        // failure there would re-run this on every call.
+        if (Cache::has($cooldownKey)) {
             return null;
-        });
+        }
+
+        try {
+            $dailyData = $this->fetchAemetEndpoint("prediccion/especifica/municipio/diaria/{$this->municipio}");
+            $hourlyData = $this->fetchAemetEndpoint("prediccion/especifica/municipio/horaria/{$this->municipio}");
+
+            if ($dailyData && $hourlyData) {
+                $raw = [
+                    'daily' => $dailyData,
+                    'hourly' => $hourlyData,
+                    'updated_at' => now()->toIso8601String(),
+                ];
+                $raw['forecast'] = $this->parseHourlyEntries($hourlyData);
+
+                Cache::put($cacheKey, $raw, 1800);
+
+                return $raw;
+            }
+        } catch (\Exception $e) {
+            Log::error('AEMET API exception', ['error' => $e->getMessage()]);
+        }
+
+        Cache::put($cooldownKey, true, self::FAILURE_COOLDOWN);
+
+        return null;
     }
 
     private function fetchAemetEndpoint(string $endpoint): ?array
     {
-        $response = Http::withHeaders([
-            'api_key' => $this->apiKey,
-        ])->get($this->baseUrl . $endpoint);
+        $response = Http::timeout(self::REQUEST_TIMEOUT)
+            ->withHeaders(['api_key' => $this->apiKey])
+            ->get($this->baseUrl . $endpoint);
 
-        if ($response->successful()) {
-            $data = $response->json();
-            
-            if (isset($data['datos']) && isset($data['estado']) && $data['estado'] == 200) {
-                // AEMET returns a URL where the actual JSON data is stored
-                $dataResponse = Http::get($data['datos']);
-                if ($dataResponse->successful()) {
-                    return $dataResponse->json();
-                }
-            }
+        if (!$response->successful()) {
+            Log::error('AEMET API request failed', [
+                'step' => 'index',
+                'status' => $response->status(),
+                'endpoint' => $endpoint,
+            ]);
+
+            return null;
         }
 
-        Log::error('AEMET API request failed or invalid response', [
-            'status' => $response->status(),
-            'body' => $response->body(),
-            'endpoint' => $endpoint
-        ]);
+        $data = $response->json();
 
-        return null;
+        if (!isset($data['datos']) || (int) ($data['estado'] ?? 0) !== 200) {
+            Log::error('AEMET API returned no data URL', [
+                'step' => 'index',
+                'estado' => $data['estado'] ?? null,
+                'endpoint' => $endpoint,
+            ]);
+
+            return null;
+        }
+
+        // AEMET answers with a URL where the actual JSON is published.
+        $dataResponse = Http::timeout(self::REQUEST_TIMEOUT)->get($data['datos']);
+
+        if (!$dataResponse->successful()) {
+            Log::error('AEMET data URL request failed', [
+                'step' => 'datos',
+                'status' => $dataResponse->status(),
+                'endpoint' => $endpoint,
+            ]);
+
+            return null;
+        }
+
+        return $dataResponse->json();
     }
 
     public function getHourlyForecast(int $hours = 48): array
@@ -101,13 +145,18 @@ class AemetService implements ForecastServiceInterface
         $dias = $municipioData['prediccion']['dia'] ?? [];
 
         foreach ($dias as $dia) {
-            $dateStr = substr($dia['fecha'], 0, 10);
-            
+            $dateStr = substr((string) ($dia['fecha'] ?? ''), 0, 10);
+            if ($dateStr === '') {
+                continue;
+            }
+
             // AEMET hourly arrays
             $temps = $this->parseHourlyArray($dia['temperatura'] ?? []);
             $winds = $this->parseHourlyArray($dia['vientoAndRachaMax'] ?? []);
             $precip = $this->parseHourlyArray($dia['precipitacion'] ?? []);
-            $sky = $this->parseHourlyArray($dia['estadoCielo'] ?? []);
+            // Keep the whole entry: the symbol needs both value and descripcion,
+            // which parseHourlyArray() flattens away.
+            $sky = $this->parseHourlyItems($dia['estadoCielo'] ?? []);
 
             for ($h = 0; $h < 24; $h++) {
                 $hourKey = str_pad($h, 2, '0', STR_PAD_LEFT);
@@ -121,9 +170,16 @@ class AemetService implements ForecastServiceInterface
                 $windSpeedKmh = null;
                 $windDir = null;
                 if (isset($winds[$hourKey]) && is_array($winds[$hourKey])) {
-                    $windSpeedKmh = isset($winds[$hourKey][0]['velocidad']) ? (float)$winds[$hourKey][0]['velocidad'] : null;
-                    $windDirString = $winds[$hourKey][0]['direccion'] ?? '';
-                    $windDir = $this->directionStringToDegrees($windDirString);
+                    // The entry is either the wind record itself or a list of
+                    // them, and velocidad/direccion are single element arrays.
+                    $wind = $winds[$hourKey];
+                    if (!array_key_exists('velocidad', $wind) && isset($wind[0]) && is_array($wind[0])) {
+                        $wind = $wind[0];
+                    }
+
+                    $speed = $this->firstScalar($wind['velocidad'] ?? null);
+                    $windSpeedKmh = $speed === null ? null : (float) $speed;
+                    $windDir = $this->directionStringToDegrees((string) ($this->firstScalar($wind['direccion'] ?? null) ?? ''));
                 }
 
                 $time = $dateStr . 'T' . $hourKey . ':00:00Z';
@@ -207,6 +263,29 @@ class AemetService implements ForecastServiceInterface
         }
 
         return $forecast;
+    }
+
+    /** Like parseHourlyArray(), but keeps the whole entry rather than its value. */
+    private function parseHourlyItems(array $aemetArray): array
+    {
+        $result = [];
+        foreach ($aemetArray as $item) {
+            if (is_array($item) && isset($item['periodo'])) {
+                $result[$item['periodo']] = $item;
+            }
+        }
+
+        return $result;
+    }
+
+    /** AEMET wraps some scalars in a single element array; take either shape. */
+    private function firstScalar(mixed $value): string|int|float|null
+    {
+        if (is_array($value)) {
+            $value = $value[0] ?? null;
+        }
+
+        return is_scalar($value) ? $value : null;
     }
 
     private function parseHourlyArray(array $aemetArray): array
