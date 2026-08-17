@@ -60,7 +60,9 @@ class AmbientWeatherService
 
         $cacheKey = "ambient_devices";
 
-        return Cache::remember($cacheKey, 3600, function () {
+        // The devices response includes lastData, so keep this cache below the
+        // five-minute sensor-health threshold used by the dashboard.
+        return Cache::remember($cacheKey, 30, function () {
             try {
                 $response = Http::timeout(10)->get($this->apiUrl, [
                     'apiKey' => $this->apiKey,

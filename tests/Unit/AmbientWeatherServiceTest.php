@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Services\Weather\AmbientWeatherService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -64,6 +65,26 @@ class AmbientWeatherServiceTest extends TestCase
         $this->assertSame('Selected station', $conditions['device']['name']);
         $this->assertSame('AA:BB:CC:DD:EE:02', $conditions['device']['mac_address']);
         $this->assertSame(20.0, $conditions['outdoor']['temperature']);
+    }
+
+    public function test_current_conditions_cache_expires_before_sensor_health_threshold(): void
+    {
+        $this->configureCredentials();
+        Carbon::setTestNow('2026-08-17 12:00:00');
+        Http::fakeSequence()
+            ->push([$this->device('AA:BB:CC:DD:EE:01', 'Station', 50.0)], 200)
+            ->push([$this->device('AA:BB:CC:DD:EE:01', 'Station', 68.0)], 200);
+
+        $service = app(AmbientWeatherService::class);
+
+        $this->assertSame(10.0, $service->getCurrentConditions()['outdoor']['temperature']);
+
+        Carbon::setTestNow(now()->addSeconds(29));
+        $this->assertSame(10.0, $service->getCurrentConditions()['outdoor']['temperature']);
+
+        Carbon::setTestNow(now()->addSeconds(2));
+        $this->assertSame(20.0, $service->getCurrentConditions()['outdoor']['temperature']);
+        Http::assertSentCount(2);
     }
 
     private function configureCredentials(): void
