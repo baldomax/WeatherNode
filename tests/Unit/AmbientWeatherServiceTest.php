@@ -77,14 +77,18 @@ class AmbientWeatherServiceTest extends TestCase
 
         $service = app(AmbientWeatherService::class);
 
-        $this->assertSame(10.0, $service->getCurrentConditions()['outdoor']['temperature']);
+        try {
+            $this->assertSame(10.0, $service->getCurrentConditions()['outdoor']['temperature']);
 
-        Carbon::setTestNow(now()->addSeconds(29));
-        $this->assertSame(10.0, $service->getCurrentConditions()['outdoor']['temperature']);
+            Carbon::setTestNow(now()->addSeconds(29));
+            $this->assertSame(10.0, $service->getCurrentConditions()['outdoor']['temperature']);
 
-        Carbon::setTestNow(now()->addSeconds(2));
-        $this->assertSame(20.0, $service->getCurrentConditions()['outdoor']['temperature']);
-        Http::assertSentCount(2);
+            Carbon::setTestNow(now()->addSeconds(2));
+            $this->assertSame(20.0, $service->getCurrentConditions()['outdoor']['temperature']);
+            Http::assertSentCount(2);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     private function configureCredentials(): void
