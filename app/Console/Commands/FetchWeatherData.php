@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\DailySummary;
 use App\Models\ClimateRecord;
 use App\Models\WeatherReading;
+use App\Services\Notifications\NotificationDispatcher;
 use App\Services\Weather\EcowittService;
 use App\Services\Weather\LocalFiles\LocalFileSourceService;
 use App\Services\Weather\Normalization\WeatherReadingWriter;
@@ -15,7 +16,6 @@ use App\Services\Weather\Sources\WeatherLinkV1Adapter;
 use App\Services\Weather\Sources\WundergroundAdapter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Cache;
 use App\Models\Setting;
 
@@ -514,131 +514,8 @@ class FetchWeatherData extends Command
      */
     private function sendAlert(string $subject, array $details): void
     {
-        // Check if notifications are enabled
-        $notificationsEnabled = Setting::getValue('notifications.enabled', false);
-        if (!$notificationsEnabled) {
-            Log::warning("Alert (notifications disabled): {$subject}", $details);
-            return;
-        }
-
-        // Check if this alert type is enabled
-        $alertType = $this->getAlertType($subject);
-        if ($alertType && !Setting::getValue("notifications.{$alertType}", true)) {
-            Log::info("Alert suppressed (type disabled): {$subject}", $details);
-            return;
-        }
-
-        // Get notification method and recipients
-        $method = Setting::getValue('notifications.method', 'email');
-        $email = Setting::getValue('notifications.email', '');
-        $webhookUrl = Setting::getValue('notifications.webhook_url', '');
-
-        // Check if at least one method is configured
-        $sendEmail = in_array($method, ['email', 'both'], true) && !empty($email);
-        $sendWebhook = in_array($method, ['webhook', 'both'], true) && !empty($webhookUrl);
-
-        if (!$sendEmail && !$sendWebhook) {
-            Log::warning("Alert (no notification method configured): {$subject}", $details);
-            return;
-        }
-
-        // Rate limit: Don't spam - only send one alert per hour per issue type
-        $alertKey = "alert_" . md5($subject . serialize($details));
-        $lastAlert = Cache::get($alertKey);
-        
-        if ($lastAlert && $lastAlert->diffInMinutes(now()) < 60) {
-            // Already alerted recently, just log
-            Log::info("Alert suppressed (rate limit): {$subject}", $details);
-            return;
-        }
-
-        $success = false;
-
-        // Send email notification
-        if ($sendEmail) {
-            try {
-                $message = "Weather Station Alert: {$subject}\n\n";
-                $message .= "Details:\n";
-                foreach ($details as $key => $value) {
-                    $message .= "  {$key}: " . (is_array($value) ? json_encode($value) : $value) . "\n";
-                }
-                $message .= "\nTime: " . now()->toDateTimeString() . "\n";
-                $message .= "\nPlease check your weather station configuration and connection.";
-
-                Mail::raw($message, function ($mail) use ($email, $subject) {
-                    $mail->to($email)
-                         ->subject("[Weather Station] {$subject}");
-                });
-
-                $success = true;
-                Log::info("Alert email sent: {$subject}", ['email' => $email, 'details' => $details]);
-                $this->info("📧 Alert notification sent to {$email}");
-            } catch (\Exception $e) {
-                Log::error('Failed to send alert email', [
-                    'error' => $e->getMessage(),
-                    'subject' => $subject,
-                    'email' => $email,
-                ]);
-                $this->warn("⚠️  Failed to send alert email: {$e->getMessage()}");
-            }
-        }
-
-        // Send webhook notification
-        if ($sendWebhook) {
-            try {
-                $payload = [
-                    'subject' => $subject,
-                    'details' => $details,
-                    'timestamp' => now()->toIso8601String(),
-                    'alert_type' => $alertType,
-                ];
-
-                $ch = curl_init($webhookUrl);
-                curl_setopt_array($ch, [
-                    CURLOPT_POST => true,
-                    CURLOPT_POSTFIELDS => json_encode($payload),
-                    CURLOPT_HTTPHEADER => [
-                        'Content-Type: application/json',
-                        'User-Agent: WeatherNode/1.0',
-                    ],
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT => 10,
-                    CURLOPT_SSL_VERIFYPEER => false, // Allow self-signed certs
-                ]);
-
-                $response = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $error = curl_error($ch);
-                curl_close($ch);
-
-                if ($httpCode >= 200 && $httpCode < 300) {
-                    $success = true;
-                    Log::info("Alert webhook sent: {$subject}", ['webhook' => $webhookUrl, 'details' => $details]);
-                    $this->info("🔗 Alert webhook sent to {$webhookUrl}");
-                } else {
-                    Log::error('Webhook returned error', [
-                        'http_code' => $httpCode,
-                        'response' => $response,
-                        'error' => $error,
-                        'subject' => $subject,
-                        'webhook' => $webhookUrl,
-                    ]);
-                    $this->warn("⚠️  Webhook returned HTTP {$httpCode}");
-                }
-            } catch (\Exception $e) {
-                Log::error('Failed to send webhook', [
-                    'error' => $e->getMessage(),
-                    'subject' => $subject,
-                    'webhook' => $webhookUrl,
-                ]);
-                $this->warn("⚠️  Failed to send webhook: {$e->getMessage()}");
-            }
-        }
-
-        // Mark as alerted if at least one method succeeded
-        if ($success) {
-            Cache::put($alertKey, now(), now()->addHours(1));
-        }
+        app(NotificationDispatcher::class)
+            ->send($subject, $details, $this->getAlertType($subject));
     }
 
     /**

@@ -171,7 +171,7 @@ class SettingsSeeder extends Seeder
             // ===== Sensor health tracking (individual sensors: fail alert if one stops reporting) =====
             ['key' => 'sensor_health.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'sensors', 'description' => 'Track individual sensors over time and alert when one stops reporting (e.g. empty battery)'],
             ['key' => 'sensor_health.track_days', 'value' => '7', 'type' => 'integer', 'group' => 'sensors', 'description' => 'Consider a sensor "active" if it reported in the last N days'],
-            ['key' => 'sensor_health.fail_minutes', 'value' => '120', 'type' => 'integer', 'group' => 'sensors', 'description' => 'Alert if an active sensor has not reported in this many minutes'],
+            ['key' => 'sensor_health.fail_minutes', 'value' => '30', 'type' => 'integer', 'group' => 'sensors', 'description' => 'Alert if an active sensor has not reported in this many minutes'],
 
             // ===== Lightning =====
             ['key' => 'lightning.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'lightning', 'description' => 'Show lightning data (from station sensor)'],

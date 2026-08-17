@@ -235,19 +235,47 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
     <!-- Active Sensors -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 md:p-6">
+        @php
+            $failedSensors = collect($sensorStates)->where('state', 'failed');
+            $staleSensors = collect($sensorStates)->where('state', 'stale');
+        @endphp
+
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-base md:text-lg font-semibold text-gray-900 dark:text-white">📡 {{ __('Active Sensors') }}</h2>
-            <span class="px-2 py-0.5 md:py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
-                {{ count($activeSensors) }} {{ __('active') }}
-            </span>
+            <h2 class="text-base md:text-lg font-semibold text-gray-900 dark:text-white">📡 {{ __('Sensors') }}</h2>
+            @if($failedSensors->isNotEmpty())
+                <span class="px-2 py-0.5 md:py-1 text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-full">
+                    {{ $failedSensors->count() }} {{ __('not reporting') }}
+                </span>
+            @else
+                <span class="px-2 py-0.5 md:py-1 text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+                    {{ count($sensorStates) }} {{ __('reporting') }}
+                </span>
+            @endif
         </div>
-        
-        @if(count($activeSensors) > 0)
+
+        @if(count($sensorStates) > 0)
+            @if($failedSensors->isNotEmpty())
+                <p class="mb-3 text-xs text-red-700 dark:text-red-400">
+                    {{ __('These sensors were reporting recently but have gone quiet. Check power, batteries or radio contact.') }}
+                </p>
+            @endif
             <div class="flex flex-wrap gap-1.5 md:gap-2">
-                @foreach($activeSensors as $sensor)
-                    <span class="inline-flex items-center px-2 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-                        <span class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 mr-1.5 md:mr-2"></span>
-                        {{ $sensor }}
+                @foreach($sensorStates as $sensor)
+                    @php
+                        $chip = match($sensor['state']) {
+                            'failed' => ['bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300', 'bg-red-500'],
+                            'stale' => ['bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300', 'bg-amber-500'],
+                            default => ['bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300', 'bg-green-500'],
+                        };
+                    @endphp
+                    <span class="inline-flex items-center px-2 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-medium {{ $chip[0] }}"
+                          @if($sensor['last_seen']) title="{{ __('Last seen') }}: {{ $sensor['last_seen']->format('Y-m-d H:i') }}" @endif>
+                        <span class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full {{ $chip[1] }} mr-1.5 md:mr-2"></span>
+                        <span>{{ $sensor['label'] }}</span>
+                        @if($sensor['state'] !== 'ok' && $sensor['minutes_ago'] !== null)
+                            <span class="mx-1.5 opacity-50" aria-hidden="true">&middot;</span>
+                            <span class="opacity-75 whitespace-nowrap">{{ $sensor['last_seen']->diffForHumans() }}</span>
+                        @endif
                     </span>
                 @endforeach
             </div>

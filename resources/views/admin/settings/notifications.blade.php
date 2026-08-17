@@ -195,6 +195,44 @@
             </div>
         </div>
 
+        <!-- Per-sensor health tracking -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-900 dark:text-white">{{ __('Individual Sensor Tracking') }}</label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Detect a single sensor going quiet (flat battery, lost contact) even while the station keeps sending other data.') }}</p>
+                </div>
+
+                <div class="flex items-center justify-between py-2 border-t border-gray-100 dark:border-gray-700">
+                    <div>
+                        <label class="text-sm font-medium text-gray-900 dark:text-white">{{ __('Track Individual Sensors') }}</label>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ __('Uses the "Sensor Offline" notification type above') }}</p>
+                    </div>
+                    <x-toggle-switch
+                        :enabled="($settings['sensor_health_enabled'] ?? true)"
+                        name="sensor_health_enabled"
+                    />
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-900 dark:text-white mb-2">{{ __('Alert After (minutes)') }}</label>
+                        <input type="number" name="sensor_health_fail_minutes" min="15" max="10080" step="1"
+                            value="{{ old('sensor_health_fail_minutes', $settings['sensor_health_fail_minutes'] ?? 30) }}"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('How long a known sensor may stay silent before an alert is sent (15–10080).') }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-900 dark:text-white mb-2">{{ __('Remember Sensors For (days)') }}</label>
+                        <input type="number" name="sensor_health_track_days" min="1" max="30" step="1"
+                            value="{{ old('sensor_health_track_days', $settings['sensor_health_track_days'] ?? 7) }}"
+                            class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('A sensor seen within this window is expected to keep reporting (1–30).') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Info Box -->
         <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
             <div class="flex items-start">

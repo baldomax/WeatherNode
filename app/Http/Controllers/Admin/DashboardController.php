@@ -7,6 +7,7 @@ use App\Models\WeatherReading;
 use App\Models\DailySummary;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\Weather\SensorTrackerService;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -33,9 +34,10 @@ class DashboardController extends Controller
         // Battery status from most recent reading
         $batteryStatus = $this->parseBatteryStatus($lastReading?->battery_status);
         
-        // Active sensors from most recent reading
-        $activeSensors = $this->getActiveSensors($lastReading);
-        
+        // Every sensor known from the tracking window, with its current state,
+        // so one that has gone quiet stays visible instead of disappearing.
+        $sensorStates = $this->getSensorStates();
+
         // Station info
         $stationInfo = [
             'type' => $lastReading?->station_type,
@@ -51,10 +53,10 @@ class DashboardController extends Controller
         $telemetryData = $telemetryService->collectStationData();
 
         return view('admin.dashboard', compact(
-            'stats', 
-            'recentReadings', 
-            'batteryStatus', 
-            'activeSensors', 
+            'stats',
+            'recentReadings',
+            'batteryStatus',
+            'sensorStates',
             'stationInfo',
             'telemetryEnabled',
             'telemetryLastUpdated',
@@ -154,51 +156,15 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get list of active sensors from reading
+     * Sensor states for display, served from the cache the scheduled health
+     * check refreshes. Scanning the reading window here would cost seconds.
      */
-    private function getActiveSensors(?WeatherReading $reading): array
+    private function getSensorStates(): array
     {
-        if (!$reading) {
-            return [];
-        }
+        $trackDays = max(1, min(30, (int) Setting::getValue('sensor_health.track_days', 7)));
+        $failMinutes = max(15, min(10080, (int) Setting::getValue('sensor_health.fail_minutes', 30)));
 
-        $sensors = [];
-
-        // Core sensors
-        if ($reading->temperature !== null) $sensors[] = 'Buiten temp/hum';
-        if ($reading->temperature_indoor !== null) $sensors[] = 'Binnen temp/hum';
-        if ($reading->pressure_rel !== null) $sensors[] = 'Barometer';
-        if ($reading->wind_speed !== null) $sensors[] = 'Wind';
-        if ($reading->rain_daily !== null) $sensors[] = 'Regen';
-        if ($reading->uv_index !== null) $sensors[] = 'UV sensor';
-        if ($reading->solar_radiation !== null) $sensors[] = 'Solar sensor';
-        if ($reading->lightning_distance !== null || $reading->lightning_count !== null) $sensors[] = 'Bliksem (WH57)';
-        
-        // Extra temp sensors
-        for ($i = 1; $i <= 8; $i++) {
-            if ($reading->{"temp_{$i}"} !== null) {
-                $sensors[] = "Extra temp #{$i}";
-            }
-        }
-        
-        // Soil sensors
-        for ($i = 1; $i <= 8; $i++) {
-            if ($reading->{"soil_moisture_{$i}"} !== null) {
-                $sensors[] = "Grond #{$i}";
-            }
-        }
-        
-        // PM2.5 sensors
-        for ($i = 1; $i <= 4; $i++) {
-            if ($reading->{"pm25_ch{$i}"} !== null) {
-                $sensors[] = "PM2.5 #{$i}";
-            }
-        }
-        
-        // CO2
-        if ($reading->co2 !== null) $sensors[] = 'CO2 sensor';
-
-        return $sensors;
+        return app(SensorTrackerService::class)->getCachedSensorStates($trackDays, $failMinutes);
     }
 
     /**
