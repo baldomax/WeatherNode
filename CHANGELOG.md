@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.6] - 2026-08-17
+
+- Fix individual sensor failures never being detected: the last-seen map was seeded with nulls and guarded with `isset()`, so no sensor was ever reported as failed and the alert could not fire at any threshold
+- Sensor health alerts now go to the address set in Admin → Settings → Notifications. They previously needed an `alerts.email` key that had no admin field and no seeder row, so unless you had added it by hand nothing was ever sent
+- Sensors are detected from the normalized reading columns rather than only Ecowitt battery keys, so outdoor temp/humidity, wind, rain, solar and UV are covered for every data source. A station that keeps sending indoor values while its outdoor array is silent no longer looks healthy
+- An alert that could not be delivered is no longer recorded as sent. A failure detected before notifications were configured used to silence the alert for 24 hours after they were, and a second sensor failing produced nothing
+- The admin dashboard lists every known sensor with its state and last-seen time instead of dropping the missing ones, which is what made a failed sensor look like it had never existed
+- Alert threshold is configurable and now defaults to 30 minutes instead of 120; existing installs still on the old default are moved to 30
+- Sensor health no longer rescans the reading window on every admin page load, which added seconds on stations recording every minute
+- Alert webhooks verify TLS certificates. One pointed at a self-signed host will now fail, with the reason in the log
+
 ## [2026.08.5] - 2026-08-10
 
 - Add API documentation covering the public endpoints, authentication and integration examples (`docs/API.md`, linked from the README)
