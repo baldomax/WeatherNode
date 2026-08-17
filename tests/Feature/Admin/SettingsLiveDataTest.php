@@ -163,4 +163,52 @@ class SettingsLiveDataTest extends TestCase
         $this->assertTrue((bool) Setting::getValue('ecowitt.name_filter_enabled'));
         $this->assertSame("GW2000A\nBackyard Station", Setting::getValue('ecowitt.name_allowlist'));
     }
+
+    public function test_enabling_ambient_weather_requires_both_credentials(): void
+    {
+        Setting::setValue('ambient.enabled', false, 'boolean', 'ambient');
+        Setting::setValue('ambient.api_key', '', 'encrypted', 'ambient');
+        Setting::setValue('ambient.application_key', '', 'encrypted', 'ambient');
+
+        $admin = $this->adminUser();
+        $response = $this->actingAs($admin)
+            ->from(route('admin.settings.group', 'ambient'))
+            ->post(route('admin.settings.update', 'ambient'), [
+                '_token' => csrf_token(),
+                'ambient_enabled' => '1',
+            ]);
+
+        $response->assertRedirect(route('admin.settings.group', 'ambient'));
+        $response->assertSessionHasErrors(['ambient_api_key', 'ambient_application_key']);
+        $this->assertFalse((bool) Setting::getValue('ambient.enabled'));
+
+        $this->actingAs($admin)
+            ->get(route('admin.settings.group', 'ambient'))
+            ->assertSee('The Ambient Weather API key is required when the integration is enabled.')
+            ->assertSee('The Ambient Weather application key is required when the integration is enabled.');
+    }
+
+    public function test_saving_ambient_settings_preserves_existing_encrypted_credentials(): void
+    {
+        Setting::setValue('ambient.enabled', true, 'boolean', 'ambient');
+        Setting::setValue('ambient.api_key', 'existing-api-key', 'encrypted', 'ambient');
+        Setting::setValue('ambient.application_key', 'existing-application-key', 'encrypted', 'ambient');
+        $apiKeyCiphertext = Setting::findOrFail('ambient.api_key')->value;
+        $applicationKeyCiphertext = Setting::findOrFail('ambient.application_key')->value;
+
+        $response = $this->actingAs($this->adminUser())
+            ->post(route('admin.settings.update', 'ambient'), [
+                '_token' => csrf_token(),
+                'ambient_enabled' => '1',
+                'ambient_api_key' => '',
+                'ambient_application_key' => '',
+                'ambient_mac_address' => 'AA:BB:CC:DD:EE:FF',
+            ]);
+
+        $response->assertRedirect(route('admin.settings.group', 'ambient'));
+        $response->assertSessionHas('success');
+        $this->assertSame($apiKeyCiphertext, Setting::findOrFail('ambient.api_key')->value);
+        $this->assertSame($applicationKeyCiphertext, Setting::findOrFail('ambient.application_key')->value);
+        $this->assertSame('AA:BB:CC:DD:EE:FF', Setting::getValue('ambient.mac_address'));
+    }
 }
