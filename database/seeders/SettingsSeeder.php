@@ -26,7 +26,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'station.manufacturer', 'value' => 'fineoffset', 'type' => 'select', 'group' => 'station', 'description' => 'Weather station manufacturer', 'options' => 'fineoffset:Fine Offset/Ecowitt,davis:Davis Instruments,netatmo:Netatmo,ambient:Ambient Weather,weatherflow:WeatherFlow,other:Other'],
             ['key' => 'station.start_date', 'value' => '2020-12-06', 'type' => 'date', 'group' => 'station', 'description' => 'Date station started recording'],
             ['key' => 'station.wu_id', 'value' => 'IUITGE8', 'type' => 'string', 'group' => 'station', 'description' => 'Weather Underground Station ID'],
-            ['key' => 'station.server_url', 'value' => 'https://meteouitgeest.nl/', 'type' => 'string', 'group' => 'station', 'description' => 'Public URL of this weather site'],
+            ['key' => 'station.server_url', 'value' => '', 'type' => 'string', 'group' => 'station', 'description' => 'Public URL of this weather site (leave empty to use APP_URL)'],
 
             // ===== Live Data Source =====
             ['key' => 'livedata.format', 'value' => 'ecoLcl', 'type' => 'select', 'group' => 'livedata', 'description' => 'Primary live data format/source', 'options' => 'ecoLcl:Ecowitt Local (push),ecowittAPI:Ecowitt Cloud API,wu:Weather Underground,cumulus:Cumulus,weewx:WeeWX,weathercat:WeatherCat,DWL:WeatherLink Cloud v1,DWL_v2api:WeatherLink Cloud v2,DWL_v2api_demo:WeatherLink Cloud v2 (Demo Mode),meteohub:Meteohub,wswin:WSWIN,weatherlink:WeatherLink Local,wifilogger:WiFiLogger,MB_rt:Meteobridge (realtime.txt),wf:WeatherFlow,AWapi:Ambient Weather API,wd:Weather Display'],
@@ -197,7 +197,7 @@ class SettingsSeeder extends Seeder
 
             // ===== Webcam =====
             ['key' => 'webcam.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'webcam', 'description' => 'Enable webcam display'],
-            ['key' => 'webcam.url', 'value' => 'https://www.meteouitgeest.nl/thumbnail/image.jpg', 'type' => 'string', 'group' => 'webcam', 'description' => 'Webcam image URL'],
+            ['key' => 'webcam.url', 'value' => '', 'type' => 'string', 'group' => 'webcam', 'description' => 'Webcam image URL'],
             ['key' => 'webcam.refresh_interval', 'value' => '60', 'type' => 'integer', 'group' => 'webcam', 'description' => 'Webcam refresh interval (seconds)'],
             ['key' => 'webcam.full_image_url', 'value' => '', 'type' => 'string', 'group' => 'webcam', 'description' => 'Full resolution image URL (click to enlarge)'],
             ['key' => 'webcam.stream_url', 'value' => '', 'type' => 'string', 'group' => 'webcam', 'description' => 'Live stream URL (YouTube or Restreamer)'],

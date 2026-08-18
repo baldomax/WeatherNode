@@ -24,7 +24,13 @@ class MigrateHistoricalData extends Command
 
     public function handle(): int
     {
-        $sourcePath = $this->argument('source_path') ?? '/Users/pauladmiraal/DEV/meteouitgeest_current/public_html';
+        $sourcePath = $this->argument('source_path');
+
+        if (!$sourcePath) {
+            $this->error('A source path is required: php artisan ' . $this->getName() . ' /path/to/old/public_html');
+
+            return Command::FAILURE;
+        }
         $wudataPath = $sourcePath . '/wudata';
 
         $this->info("🌤️  WeatherNode Historical Data Migration");

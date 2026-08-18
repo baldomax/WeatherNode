@@ -63,7 +63,7 @@ class NoaaSource extends AbstractTideSource
             'datum'       => 'MSL',
             'units'       => 'metric',
             'time_zone'   => 'GMT',
-            'application' => 'meteouitgeest',
+            'application' => 'weathernode',
             'format'      => 'json',
         ];
 
