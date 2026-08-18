@@ -17,6 +17,12 @@
     $rainviewerMode = \App\Models\Setting::getValue('radar.rainviewer_mode', 'api');
     $rainviewerZoom = \App\Models\Setting::getValue('radar.rainviewer_zoom', 7);
     $useProxy = \App\Models\Setting::getValue('radar.use_proxy', false);
+    $frameDelay = (int) \App\Models\Setting::getValue('radar.frame_delay', 1000);
+    // KNMI and Buienradar only cover the Netherlands, so they are offered
+    // when one of them is the configured provider rather than always.
+    $dutchProviders = ['knmi', 'buienradar'];
+    $showDutchSources = in_array($radarProvider, $dutchProviders, true);
+    $satelliteEnabled = (bool) \App\Models\Setting::getValue('satellite.enabled', true);
     $providerLabels = [
         'knmi' => 'KNMI',
         'buienradar' => 'Buienradar',
@@ -32,12 +38,14 @@
             <p class="text-gray-400">{{ __('Radar page intro', ['location' => $stationLocation]) }}</p>
         </div>
         <div class="flex gap-2" x-data="{ activeProvider: '{{ $radarProvider }}' }" x-init="$watch('activeProvider', value => window.switchRadarProvider(value))">
+            @if($showDutchSources)
             <button @click="activeProvider = 'knmi'" 
                     :class="activeProvider === 'knmi' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
                     class="px-4 py-2 rounded-lg text-sm transition-colors">KNMI</button>
             <button @click="activeProvider = 'buienradar'" 
                     :class="activeProvider === 'buienradar' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
                     class="px-4 py-2 rounded-lg text-sm transition-colors">Buienradar</button>
+            @endif
             <button @click="activeProvider = 'rainviewer'" 
                     :class="activeProvider === 'rainviewer' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
                     class="px-4 py-2 rounded-lg text-sm transition-colors">RainViewer</button>
@@ -50,6 +58,7 @@
          x-init="init(); window.radarDisplayInstance = $data">
         <div class="aspect-video md:aspect-[16/10] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
             
+            @if($showDutchSources)
             {{-- KNMI Radar --}}
             <div x-show="currentProvider === 'knmi'" class="w-full h-full">
                 <img id="radar-main-image-knmi" 
@@ -68,6 +77,8 @@
                      onerror="this.parentElement.innerHTML='<div class=\'absolute inset-0 flex items-center justify-center text-gray-500\'>{{ __('Radar not available') }}</div>'">
             </div>
             
+            @endif
+
             {{-- RainViewer API --}}
             <div x-show="currentProvider === 'rainviewer' && rainviewerMode === 'api'" class="w-full h-full">
                 <div id="radar-map-main" class="w-full h-full radar-main-map"></div>
@@ -122,6 +133,7 @@
     <!-- Additional Radar Views -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Buienradar -->
+        @if($showDutchSources)
         <div class="bg-weather-card rounded-2xl p-4 border border-white/10">
             <h3 class="font-semibold mb-3">Buienradar</h3>
             <div class="aspect-video bg-black/30 rounded-xl overflow-hidden relative">
@@ -133,7 +145,10 @@
             </div>
         </div>
 
+        @endif
+
         <!-- Satellite -->
+        @if($satelliteEnabled)
         <div class="bg-weather-card rounded-2xl p-4 border border-white/10">
             @php
                 $yesterdayUtc = gmdate('Y-m-d', time() - 86400);
@@ -193,6 +208,7 @@
                 @endif
             </div>
         </div>
+        @endif
     </div>
 
     <!-- Local Forecast -->
@@ -403,12 +419,14 @@ function radarDisplay() {
         useProxy: {{ $useProxy ? 'true' : 'false' }},
         radarMap: null,
         radarLayer: null,
+        frameLayers: {},
+        activeFrameLayerIndex: null,
         radarFrames: [],
         radarFrameTimeLabel: '',
         radarFrameTimeFallback: @json(__('Not updated yet')),
         animationInterval: null,
         isPlaying: true,
-        frameDelay: 800, // Reduced from 500ms to lower request rate
+        frameDelay: {{ $frameDelay }},
         radarHost: '',
         currentFrameIndex: 0,
         refreshInterval: null,
@@ -452,6 +470,9 @@ function radarDisplay() {
                 this.visibilityHandler = null;
             }
             if (this.radarMap) {
+                // Drop the per-frame layers before the map goes, otherwise the
+                // next provider inherits references to layers on a dead map.
+                this.clearFrameLayers();
                 this.radarMap.remove();
                 this.radarMap = null;
             }
@@ -589,6 +610,9 @@ function radarDisplay() {
                     this.radarFrames = filteredFutureFrames.length > 0
                         ? [...taggedRainviewerFrames, ...filteredFutureFrames]
                         : taggedRainviewerFrames;
+
+                    // Cached layers belong to the previous frame list.
+                    this.clearFrameLayers();
 
                     // Use proxy or direct RainViewer based on setting
                     this.radarHost = this.useProxy
@@ -778,17 +802,10 @@ function radarDisplay() {
             }
         },
         
-        showFrame(index) {
-            if (this.radarFrames.length === 0 || !this.radarMap) return;
-            
-            const frameIndex = index % this.radarFrames.length;
-            const frame = this.radarFrames[frameIndex];
+        // Build the Leaflet layer for a frame without adding it to the map.
+        // Returns null when the frame carries nothing renderable.
+        buildFrameLayer(frame) {
             const isFutureProviderFrame = frame?.source === 'future_provider';
-            this.radarFrameTimeLabel = this.formatRadarFrameTimeLabel(frame);
-            
-            if (this.radarLayer) {
-                this.radarMap.removeLayer(this.radarLayer);
-            }
 
             if (isFutureProviderFrame && frame?.kind === 'image_overlay' && typeof frame?.imageUrl === 'string') {
                 const bounds = this.normalizeRadarBounds(frame.bounds);
@@ -802,12 +819,14 @@ function radarDisplay() {
                 const layerOpacity = Number.isFinite(Number(frame.opacity)) ? Number(frame.opacity) : 0.7;
                 const useCrossOrigin = !isAbsoluteImage || rawImageUrl.startsWith(window.location.origin);
 
-                this.radarLayer = L.imageOverlay(imageUrl, bounds, {
+                return {
                     opacity: layerOpacity,
-                    attribution: String(frame.attribution || 'Future radar'),
-                    crossOrigin: useCrossOrigin
-                }).addTo(this.radarMap);
-                return;
+                    layer: L.imageOverlay(imageUrl, bounds, {
+                        opacity: 0,
+                        attribution: String(frame.attribution || 'Future radar'),
+                        crossOrigin: useCrossOrigin
+                    })
+                };
             }
 
             if (isFutureProviderFrame && frame?.kind === 'tile_layer' && typeof frame?.tileUrlTemplate === 'string') {
@@ -820,33 +839,88 @@ function radarDisplay() {
                 const minZoom = Number.isFinite(Number(frame.minZoom)) ? Number(frame.minZoom) : 0;
                 const maxZoom = Number.isFinite(Number(frame.maxZoom)) ? Number(frame.maxZoom) : 7;
 
-                this.radarLayer = L.tileLayer(tileUrlTemplate, {
+                return {
                     opacity: layerOpacity,
-                    attribution: String(frame.attribution || 'Future radar'),
-                    minZoom,
-                    maxZoom,
-                    tms: false,
-                    crossOrigin: true
-                }).addTo(this.radarMap);
-                return;
+                    layer: L.tileLayer(tileUrlTemplate, {
+                        opacity: 0,
+                        attribution: String(frame.attribution || 'Future radar'),
+                        minZoom,
+                        maxZoom,
+                        tms: false,
+                        crossOrigin: true
+                    })
+                };
             }
 
             if (!frame?.path) {
-                return;
+                return null;
             }
 
             const rawTileUrl = this.radarHost + frame.path + '/512/{z}/{x}/{y}/1/1_0.png';
             const isAbsolute = /^https?:\/\//i.test(rawTileUrl);
             const tileUrl = (this.useProxy && !isAbsolute) ? window.Meteo.appendApiKey(rawTileUrl) : rawTileUrl;
-            
-            this.radarLayer = L.tileLayer(tileUrl, {
+
+            return {
                 opacity: 0.7,
-                attribution: 'RainViewer',
-                minZoom: 0,
-                maxZoom: 7,
-                tms: false,
-                crossOrigin: true
-            }).addTo(this.radarMap);
+                layer: L.tileLayer(tileUrl, {
+                    opacity: 0,
+                    attribution: 'RainViewer',
+                    minZoom: 0,
+                    maxZoom: 7,
+                    tms: false,
+                    crossOrigin: true
+                })
+            };
+        },
+
+        // Layers are built once per frame and kept on the map at opacity 0.
+        // Rebuilding one per animation step meant the old layer was removed
+        // before Leaflet had faded the new one in, so nothing was drawn for
+        // roughly 145ms of every frame.
+        frameLayerAt(frameIndex) {
+            if (this.frameLayers[frameIndex]) {
+                return this.frameLayers[frameIndex];
+            }
+
+            const built = this.buildFrameLayer(this.radarFrames[frameIndex]);
+            if (!built) {
+                return null;
+            }
+
+            built.layer.addTo(this.radarMap);
+            this.frameLayers[frameIndex] = built;
+
+            return built;
+        },
+
+        clearFrameLayers() {
+            Object.values(this.frameLayers).forEach((entry) => {
+                if (this.radarMap && this.radarMap.hasLayer(entry.layer)) {
+                    this.radarMap.removeLayer(entry.layer);
+                }
+            });
+            this.frameLayers = {};
+            this.activeFrameLayerIndex = null;
+            this.radarLayer = null;
+        },
+
+        showFrame(index) {
+            if (this.radarFrames.length === 0 || !this.radarMap) return;
+
+            const frameIndex = index % this.radarFrames.length;
+            const frame = this.radarFrames[frameIndex];
+            this.radarFrameTimeLabel = this.formatRadarFrameTimeLabel(frame);
+
+            const next = this.frameLayerAt(frameIndex);
+            if (!next) return;
+
+            if (this.activeFrameLayerIndex !== null && this.activeFrameLayerIndex !== frameIndex) {
+                this.frameLayers[this.activeFrameLayerIndex]?.layer.setOpacity(0);
+            }
+
+            next.layer.setOpacity(next.opacity);
+            this.activeFrameLayerIndex = frameIndex;
+            this.radarLayer = next.layer;
         },
         
         setupImageRefresh() {
