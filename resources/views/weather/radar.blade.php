@@ -55,7 +55,7 @@
     <div class="bg-weather-card rounded-2xl p-4 border border-white/10" 
          x-data="radarDisplay()" 
          x-init="init(); window.radarDisplayInstance = $data">
-        <div class="aspect-video md:aspect-[16/10] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
+        <div class="aspect-[4/5] md:aspect-[16/10] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
             
             @if($showKnmi)
             {{-- KNMI Radar --}}
@@ -98,14 +98,14 @@
                 </iframe>
             </div>
             
-            <div class="absolute bottom-4 left-4 radar-overlay-panel pointer-events-none text-xs bg-black/70 px-3 py-2 rounded-lg">
+            <div class="absolute bottom-6 left-2 md:bottom-4 md:left-4 radar-overlay-panel pointer-events-none text-xs bg-black/70 px-2 py-1.5 md:px-3 md:py-2 rounded-lg max-w-[60%] md:max-w-none">
                 <div class="flex items-center gap-2">
                     <span class="live-indicator inline-block w-2 h-2 bg-green-500 rounded-full"></span>
                     <span x-text="'{{ __('Live') }} - ' + getProviderLabel(currentProvider)"></span>
                 </div>
-                <div class="mt-1 text-[11px] text-gray-300" x-text="stationLocationLabel"></div>
+                <div class="mt-1 text-[11px] text-gray-300 truncate" x-text="stationLocationLabel"></div>
             </div>
-            <div class="absolute top-4 right-4 radar-overlay-panel pointer-events-none space-y-2">
+            <div class="absolute top-2 right-2 md:top-4 md:right-4 radar-overlay-panel pointer-events-none space-y-2">
                 <div class="bg-black/70 px-3 py-2 rounded-lg text-xs text-right">
                     <div class="text-gray-300">{{ __('Last update') }}</div>
                     <div class="font-semibold" x-text="radarFrameTimeLabel || radarFrameTimeFallback"></div>
@@ -138,7 +138,7 @@
         @if($showBuienradar)
         <div class="bg-weather-card rounded-2xl p-4 border border-white/10">
             <h3 class="font-semibold mb-3">Buienradar</h3>
-            <div class="aspect-video bg-black/30 rounded-xl overflow-hidden relative">
+            <div class="aspect-square md:aspect-video bg-black/30 rounded-xl overflow-hidden relative">
                 <img id="radar-buienradar-image" 
                      src="https://api.buienradar.nl/image/1.0/radarmapnl?w=500&h=512&t={{ time() }}" 
                      alt="Buienradar" 
@@ -194,7 +194,7 @@
                     </div>
                 </div>
             </div>
-            <div class="aspect-video bg-black/30 rounded-xl overflow-hidden relative">
+            <div class="aspect-square md:aspect-video bg-black/30 rounded-xl overflow-hidden relative">
                 @if($looksLikeTile($chosenUrl))
                     <div id="satellite-map-main"
                          class="w-full h-full"
