@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('daily_summaries', 'pressure_avg')) {
+            return;
+        }
+
         Schema::table('daily_summaries', function (Blueprint $table) {
             $table->decimal('pressure_avg', 7, 2)->nullable()->after('pressure_low');
         });
@@ -21,6 +25,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasColumn('daily_summaries', 'pressure_avg')) {
+            return;
+        }
+
         Schema::table('daily_summaries', function (Blueprint $table) {
             $table->dropColumn('pressure_avg');
         });
