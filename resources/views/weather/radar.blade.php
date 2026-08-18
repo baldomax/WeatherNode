@@ -55,7 +55,7 @@
     <div class="bg-weather-card rounded-2xl p-4 border border-white/10" 
          x-data="radarDisplay()" 
          x-init="init(); window.radarDisplayInstance = $data">
-        <div class="aspect-[4/5] md:aspect-[16/10] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
+        <div class="aspect-[4/5] md:aspect-[16/10] [@media(max-height:600px)]:max-h-[70vh] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
             
             @if($showKnmi)
             {{-- KNMI Radar --}}
@@ -138,7 +138,7 @@
         @if($showBuienradar)
         <div class="bg-weather-card rounded-2xl p-4 border border-white/10">
             <h3 class="font-semibold mb-3">Buienradar</h3>
-            <div class="aspect-square md:aspect-video bg-black/30 rounded-xl overflow-hidden relative">
+            <div class="aspect-square md:aspect-video [@media(max-height:600px)]:max-h-[70vh] bg-black/30 rounded-xl overflow-hidden relative">
                 <img id="radar-buienradar-image" 
                      src="https://api.buienradar.nl/image/1.0/radarmapnl?w=500&h=512&t={{ time() }}" 
                      alt="Buienradar" 
@@ -194,7 +194,7 @@
                     </div>
                 </div>
             </div>
-            <div class="aspect-square md:aspect-video bg-black/30 rounded-xl overflow-hidden relative">
+            <div class="aspect-square md:aspect-video [@media(max-height:600px)]:max-h-[70vh] bg-black/30 rounded-xl overflow-hidden relative">
                 @if($looksLikeTile($chosenUrl))
                     <div id="satellite-map-main"
                          class="w-full h-full"
