@@ -370,7 +370,7 @@
             $ssrHybridCards[] = ['id' => 'radar', 'title' => __('Precipitation radar'), 'lines' => [__('Station') . ': ' . ((string) ($ssrStation['location'] ?? \App\Models\Setting::stationLocation()))]];
         }
         if ($ssrWidgetFlags['webcam']) {
-            $webcamUrl = (string) \App\Models\Setting::getValue('webcam.url', 'https://www.meteouitgeest.nl/thumbnail/image.jpg');
+            $webcamUrl = (string) \App\Models\Setting::getValue('webcam.url', '');
             $ssrHybridCards[] = ['id' => 'webcam', 'title' => __('Webcam'), 'lines' => [__('Source') . ': ' . $webcamUrl]];
         }
         if ($ssrWidgetFlags['aurora']) {
@@ -4109,7 +4109,7 @@
                      displayMode: '{{ \App\Models\Setting::getValue('webcam.display_mode', 'image') }}',
                      streamUrl: '{{ addslashes(\App\Models\Setting::getValue('webcam.stream_url', '')) }}',
                      streamType: '{{ \App\Models\Setting::getValue('webcam.stream_type', 'none') }}',
-                     imageUrl: '{{ \App\Models\Setting::getValue('webcam.url', 'https://www.meteouitgeest.nl/thumbnail/image.jpg') }}',
+                     imageUrl: '{{ \App\Models\Setting::getValue('webcam.url', '') }}',
                      showStreamModal: false,
                      imageUpdatedAt: null,
                      imageLoadFailed: false,
@@ -4489,8 +4489,17 @@
                         </template>
                     </div>
                     
+                    <!-- Nothing configured yet. Better than a broken image, and
+                         far better than the default this used to carry, which
+                         was the author's own webcam. -->
+                    <div x-show="(displayMode === 'image' || displayMode === 'both') && !imageUrl"
+                         class="absolute inset-0 flex items-center justify-center bg-black/40 text-sm text-gray-300"
+                         style="display: none;">
+                        📷 {{ __('Webcam not configured') }}
+                    </div>
+
                     <!-- Image display (when mode is 'image' or 'both') -->
-                    <div x-show="displayMode === 'image' || displayMode === 'both'"
+                    <div x-show="(displayMode === 'image' || displayMode === 'both') && imageUrl"
                          class="absolute inset-0"
                          style="display: none;">
                         <img id="webcam-image" 
