@@ -15,6 +15,12 @@ class EarthquakeService
     private int $radiusKm;
     private float $minMagnitude;
     private string $apiUrl = 'https://www.seismicportal.eu/fdsnws/event/1/query';
+
+    /** Mean length of a degree of latitude, for converting the configured radius. */
+    private const KM_PER_DEGREE = 111.195;
+
+    /** How far back a worldwide lookup reaches. */
+    private const WORLDWIDE_WINDOW_DAYS = 7;
     
     // Magnitude classifications
     private array $magnitudeClasses = [
@@ -45,15 +51,32 @@ class EarthquakeService
 
         return Cache::remember($cacheKey, 120, function () use ($limit, $withinRadius) {
             try {
+                // Ask the API for the area or period wanted, rather than taking
+                // the last N events worldwide and filtering afterwards. At M2.5+
+                // those N events span roughly an hour of global seismicity, so a
+                // nearby quake almost never survived to be filtered.
+                $params = [
+                    'limit' => $limit,
+                    'format' => 'json',
+                    'minmag' => $this->minMagnitude,
+                ];
+
+                if ($withinRadius) {
+                    // FDSN maxradius is in degrees, not kilometres.
+                    $params['lat'] = $this->latitude;
+                    $params['lon'] = $this->longitude;
+                    $params['maxradius'] = round($this->radiusKm / self::KM_PER_DEGREE, 4);
+                } else {
+                    // Worldwide still needs a period, or it is again just the
+                    // last few minutes of global activity.
+                    $params['start'] = now()->subDays(self::WORLDWIDE_WINDOW_DAYS)->toIso8601String();
+                }
+
                 $response = Http::timeout(10)
                     ->withHeaders([
                         'User-Agent' => UserAgentService::forExternalApi(),
                     ])
-                    ->get($this->apiUrl, [
-                        'limit' => $limit,
-                        'format' => 'json',
-                        'minmag' => $this->minMagnitude,
-                    ]);
+                    ->get($this->apiUrl, $params);
 
                 if (!$response->successful()) {
                     Log::error('Seismic Portal request failed', [
