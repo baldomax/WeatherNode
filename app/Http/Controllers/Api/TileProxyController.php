@@ -58,12 +58,16 @@ class TileProxyController extends Controller
      * Proxy a radar tile from RainViewer with caching
      * 
      * URL format: /api/radar/tile/{path}/{size}/{z}/{x}/{y}/{color}/{options}.png
-     * Example: /api/radar/tile/v2/radar/1737561600/256/5/16/10/1/1_0.png
+     * Example: /api/radar/tile/v2/radar/c912c99f5a7d/512/7/73/38/1/1_0.png
      */
     public function tile(Request $request, string $path)
     {
         // Validate path format to prevent abuse
         if (!$this->isValidTilePath($path)) {
+            // Without the path there is nothing to diagnose from: the symptom
+            // is a blank radar and a wall of 400s with no reason attached.
+            Log::warning('Radar tile path rejected', ['path' => $path]);
+
             return response('Invalid tile path', 400);
         }
         
@@ -190,8 +194,19 @@ class TileProxyController extends Controller
             return false;
         }
         
-        // Must contain only safe characters
-        if (!preg_match('#^v2/radar/\d+/\d+/\d+/\d+/\d+/\d+/[\d_]+\.png$#', $path)) {
+        // Must contain only safe characters.
+        //
+        // The frame id was a Unix timestamp when this was written, so it was
+        // matched as \d+. RainViewer issues hex ids now (/v2/radar/c912c99f5a7d),
+        // and every tile the app requested was being refused by the app itself:
+        // /api/radar/frames hands the frontend these paths and this method then
+        // rejected them.
+        //
+        // Kept to lowercase alphanumerics rather than exactly hex, so another
+        // change to their id format does not blank the radar again. The pattern
+        // is still anchored to a RainViewer radar tile, and the id cannot hold a
+        // dot, a slash or an escape, so it grants no reach beyond that.
+        if (!preg_match('#^v2/radar/[0-9a-z]+/\d+/\d+/\d+/\d+/\d+/[\d_]+\.png$#', $path)) {
             return false;
         }
         
@@ -381,7 +396,12 @@ class TileProxyController extends Controller
     private function findCachedFallbackTileData(string $path): ?string
     {
         $normalizedPath = ltrim($path, '/');
-        if (!preg_match('#^v2/radar/\d+(/.+)$#', $normalizedPath, $matches)) {
+
+        // Same frame id shape as isValidTilePath(). This carried the numeric
+        // assumption too, so with hex ids the fallback bailed out and an
+        // upstream failure produced a transparent pixel rather than the last
+        // good tile for that cell.
+        if (!preg_match('#^v2/radar/[0-9a-z]+(/.+)$#', $normalizedPath, $matches)) {
             return null;
         }
 
