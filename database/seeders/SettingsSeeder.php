@@ -146,6 +146,10 @@ class SettingsSeeder extends Seeder
             ['key' => 'metar.airport_distance', 'value' => '34', 'type' => 'integer', 'group' => 'aviation', 'description' => 'Distance to airport (km)'],
             ['key' => 'metar.show_popup', 'value' => '1', 'type' => 'boolean', 'group' => 'aviation', 'description' => 'Show METAR popup details'],
 
+            // ===== Marine data location =====
+            ['key' => 'marine.latitude', 'value' => '', 'type' => 'string', 'group' => 'marine', 'description' => 'Latitude for marine data (leave empty to use the station location)'],
+            ['key' => 'marine.longitude', 'value' => '', 'type' => 'string', 'group' => 'marine', 'description' => 'Longitude for marine data (leave empty to use the station location)'],
+
             // ===== Weather Alerts =====
             ['key' => 'alerts.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'alerts', 'description' => 'Enable weather alerts/warnings'],
             ['key' => 'alerts.source', 'value' => 'europe', 'type' => 'select', 'group' => 'alerts', 'description' => 'Alert data source', 'options' => 'europe:Meteoalarm (Europe),usa:NWS (USA),canada:Environment Canada,uk:Met Office (UK),australia:BOM (Australia)'],

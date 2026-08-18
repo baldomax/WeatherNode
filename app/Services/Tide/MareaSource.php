@@ -41,8 +41,8 @@ class MareaSource extends AbstractTideSource
     public function fetchTideData(string $stationCode = ''): array
     {
         $apiKey    = Setting::getValue('tide.marea_api_key', '');
-        $latitude  = (float) Setting::latitude();
-        $longitude = (float) Setting::longitude();
+        $latitude  = Setting::marineLatitude();
+        $longitude = Setting::marineLongitude();
         $now       = now();
 
         $params = [

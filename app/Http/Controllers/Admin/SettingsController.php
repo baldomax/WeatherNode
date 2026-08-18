@@ -2836,6 +2836,12 @@ class SettingsController extends Controller
     private function updateWavesSettings(Request $request): void
     {
         Setting::setValue('waves.enabled', $request->input('waves_enabled') === '1', 'boolean', 'waves');
+
+        // Blank means "use the station", so empty is stored rather than rejected.
+        foreach (['latitude', 'longitude'] as $part) {
+            $value = trim((string) $request->input("marine_{$part}", ''));
+            Setting::setValue("marine.{$part}", $value, 'string', 'marine');
+        }
     }
 
     /**

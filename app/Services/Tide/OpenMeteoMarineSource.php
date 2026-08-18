@@ -35,8 +35,8 @@ class OpenMeteoMarineSource extends AbstractTideSource
 
     public function fetchTideData(string $stationCode = ''): array
     {
-        $latitude  = (float) Setting::latitude();
-        $longitude = (float) Setting::longitude();
+        $latitude  = Setting::marineLatitude();
+        $longitude = Setting::marineLongitude();
         $now       = now();
 
         $response = Http::timeout(15)->get(self::API_BASE, [
