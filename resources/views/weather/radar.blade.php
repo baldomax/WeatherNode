@@ -18,10 +18,15 @@
     $rainviewerZoom = \App\Models\Setting::getValue('radar.rainviewer_zoom', 7);
     $useProxy = \App\Models\Setting::getValue('radar.use_proxy', false);
     $frameDelay = (int) \App\Models\Setting::getValue('radar.frame_delay', 1000);
-    // KNMI and Buienradar only cover the Netherlands, so they are offered
-    // when one of them is the configured provider rather than always.
-    $dutchProviders = ['knmi', 'buienradar'];
-    $showDutchSources = in_array($radarProvider, $dutchProviders, true);
+    // Which sources appear is an admin choice rather than something derived
+    // from the main provider, which is always shown on top of the selection.
+    $radarSources = \App\Support\RadarSourceRegistry::all();
+    $visibleSources = \App\Support\RadarSourceRegistry::visible(
+        \App\Models\Setting::getValue('radar.card_sources', ''),
+        $radarProvider
+    );
+    $showKnmi = in_array('knmi', $visibleSources, true);
+    $showBuienradar = in_array('buienradar', $visibleSources, true);
     $satelliteEnabled = (bool) \App\Models\Setting::getValue('satellite.enabled', true);
     $providerLabels = [
         'knmi' => 'KNMI',
@@ -38,17 +43,11 @@
             <p class="text-gray-400">{{ __('Radar page intro', ['location' => $stationLocation]) }}</p>
         </div>
         <div class="flex gap-2" x-data="{ activeProvider: '{{ $radarProvider }}' }" x-init="$watch('activeProvider', value => window.switchRadarProvider(value))">
-            @if($showDutchSources)
-            <button @click="activeProvider = 'knmi'" 
-                    :class="activeProvider === 'knmi' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
-                    class="px-4 py-2 rounded-lg text-sm transition-colors">KNMI</button>
-            <button @click="activeProvider = 'buienradar'" 
-                    :class="activeProvider === 'buienradar' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
-                    class="px-4 py-2 rounded-lg text-sm transition-colors">Buienradar</button>
-            @endif
-            <button @click="activeProvider = 'rainviewer'" 
-                    :class="activeProvider === 'rainviewer' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
-                    class="px-4 py-2 rounded-lg text-sm transition-colors">RainViewer</button>
+            @foreach($visibleSources as $sourceId)
+            <button @click="activeProvider = '{{ $sourceId }}'" 
+                    :class="activeProvider === '{{ $sourceId }}' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
+                    class="px-4 py-2 rounded-lg text-sm transition-colors">{{ $radarSources[$sourceId]['label'] }}</button>
+            @endforeach
         </div>
     </div>
 
@@ -58,7 +57,7 @@
          x-init="init(); window.radarDisplayInstance = $data">
         <div class="aspect-video md:aspect-[16/10] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
             
-            @if($showDutchSources)
+            @if($showKnmi)
             {{-- KNMI Radar --}}
             <div x-show="currentProvider === 'knmi'" class="w-full h-full">
                 <img id="radar-main-image-knmi" 
@@ -68,6 +67,9 @@
                      onerror="this.parentElement.innerHTML='<div class=\'absolute inset-0 flex items-center justify-center text-gray-500\'>📡 {{ __('Radar not available') }}</div>'">
             </div>
             
+            @endif
+
+            @if($showBuienradar)
             {{-- Buienradar --}}
             <div x-show="currentProvider === 'buienradar'" class="w-full h-full">
                 <img id="radar-main-image-buienradar" 
@@ -133,7 +135,7 @@
     <!-- Additional Radar Views -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Buienradar -->
-        @if($showDutchSources)
+        @if($showBuienradar)
         <div class="bg-weather-card rounded-2xl p-4 border border-white/10">
             <h3 class="font-semibold mb-3">Buienradar</h3>
             <div class="aspect-video bg-black/30 rounded-xl overflow-hidden relative">
