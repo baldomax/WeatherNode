@@ -21,6 +21,7 @@ use App\Services\Solar\SolarForecastFactory;
 use App\Services\TideService;
 use App\Services\Wave\OpenMeteoWaveService;
 use App\Services\River\RijkswaterstaatRiverService;
+use App\Support\CacheFreshness;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -786,8 +787,8 @@ class PollExternalData extends Command
             $data = $service->fetchForecast();
 
             if ($data && isset($data['forecast']) && count($data['forecast']) > 0) {
-                Cache::put($sourceCacheKey, $data, now()->addMinutes($this->cacheTTLs['forecast']));
-                Cache::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['forecast']));
+                CacheFreshness::put($sourceCacheKey, $data, now()->addMinutes($this->cacheTTLs['forecast']));
+                CacheFreshness::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['forecast']));
                 $this->line("   Cached " . count($data['forecast']) . " forecast entries from {$sourceName}");
                 return true;
             }
@@ -884,7 +885,7 @@ class PollExternalData extends Command
             $data = $service->fetchAirQuality();
 
             if ($data) {
-                Cache::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['airquality']));
+                CacheFreshness::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['airquality']));
                 $aqi = $data['aqi'] ?? 'N/A';
                 $this->line("   Cached AQI: {$aqi}");
                 return true;
@@ -908,7 +909,7 @@ class PollExternalData extends Command
             $data = $service->getKpIndex();
 
             if ($data) {
-                Cache::put('aurora_kp_index', $data, now()->addMinutes($this->cacheTTLs['aurora']));
+                CacheFreshness::put('aurora_kp_index', $data, now()->addMinutes($this->cacheTTLs['aurora']));
                 $kp = $data['kp'] ?? 'N/A';
                 $this->line("   Cached Kp: {$kp}");
                 return true;
@@ -996,7 +997,7 @@ class PollExternalData extends Command
             $data = $service->fetchMetar($icaoArray);
 
             if ($data && !empty($data)) {
-                Cache::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['metar']));
+                CacheFreshness::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['metar']));
                 $this->line("   Cached METAR for {$primaryIcao}");
                 return true;
             }
@@ -1053,7 +1054,7 @@ class PollExternalData extends Command
             // Sun data
             $sunData = $service->getSunData();
             if ($sunData) {
-                Cache::put('astronomy_sun', $sunData, now()->addMinutes($this->cacheTTLs['astronomy']));
+                CacheFreshness::put('astronomy_sun', $sunData, now()->addMinutes($this->cacheTTLs['astronomy']));
                 $this->line("   Cached sun data (rise: {$sunData['sunrise']}, set: {$sunData['sunset']})");
             }
 
@@ -1102,7 +1103,7 @@ class PollExternalData extends Command
                 if (($data['category'] ?? '') === 'noise' && isset($data['values']['noise_LAeq']) && empty($data['noise_level'] ?? null)) {
                     $data['noise_level'] = $service->getNoiseDescription((float) $data['values']['noise_LAeq']);
                 }
-                Cache::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['airquality']));
+                CacheFreshness::put($cacheKey, $data, now()->addMinutes($this->cacheTTLs['airquality']));
                 $this->line("   Cached Luftdaten data (sensor: {$sensorId})");
                 return true;
             }

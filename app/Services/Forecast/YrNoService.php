@@ -4,6 +4,7 @@ namespace App\Services\Forecast;
 
 use App\Contracts\Forecast\ForecastServiceInterface;
 use App\Models\Setting;
+use App\Support\CacheFreshness;
 use App\Services\UserAgentService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
@@ -28,7 +29,7 @@ class YrNoService implements ForecastServiceInterface
     {
         $cacheKey = "yrno_forecast_{$this->latitude}_{$this->longitude}";
         
-        return Cache::remember($cacheKey, 1800, function () {
+        return CacheFreshness::remember($cacheKey, 1800, function () {
             try {
                 $http = Http::timeout(15);
                 if (!app()->environment('production') && env('HTTP_SKIP_TLS_VERIFY')) {

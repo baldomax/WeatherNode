@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Notifications\NotificationDispatcher;
+use App\Support\CacheFreshness;
 use App\Services\Weather\SensorTrackerService;
 use Illuminate\Console\Command;
 use App\Models\WeatherReading;
@@ -204,15 +205,9 @@ class CheckSensorHealth extends Command
         $cacheKey = "yrno_forecast_{$latitude}_{$longitude}";
 
         $forecastData = Cache::get($cacheKey);
-        $lastUpdate = Cache::get("{$cacheKey}_updated_at");
 
-        $isStale = !$forecastData || ($lastUpdate && now()->diffInMinutes($lastUpdate) > 60);
-
-        $this->healthStatus['forecast'] = [
-            'is_stale' => (bool) $isStale,
-            'age_minutes' => $lastUpdate ? round(abs(now()->diffInMinutes($lastUpdate)), 1) : null,
-            'last_update' => $lastUpdate ? $lastUpdate->toIso8601String() : null,
-        ];
+        $this->healthStatus['forecast'] = $this->freshness($cacheKey, $forecastData);
+        $isStale = $this->healthStatus['forecast']['is_stale'];
 
         if ($isStale && $forecastData === null) {
             $this->sendAlertIfNeeded('forecast', 'Forecast Data (Yr.no)', 'Forecast data not available.');
@@ -223,30 +218,12 @@ class CheckSensorHealth extends Command
 
     private function checkAstronomyData()
     {
-        $sunData = Cache::get('astronomy_sun');
-        $sunUpdated = Cache::get('astronomy_sun_updated_at');
-
-        $isStale = !$sunData || ($sunUpdated && now()->diffInMinutes($sunUpdated) > 60);
-
-        $this->healthStatus['astronomy'] = [
-            'is_stale' => (bool) $isStale,
-            'age_minutes' => $sunUpdated ? round(abs(now()->diffInMinutes($sunUpdated)), 1) : null,
-            'last_update' => $sunUpdated ? $sunUpdated->toIso8601String() : null,
-        ];
+        $this->healthStatus['astronomy'] = $this->freshness('astronomy_sun', Cache::get('astronomy_sun'));
     }
 
     private function checkAuroraData()
     {
-        $auroraData = Cache::get('aurora_kp_index');
-        $auroraUpdated = Cache::get('aurora_kp_index_updated_at');
-
-        $isStale = !$auroraData || ($auroraUpdated && now()->diffInMinutes($auroraUpdated) > 60);
-
-        $this->healthStatus['aurora'] = [
-            'is_stale' => (bool) $isStale,
-            'age_minutes' => $auroraUpdated ? round(abs(now()->diffInMinutes($auroraUpdated)), 1) : null,
-            'last_update' => $auroraUpdated ? $auroraUpdated->toIso8601String() : null,
-        ];
+        $this->healthStatus['aurora'] = $this->freshness('aurora_kp_index', Cache::get('aurora_kp_index'));
     }
 
     private function checkAirQualityData()
@@ -260,16 +237,7 @@ class CheckSensorHealth extends Command
             ? "waqi_station_{$stationId}"
             : "waqi_{$latitude}_{$longitude}";
 
-        $airQuality = Cache::get($cacheKey);
-        $lastUpdate = Cache::get("{$cacheKey}_updated_at");
-
-        $isStale = !$airQuality || ($lastUpdate && now()->diffInMinutes($lastUpdate) > 60);
-
-        $this->healthStatus['airquality'] = [
-            'is_stale' => (bool) $isStale,
-            'age_minutes' => $lastUpdate ? round(abs(now()->diffInMinutes($lastUpdate)), 1) : null,
-            'last_update' => $lastUpdate ? $lastUpdate->toIso8601String() : null,
-        ];
+        $this->healthStatus['airquality'] = $this->freshness($cacheKey, Cache::get($cacheKey));
     }
 
     private function checkMetarData()
@@ -284,15 +252,29 @@ class CheckSensorHealth extends Command
         }
 
         $primaryIcao = Setting::getValue('metar.primary_icao', 'EHAM');
-        $metarData = Cache::get("metar_{$primaryIcao}");
-        $lastUpdate = Cache::get("metar_{$primaryIcao}_updated_at");
+        $this->healthStatus['metar'] = $this->freshness("metar_{$primaryIcao}", Cache::get("metar_{$primaryIcao}"));
+    }
 
-        $isStale = !$metarData || ($lastUpdate && now()->diffInMinutes($lastUpdate) > 60);
+    /**
+     * Freshness of a cached data source, from the write time recorded alongside
+     * the payload. A source is stale when the payload is gone, or when it was
+     * written longer than $maxAgeMinutes ago. This matters because payload TTLs
+     * are longer than the threshold, so an abandoned entry lingers as "healthy"
+     * for hours if only its presence is checked.
+     *
+     * @return array{is_stale: bool, age_minutes: float|null, last_update: string|null}
+     */
+    private function freshness(string $cacheKey, mixed $payload, int $maxAgeMinutes = 60): array
+    {
+        $lastUpdate = CacheFreshness::updatedAt($cacheKey);
 
-        $this->healthStatus['metar'] = [
-            'is_stale' => (bool) $isStale,
-            'age_minutes' => $lastUpdate ? round(abs(now()->diffInMinutes($lastUpdate)), 1) : null,
-            'last_update' => $lastUpdate ? $lastUpdate->toIso8601String() : null,
+        // Carbon 3 returns a signed diff, so compare the absolute age.
+        $ageMinutes = $lastUpdate ? round(abs(now()->diffInMinutes($lastUpdate)), 1) : null;
+
+        return [
+            'is_stale' => !$payload || ($ageMinutes !== null && $ageMinutes > $maxAgeMinutes),
+            'age_minutes' => $ageMinutes,
+            'last_update' => $lastUpdate?->toIso8601String(),
         ];
     }
 
