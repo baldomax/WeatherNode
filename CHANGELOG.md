@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.8] - 2026-08-18
+
+- Fix the Atlantic and Pacific pressure charts. NOAA retired both URLs, so they had been returning 404 and the page sat on "Loading" instead of saying so
+- When a chart cannot be loaded the page now tries the rest of the list rather than giving up after one, and a failed 15 minute refresh keeps the chart already on screen
+- Nine more regional charts: Canada, Alaska, Mexico, Hawaii, both US coasts, the Atlantic and Pacific tropics, and the whole northern hemisphere
+- The chart picker is a dropdown rather than a row of buttons, which did not fit thirteen charts on a phone
+- Region names are translated in all eighteen languages
+
 ## [2026.08.7] - 2026-08-18
 
 - Fix radar tiles failing for everyone behind the tile proxy: RainViewer moved to hexadecimal frame ids and the path check only accepted digits (#35)
