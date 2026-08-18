@@ -371,6 +371,7 @@ $publicRoutes = function () {
             'defaultMap' => $defaultMap,
             'mapUrls' => $mapUrls,
             'mapOrder' => \App\Support\PressureMapRegistry::names(),
+            'mapLabels' => \App\Support\PressureMapRegistry::labels(),
         ]);
     })->name('weather.pressure-map');
 

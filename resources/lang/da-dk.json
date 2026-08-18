@@ -2783,5 +2783,15 @@
     "No settings registered for AEMET.": "Ingen indstillinger registreret for AEMET.",
     "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "AEMET-integrationen giver mulighed for at forespørge på daglige og timevise vejrudsigter for kommuner i Spanien.",
     "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "Kommunekoden er den 5-cifrede INE-kode (f.eks. 28079 for Madrid, 08019 for Barcelona).",
-    "e.g. 28079": "f.eks. 28079"
+    "e.g. 28079": "f.eks. 28079",
+    "Europe": "Europa",
+    "Canada": "Canada",
+    "Alaska": "Alaska",
+    "Mexico": "Mexico",
+    "Hawaii": "Hawaii",
+    "US East Coast": "USA's østkyst",
+    "US West Coast": "USA's vestkyst",
+    "Atlantic Tropics": "Atlantiske troper",
+    "Pacific Tropics": "Stillehavstroper",
+    "Northern Hemisphere": "Den nordlige halvkugle"
 }
