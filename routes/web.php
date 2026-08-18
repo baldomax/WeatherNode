@@ -351,7 +351,7 @@ $publicRoutes = function () {
     Route::get('/pressure-map', function () {
         $lon = \App\Models\Setting::longitude();
         $lat = \App\Models\Setting::latitude();
-        $allowed = ['atlantic', 'us', 'pacific', 'europe'];
+        $allowed = \App\Support\PressureMapRegistry::names();
 
         // Checked after the US and Pacific bands so those are unchanged.
         // Longitude alone is not enough here: Cape Town shares Europe's
@@ -362,8 +362,22 @@ $publicRoutes = function () {
             : ($inEurope ? 'europe' : 'atlantic'));
         $queryMap = strtolower(request()->query('map', ''));
         $defaultMap = in_array($queryMap, $allowed) ? $queryMap : $defaultByLocation;
-        return view('weather.pressure-map', ['defaultMap' => $defaultMap]);
+        $mapUrls = [];
+        foreach (\App\Support\PressureMapRegistry::names() as $name) {
+            $mapUrls[$name] = route('weather.pressure-map.image', ['map' => $name]);
+        }
+
+        return view('weather.pressure-map', [
+            'defaultMap' => $defaultMap,
+            'mapUrls' => $mapUrls,
+            'mapOrder' => \App\Support\PressureMapRegistry::names(),
+        ]);
     })->name('weather.pressure-map');
+
+    // Charts are proxied and downscaled rather than hotlinked. Keyed by name,
+    // so no caller can point this at an arbitrary host.
+    Route::get('/pressure-map/image/{map}', [\App\Http\Controllers\Weather\PressureMapImageController::class, 'show'])
+        ->name('weather.pressure-map.image');
 
     // Community Stations Map
     Route::get('/community-stations', [\App\Http\Controllers\CommunityStationsController::class, 'index'])->name('weather.community-stations');
