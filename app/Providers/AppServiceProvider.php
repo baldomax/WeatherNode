@@ -7,6 +7,7 @@ use App\Contracts\Nlg\Rephraser;
 use App\Services\Nlg\ForecastNarrator;
 use App\Services\Nlg\Rephrasers\OllamaRephraser;
 use App\Services\Nlg\Rephrasers\OpenAiCompatibleRephraser;
+use App\Services\OpenData\AemetProvider;
 use App\Services\OpenData\BomProvider;
 use App\Services\OpenData\DwdProvider;
 use App\Services\OpenData\EcmwfProvider;
@@ -158,6 +159,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Implemented providers
         OpenDataProviderRegistry::register(new KnmiProvider());
+        OpenDataProviderRegistry::register(new AemetProvider());
 
         // Placeholder providers (coming soon)
         OpenDataProviderRegistry::register(new MetOfficeProvider());

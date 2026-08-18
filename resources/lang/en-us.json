@@ -3277,5 +3277,15 @@
     "Leak Sensor 3": "Leak Sensor 3",
     "Leak Sensor 4": "Leak Sensor 4",
     "Leaf Wetness Sensor 1": "Leaf Wetness Sensor 1",
-    "Leaf Wetness Sensor 2": "Leaf Wetness Sensor 2"
+    "Leaf Wetness Sensor 2": "Leaf Wetness Sensor 2",
+    "AEMET Municipio Code (5 digits, e.g. 28079 for Madrid)": "AEMET Municipio Code (5 digits, e.g. 28079 for Madrid)",
+    "AEMET OpenData API Key": "AEMET OpenData API Key",
+    "AEMET OpenData forecast API configuration": "AEMET OpenData forecast API configuration",
+    "Enter your AEMET API Key": "Enter your AEMET API Key",
+    "Get your free API Key by registering at": "Get your free API Key by registering at",
+    "How to obtain AEMET OpenData credentials?": "How to obtain AEMET OpenData credentials?",
+    "No settings registered for AEMET.": "No settings registered for AEMET.",
+    "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.",
+    "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).",
+    "e.g. 28079": "e.g. 28079"
 }

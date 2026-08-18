@@ -2773,5 +2773,15 @@
     "→ This happens on shared hosting when tile proxy is enabled": "→ Tämä tapahtuu jaetussa webhotellissa kun tile proxy on käytössä",
     "→ This often happens when bootstrap/cache/ was uploaded from dev": "→ Tämä tapahtuu usein kun bootstrap/cache/ on ladattu dev:stä",
     "→ Verify endpoint URL in Ecowitt app matches your server": "→ Varmista, että Ecowitt-sovelluksen päätepisteen URL-osoite vastaa palvelintasi.",
-    "→ With proxy disabled, radar loads directly from RainViewer": "→ Proxyn ollessa pois käytöstä tutka lataa suoraan RainVieweristä"
+    "→ With proxy disabled, radar loads directly from RainViewer": "→ Proxyn ollessa pois käytöstä tutka lataa suoraan RainVieweristä",
+    "AEMET Municipio Code (5 digits, e.g. 28079 for Madrid)": "AEMET kuntakoodi (5 numeroa, esim. 28079 Madridille)",
+    "AEMET OpenData API Key": "AEMET OpenData API-avain",
+    "AEMET OpenData forecast API configuration": "AEMET OpenData sääennusteen API-asetukset",
+    "Enter your AEMET API Key": "Syötä AEMET API-avaimesi",
+    "Get your free API Key by registering at": "Hanki ilmainen API-avain rekisteröitymällä osoitteessa",
+    "How to obtain AEMET OpenData credentials?": "Miten AEMET OpenData -tunnukset hankitaan?",
+    "No settings registered for AEMET.": "AEMET-asetuksia ei ole rekisteröity.",
+    "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "AEMET-integraation avulla voidaan hakea päivittäisiä ja tuntikohtaisia sääennusteita Espanjan kunnille.",
+    "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "Kuntakoodi on 5-numeroinen INE-koodi (esim. 28079 Madridille, 08019 Barcelonalle).",
+    "e.g. 28079": "esim. 28079"
 }

@@ -392,6 +392,7 @@ class DashboardPayloadService
             'fct_wxsim_block.php' => 'wxsim_forecast_' . md5(Setting::getValue('wxsim.file_path', '')),
             'fct_ec_block.php' => "ec_forecast_{$latitude}_{$longitude}",
             'fct_tempest_block.php' => 'tempest_forecast_' . ($stationId !== '' ? $stationId : '0'),
+            'fct_aemet_block.php' => "aemet_forecast_" . Setting::getValue('aemet.municipio', ''),
         ];
         $forecastData = Cache::get($sourceKeys[$source] ?? null);
         if (!$forecastData) {

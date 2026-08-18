@@ -212,6 +212,7 @@ class PollExternalData extends Command
                     'fct_darksky_block.php' => "openweathermap_forecast_{$latitude}_{$longitude}",
                     'fct_wu_block.php' => "wunderground_forecast_{$latitude}_{$longitude}",
                     'fct_ec_block.php' => "ec_forecast_{$latitude}_{$longitude}",
+                    'fct_aemet_block.php' => "aemet_forecast_" . Setting::getValue('aemet.municipio', ''),
                 ];
                 if (isset($sourceKeys[$source])) {
                     $keys[] = $sourceKeys[$source];
@@ -860,6 +861,7 @@ class PollExternalData extends Command
             'fct_wxsim_block.php' => "wxsim_forecast_" . md5(Setting::getValue('wxsim.file_path', '')),
             'fct_ec_block.php' => "ec_forecast_{$latitude}_{$longitude}",
             'fct_tempest_block.php' => 'tempest_forecast_' . ($stationId !== '' ? $stationId : '0'),
+            'fct_aemet_block.php' => "aemet_forecast_" . Setting::getValue('aemet.municipio', ''),
         ];
         return $keys[$source] ?? "forecast_{$latitude}_{$longitude}";
     }

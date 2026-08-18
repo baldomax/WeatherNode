@@ -3223,5 +3223,15 @@
     "Leak Sensor 3": "Lek sensor 3",
     "Leak Sensor 4": "Lek sensor 4",
     "Leaf Wetness Sensor 1": "Bladnat sensor 1",
-    "Leaf Wetness Sensor 2": "Bladnat sensor 2"
+    "Leaf Wetness Sensor 2": "Bladnat sensor 2",
+    "AEMET Municipio Code (5 digits, e.g. 28079 for Madrid)": "AEMET Gemeentecode (5 cijfers, bijv. 28079 voor Madrid)",
+    "AEMET OpenData API Key": "AEMET OpenData API-sleutel",
+    "AEMET OpenData forecast API configuration": "AEMET OpenData weersverwachting API-configuratie",
+    "Enter your AEMET API Key": "Voer je AEMET API-sleutel in",
+    "Get your free API Key by registering at": "Ontvang je gratis API-sleutel door je te registreren bij",
+    "How to obtain AEMET OpenData credentials?": "Hoe verkrijg je AEMET OpenData-inloggegevens?",
+    "No settings registered for AEMET.": "Geen instellingen geregistreerd voor AEMET.",
+    "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "De AEMET-integratie maakt het mogelijk om dagelijkse en uurlijkse weersverwachtingen op te vragen voor Spaanse gemeenten.",
+    "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "De gemeentecode is de 5-cijferige INE-code (bijv. 28079 voor Madrid, 08019 for Barcelona).",
+    "e.g. 28079": "bijv. 28079"
 }

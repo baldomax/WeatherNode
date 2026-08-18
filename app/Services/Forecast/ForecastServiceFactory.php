@@ -23,6 +23,7 @@ class ForecastServiceFactory
             'fct_wxsim_block.php' => WxsimService::class,
             'fct_ec_block.php' => EnvironmentCanadaService::class,
             'fct_tempest_block.php' => TempestService::class,
+            'fct_aemet_block.php' => AemetService::class,
         ];
 
         $serviceClass = $serviceMap[$source] ?? YrNoService::class;

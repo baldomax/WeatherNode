@@ -2773,5 +2773,15 @@
     "→ This happens on shared hosting when tile proxy is enabled": "→ Αυτό συμβαίνει σε shared hosting όταν το tile proxy είναι ενεργοποιημένο",
     "→ This often happens when bootstrap/cache/ was uploaded from dev": "→ Αυτό συμβαίνει συχνά όταν το bootstrap/cache/ μεταφορτώθηκε από dev",
     "→ Verify endpoint URL in Ecowitt app matches your server": "→ Επαληθεύστε ότι η διεύθυνση URL του τελικού σημείου στην εφαρμογή Ecowitt ταιριάζει με τον διακομιστή σας.",
-    "→ With proxy disabled, radar loads directly from RainViewer": "→ Με το proxy απενεργοποιημένο, το ραντάρ φορτώνει απευθείας από το RainViewer"
+    "→ With proxy disabled, radar loads directly from RainViewer": "→ Με το proxy απενεργοποιημένο, το ραντάρ φορτώνει απευθείας από το RainViewer",
+    "AEMET Municipio Code (5 digits, e.g. 28079 for Madrid)": "Κωδικός Δήμου AEMET (5 ψηφία, π.χ. 28079 για Μαδρίτη)",
+    "AEMET OpenData API Key": "Κλειδί API AEMET OpenData",
+    "AEMET OpenData forecast API configuration": "Διαμόρφωση API πρόγνωσης AEMET OpenData",
+    "Enter your AEMET API Key": "Εισαγάγετε το κλειδί API AEMET",
+    "Get your free API Key by registering at": "Αποκτήστε το δωρεάν κλειδί API κάνοντας εγγραφή στο",
+    "How to obtain AEMET OpenData credentials?": "Πώς να λάβετε διαπιστευτήρια AEMET OpenData;",
+    "No settings registered for AEMET.": "Δεν βρέθηκαν ρυθμίσεις για το AEMET.",
+    "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "Η ενοποίηση AEMET επιτρέπει την αναζήτηση ημερήσιων και ωριαίων προγνώσεων καιρού για δήμους της Ισπανίας.",
+    "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "Ο Κωδικός Δήμου είναι ο 5ψήφιος κωδικός INE (π.χ. 28079 για Μαδρίτη, 08019 για Βαρκελώνη).",
+    "e.g. 28079": "π.χ. 28079"
 }

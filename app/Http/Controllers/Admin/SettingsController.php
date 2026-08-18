@@ -90,6 +90,13 @@ class SettingsController extends Controller
             'color' => 'red',
             'category' => 'datasources',
         ],
+        'aemet' => [
+            'label' => 'AEMET',
+            'description' => 'AEMET OpenData forecast API configuration',
+            'icon' => 'sun',
+            'color' => 'amber',
+            'category' => 'datasources',
+        ],
         'ecowitt' => [
             'label' => 'Ecowitt',
             'description' => 'Ecowitt local push or cloud API settings',
@@ -2262,6 +2269,17 @@ class SettingsController extends Controller
             ? 'all forecast days'
             : ($configuredAiDaysLimit === 1 ? 'the first forecast day' : "the first {$configuredAiDaysLimit} forecast days");
 
+        $forecastSource = Setting::getValue('forecast.default_source', 'fct_yrno_block.php');
+        $forecastMeta = [
+            'fct_aemet_block.php' => ['name' => 'Forecast (AEMET)', 'group' => 'aemet', 'enabled' => !empty(Setting::getValue('aemet.api_key', ''))],
+            'fct_yrno_block.php' => ['name' => 'Forecast (Yr.no)', 'group' => 'yrno', 'enabled' => true],
+            'fct_darksky_block.php' => ['name' => 'Forecast (OpenWeatherMap)', 'group' => 'openweathermap', 'enabled' => !empty(Setting::getValue('openweathermap.api_key', ''))],
+            'fct_wu_block.php' => ['name' => 'Forecast (Weather Underground)', 'group' => 'wunderground', 'enabled' => !empty(Setting::getValue('wunderground.api_key', ''))],
+            'fct_ec_block.php' => ['name' => 'Forecast (Environment Canada)', 'group' => 'environment_canada', 'enabled' => (bool) Setting::getValue('environment_canada.enabled', false)],
+            'fct_wxsim_block.php' => ['name' => 'Forecast (WXSIM)', 'group' => 'wxsim', 'enabled' => (bool) Setting::getValue('wxsim.enabled', false)],
+            'fct_tempest_block.php' => ['name' => 'Forecast (WeatherFlow Tempest)', 'group' => 'weatherflow', 'enabled' => (bool) Setting::getValue('weatherflow.enabled', false)],
+        ][$forecastSource] ?? ['name' => 'Forecast', 'group' => 'forecast', 'enabled' => true];
+
         return [
             [
                 'name' => 'Live Weather Fetch',
@@ -2274,13 +2292,13 @@ class SettingsController extends Controller
                 'last_run' => $this->getLastRunTimestamp(null, storage_path('logs/weather-fetch.log')),
             ],
             [
-                'name' => 'Forecast (Yr.no)',
+                'name' => $forecastMeta['name'],
                 'command' => 'weather:poll-external --source=forecast',
                 'schedule' => 'Every 30 minutes',
                 'description' => 'Cache forecast data for the dashboard.',
-                'enabled' => (bool) Setting::getValue('yrno.enabled', false),
+                'enabled' => $forecastMeta['enabled'],
                 'log' => storage_path('logs/poll-forecast.log'),
-                'settings_group' => 'yrno',
+                'settings_group' => $forecastMeta['group'],
                 'last_run' => $this->getLastRunTimestamp('poll_timestamp_forecast', storage_path('logs/poll-forecast.log')),
             ],
             [

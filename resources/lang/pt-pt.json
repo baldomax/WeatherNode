@@ -2771,5 +2771,15 @@
     "→ This happens on shared hosting when tile proxy is enabled": "→ Isto acontece em hospedagem partilhada quando o proxy de tiles está ativado",
     "→ This often happens when bootstrap/cache/ was uploaded from dev": "→ Isto acontece frequentemente quando bootstrap/cache/ foi carregado do dev",
     "→ Verify endpoint URL in Ecowitt app matches your server": "→ Verifique se o URL do ponto final na aplicação Ecowitt corresponde ao seu servidor",
-    "→ With proxy disabled, radar loads directly from RainViewer": "→ Com o proxy desativado, o radar carrega diretamente do RainViewer"
+    "→ With proxy disabled, radar loads directly from RainViewer": "→ Com o proxy desativado, o radar carrega diretamente do RainViewer",
+    "AEMET Municipio Code (5 digits, e.g. 28079 for Madrid)": "Código de Município AEMET (5 dígitos, ex. 28079 para Madrid)",
+    "AEMET OpenData API Key": "Chave API AEMET OpenData",
+    "AEMET OpenData forecast API configuration": "Configuração da API de previsão AEMET OpenData",
+    "Enter your AEMET API Key": "Insira a sua chave API AEMET",
+    "Get your free API Key by registering at": "Obtenha a sua chave API gratuita registando-se em",
+    "How to obtain AEMET OpenData credentials?": "Como obter as credenciais do AEMET OpenData?",
+    "No settings registered for AEMET.": "Nenhuma configuração registrada para AEMET.",
+    "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "A integração com o AEMET permite consultar previsões meteorológicas diárias e horárias para municípios em Espanha.",
+    "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "O Código de Município é o código INE de 5 dígitos (ex. 28079 para Madrid, 08019 para Barcelona).",
+    "e.g. 28079": "ex. 28079"
 }
