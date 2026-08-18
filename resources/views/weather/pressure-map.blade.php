@@ -38,6 +38,11 @@
                         onclick="changeMap('us')">
                     {{ __('United States') }}
                 </button>
+                <button class="map-button text-sm px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition"
+                        data-map="europe"
+                        onclick="changeMap('europe')">
+                    {{ __('Europe') }}
+                </button>
             </div>
         </div>
 
@@ -66,9 +71,12 @@
         const maps = {
             atlantic: 'https://ocean.weather.gov/A_sfc_full_ocean_color.png',
             pacific: 'https://ocean.weather.gov/P_sfc_full_ocean_color.png',
-            us: 'https://www.wpc.ncep.noaa.gov/sfc/ussatsfc.gif'
+            us: 'https://www.wpc.ncep.noaa.gov/sfc/ussatsfc.gif',
+            // DWD's surface analysis for central and western Europe. Note this
+            // chart is around 4.5MB, where the NOAA ones are under 200KB.
+            europe: 'https://www.dwd.de/DWD/wetter/wv_spez/hobbymet/wetterkarten/bwk_bodendruck_na_ana.png'
         };
-        const mapOrder = ['atlantic', 'us', 'pacific'];
+        const mapOrder = ['atlantic', 'us', 'pacific', 'europe'];
 
         let currentMap = @json($defaultMap ?? 'atlantic');
 
