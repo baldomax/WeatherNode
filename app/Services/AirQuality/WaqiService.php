@@ -3,6 +3,7 @@
 namespace App\Services\AirQuality;
 
 use App\Models\Setting;
+use App\Support\CacheFreshness;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -355,7 +356,7 @@ class WaqiService
                 $data = $response->json();
                 if (isset($data['status']) && $data['status'] === 'ok') {
                     $result = $this->parseAirQuality($data['data']);
-                    Cache::put($cacheKey, $result, 1800);
+                    CacheFreshness::put($cacheKey, $result, 1800);
                     return $result;
                 }
             }
