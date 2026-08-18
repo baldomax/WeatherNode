@@ -347,11 +347,19 @@ $publicRoutes = function () {
         ]);
     })->name('lightning');
 
-    // Pressure Map Popup (default map by station location; ?map=atlantic|us|pacific overrides)
+    // Pressure Map Popup (default map by station location; ?map=atlantic|us|pacific|europe overrides)
     Route::get('/pressure-map', function () {
         $lon = \App\Models\Setting::longitude();
-        $allowed = ['atlantic', 'us', 'pacific'];
-        $defaultByLocation = ($lon >= -130 && $lon <= -65) ? 'us' : (($lon >= 130 || $lon <= -120) ? 'pacific' : 'atlantic');
+        $lat = \App\Models\Setting::latitude();
+        $allowed = ['atlantic', 'us', 'pacific', 'europe'];
+
+        // Checked after the US and Pacific bands so those are unchanged.
+        // Longitude alone is not enough here: Cape Town shares Europe's
+        // meridians, so the box needs latitude too.
+        $inEurope = $lat >= 34 && $lat <= 72 && $lon >= -25 && $lon <= 45;
+        $defaultByLocation = ($lon >= -130 && $lon <= -65) ? 'us'
+            : (($lon >= 130 || $lon <= -120) ? 'pacific'
+            : ($inEurope ? 'europe' : 'atlantic'));
         $queryMap = strtolower(request()->query('map', ''));
         $defaultMap = in_array($queryMap, $allowed) ? $queryMap : $defaultByLocation;
         return view('weather.pressure-map', ['defaultMap' => $defaultMap]);

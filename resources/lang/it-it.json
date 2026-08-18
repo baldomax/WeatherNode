@@ -3886,6 +3886,7 @@
     "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "L'integrazione AEMET consente di consultare le previsioni meteorologiche giornaliere e orarie per i comuni in Spagna.",
     "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "Il codice comune è il codice INE a 5 cifre (es. 28079 per Madrid, 08019 per Barcellona).",
     "e.g. 28079": "es. 28079",
+    "Europe": "Europa",
     "Nearby earthquakes": "Vicino a te",
     "Show": "Mostra",
     "Worldwide": "Nel mondo"
