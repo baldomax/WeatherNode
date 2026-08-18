@@ -128,6 +128,11 @@ class FetchWeatherData extends Command
             if ($shouldSave) {
                 try {
                     $reading = $this->saveReading($format, $data, $ecowitt, $writer);
+
+                    if ($reading === null) {
+                        throw new \RuntimeException('The configured source reported no reading to save.');
+                    }
+
                     $this->info("Saved reading ID: {$reading->id}");
                     
                     // Clear error state on successful save
@@ -142,6 +147,8 @@ class FetchWeatherData extends Command
                         'format' => $format,
                         'error' => $e->getMessage(),
                     ]);
+
+                    $reading = null;
                 }
             }
 
@@ -155,6 +162,13 @@ class FetchWeatherData extends Command
                 ]);
             }
             
+            // Nothing was stored, so there is nothing to summarise. Both of the
+            // calls below require a reading, and passing the unset variable
+            // turned a handled save failure into a fatal scheduled task.
+            if (!$reading instanceof WeatherReading) {
+                return Command::FAILURE;
+            }
+
             // Update daily summary
             $this->updateDailySummary($reading);
             
