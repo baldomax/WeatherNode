@@ -2783,5 +2783,15 @@
     "No settings registered for AEMET.": "Δεν βρέθηκαν ρυθμίσεις για το AEMET.",
     "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "Η ενοποίηση AEMET επιτρέπει την αναζήτηση ημερήσιων και ωριαίων προγνώσεων καιρού για δήμους της Ισπανίας.",
     "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "Ο Κωδικός Δήμου είναι ο 5ψήφιος κωδικός INE (π.χ. 28079 για Μαδρίτη, 08019 για Βαρκελώνη).",
-    "e.g. 28079": "π.χ. 28079"
+    "e.g. 28079": "π.χ. 28079",
+    "Europe": "Ευρώπη",
+    "Canada": "Καναδάς",
+    "Alaska": "Αλάσκα",
+    "Mexico": "Μεξικό",
+    "Hawaii": "Χαβάη",
+    "US East Coast": "Ανατολική ακτή ΗΠΑ",
+    "US West Coast": "Δυτική ακτή ΗΠΑ",
+    "Atlantic Tropics": "Τροπικός Ατλαντικός",
+    "Pacific Tropics": "Τροπικός Ειρηνικός",
+    "Northern Hemisphere": "Βόρειο ημισφαίριο"
 }

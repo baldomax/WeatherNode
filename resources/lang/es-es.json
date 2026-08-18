@@ -2803,5 +2803,15 @@
     "No settings registered for AEMET.": "No se encontraron ajustes registrados para AEMET.",
     "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "La integración con AEMET permite consultar predicciones meteorológicas diarias y horarias para municipios de España.",
     "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "El Código de Municipio es el código INE de 5 dígitos (ej. 28079 para Madrid, 08019 para Barcelona).",
-    "e.g. 28079": "Ej. 28079"
+    "e.g. 28079": "Ej. 28079",
+    "Europe": "Europa",
+    "Canada": "Canadá",
+    "Alaska": "Alaska",
+    "Mexico": "México",
+    "Hawaii": "Hawái",
+    "US East Coast": "Costa este de EE. UU.",
+    "US West Coast": "Costa oeste de EE. UU.",
+    "Atlantic Tropics": "Trópicos del Atlántico",
+    "Pacific Tropics": "Trópicos del Pacífico",
+    "Northern Hemisphere": "Hemisferio norte"
 }

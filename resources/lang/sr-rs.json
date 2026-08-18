@@ -2783,5 +2783,15 @@
     "No settings registered for AEMET.": "Нема регистрованих подешавања за АЕМЕТ.",
     "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "Интеграција АЕМЕТ омогућава упит за дневне и сатне временске прогнозе за општине у Шпанији.",
     "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "Код општине је 5-цифрени ИНЕ код (нпр. 28079 за Мадрид, 08019 за Барселону).",
-    "e.g. 28079": "нпр. 28079"
+    "e.g. 28079": "нпр. 28079",
+    "Europe": "Evropa",
+    "Canada": "Kanada",
+    "Alaska": "Aljaska",
+    "Mexico": "Meksiko",
+    "Hawaii": "Havaji",
+    "US East Coast": "Istočna obala SAD",
+    "US West Coast": "Zapadna obala SAD",
+    "Atlantic Tropics": "Atlantski tropi",
+    "Pacific Tropics": "Pacifički tropi",
+    "Northern Hemisphere": "Severna hemisfera"
 }

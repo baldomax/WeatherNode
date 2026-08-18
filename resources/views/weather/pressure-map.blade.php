@@ -4,13 +4,6 @@
 @section('meta_description', __('Pressure map page meta description', ['location' => \App\Models\Setting::stationLocation() ?: \App\Models\Setting::stationName()]))
 
 @section('content')
-<style>
-    .map-button.active {
-        background: rgba(59, 130, 246, 0.5);
-        border-color: rgba(59, 130, 246, 0.7);
-    }
-</style>
-
 <div class="max-w-6xl mx-auto space-y-4">
     <div class="flex items-center justify-between">
         <div>
@@ -22,28 +15,14 @@
 
     <div class="bg-weather-card rounded-2xl border border-white/10 overflow-hidden">
         <div class="px-4 py-3 border-b border-white/10">
-            <div class="flex flex-wrap gap-2">
-                <button class="map-button text-sm px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition"
-                        data-map="atlantic"
-                        onclick="changeMap('atlantic')">
-                    {{ __('Atlantic Ocean') }}
-                </button>
-                <button class="map-button text-sm px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition"
-                        data-map="pacific"
-                        onclick="changeMap('pacific')">
-                    {{ __('Pacific Ocean') }}
-                </button>
-                <button class="map-button text-sm px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition"
-                        data-map="us"
-                        onclick="changeMap('us')">
-                    {{ __('United States') }}
-                </button>
-                <button class="map-button text-sm px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition"
-                        data-map="europe"
-                        onclick="changeMap('europe')">
-                    {{ __('Europe') }}
-                </button>
-            </div>
+            <label for="mapSelect" class="sr-only">{{ __('Pressure Map') }}</label>
+            <select id="mapSelect"
+                    onchange="changeMap(this.value)"
+                    class="w-full md:w-auto text-sm px-3 py-2 rounded-lg border border-white/20 bg-white/10 hover:bg-white/20 transition focus:outline-none focus:ring-2 focus:ring-blue-500/60">
+                @foreach ($mapLabels as $name => $label)
+                    <option value="{{ $name }}" class="bg-weather-card">{{ __($label) }}</option>
+                @endforeach
+            </select>
         </div>
 
         <div class="relative bg-black/20" style="height: clamp(360px, 66vh, 740px); height: clamp(360px, 66dvh, 740px);">
@@ -76,9 +55,7 @@
         let currentMap = @json($defaultMap ?? 'atlantic');
 
         function setActiveButton(mapType) {
-            document.querySelectorAll('.map-button').forEach(btn => {
-                btn.classList.toggle('active', btn.getAttribute('data-map') === mapType);
-            });
+            document.getElementById('mapSelect').value = mapType;
         }
 
         function showMap(mapType, attempted) {
