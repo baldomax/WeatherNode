@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.7] - 2026-08-18
+
+- Fix radar tiles failing for everyone behind the tile proxy: RainViewer moved to hexadecimal frame ids and the path check only accepted digits (#35)
+- The radar animation no longer strobes between frames, and the map no longer goes blank after switching provider
+- The radar page honours the configured sources instead of a hardcoded list, and the admin can choose which sources appear on the radar card
+- Fix the dashboard radar locking up after the first zoom (#52)
+- Add AEMET support for stations in Spain (#22)
+- Fix Ambient Weather credentials not being saved, and its current conditions going stale (#39, #61)
+- Fix stale source detection: the freshness timestamps were read but never written, so no source was ever reported as stale (#48)
+- Earthquakes are requested for the configured radius and period rather than the most recent worldwide events, which could return thirty quakes spanning an hour (#54)
+- Marine data can use a coastal point instead of the station, so inland installs get waves, sea temperature and tides (#53)
+- Add a Europe option to the pressure map, and serve the charts through the app instead of hotlinking them. The European chart drops from 4.4MB to roughly 0.4MB (#58)
+- Stop shipping defaults that point at one particular install: the webcam URL, the station server URL and the NOAA application name (#42)
+- Refuse destructive database commands in production, so an update can never drop an existing database
+- Fill in the missing Italian translations, which covered roughly half the interface (#56)
+
 ## [2026.08.6] - 2026-08-17
 
 - Fix individual sensor failures never being detected: the last-seen map was seeded with nulls and guarded with `isset()`, so no sensor was ever reported as failed and the alert could not fire at any threshold
