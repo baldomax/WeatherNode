@@ -535,6 +535,11 @@ function radarDisplay() {
             });
             L.marker([this.stationLat, this.stationLon], { icon: stationIcon }).addTo(this.radarMap);
             
+            // This is a brand new map with no radar layers on it. loadRadarData()
+            // skips the render when the frame signature is unchanged, which is
+            // exactly the case after switching provider away and back, so the
+            // map would stay empty until RainViewer published a new frame.
+            this.lastRadarGenerated = null;
             this.loadRadarData();
 
             // Refresh the frames periodically so the animation advances with new timestamps.
