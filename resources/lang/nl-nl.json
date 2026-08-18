@@ -3233,5 +3233,8 @@
     "No settings registered for AEMET.": "Geen instellingen geregistreerd voor AEMET.",
     "The AEMET integration allows querying daily and hourly weather forecasts for municipalities in Spain.": "De AEMET-integratie maakt het mogelijk om dagelijkse en uurlijkse weersverwachtingen op te vragen voor Spaanse gemeenten.",
     "The Municipality Code is the 5-digit INE code (e.g. 28079 for Madrid, 08019 for Barcelona).": "De gemeentecode is de 5-cijferige INE-code (bijv. 28079 voor Madrid, 08019 for Barcelona).",
-    "e.g. 28079": "bijv. 28079"
+    "e.g. 28079": "bijv. 28079",
+    "Nearby earthquakes": "In de buurt",
+    "Show": "Toon",
+    "Worldwide": "Wereldwijd"
 }

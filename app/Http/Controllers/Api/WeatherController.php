@@ -1016,9 +1016,28 @@ class WeatherController extends Controller
         // Get sort parameter
         $sort = $request->get('sort', 'time');
 
-        $cachedAll = Cache::get('earthquakes_all');
-        if (!is_array($cachedAll) || empty($cachedAll)) {
+        // 'nearby' by default: a site with a configured radius should not open
+        // on events thousands of kilometres away.
+        $scope = $request->get('scope') === 'all' ? 'all' : 'nearby';
+
+        if ($scope === 'nearby') {
             $cachedAll = Cache::get("earthquakes_{$latitude}_{$longitude}", []);
+
+            // The nearby list is populated by the scheduler. Until it has run,
+            // derive it from the worldwide list rather than showing nothing.
+            if (!is_array($cachedAll) || empty($cachedAll)) {
+                $radiusKm = (int) Setting::getValue('earthquakes.radius_km', 500);
+                $worldwide = Cache::get('earthquakes_all', []);
+                $cachedAll = array_values(array_filter(
+                    is_array($worldwide) ? $worldwide : [],
+                    fn ($eq) => is_array($eq) && isset($eq['distance']) && $eq['distance'] <= $radiusKm
+                ));
+            }
+        } else {
+            $cachedAll = Cache::get('earthquakes_all');
+            if (!is_array($cachedAll) || empty($cachedAll)) {
+                $cachedAll = Cache::get("earthquakes_{$latitude}_{$longitude}", []);
+            }
         }
 
         $earthquakes = array_values(array_filter(array_map(function ($eq) {
@@ -1065,6 +1084,7 @@ class WeatherController extends Controller
         return view('weather.earthquakes', [
             'earthquakes' => $earthquakes,
             'sort' => $sort,
+            'scope' => $scope,
             'stationLocation' => $stationLocation,
             'settings' => [
                 'latitude' => $latitude,

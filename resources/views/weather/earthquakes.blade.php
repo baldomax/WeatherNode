@@ -18,18 +18,31 @@
         </a>
     </div>
 
-    <!-- Sort Options -->
-    <div class="flex items-center gap-4 text-sm">
-        <span class="text-gray-400">{{ __('Sort by') }}:</span>
-        <a href="?sort=time" class="px-3 py-1 rounded-lg {{ $sort === 'time' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
-            {{ __('Time') }}
-        </a>
-        <a href="?sort=magnitude" class="px-3 py-1 rounded-lg {{ $sort === 'magnitude' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
-            {{ __('Magnitude') }}
-        </a>
-        <a href="?sort=distance" class="px-3 py-1 rounded-lg {{ $sort === 'distance' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
-            {{ __('Distance') }}
-        </a>
+    <!-- Scope + Sort Options -->
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+        <div class="flex items-center gap-2">
+            <span class="text-gray-400">{{ __('Show') }}:</span>
+            {{-- "Nearby earthquakes" rather than "Nearby": that string is already
+                 translated as the METAR nearest-airport label in some locales. --}}
+            <a href="?scope=nearby&sort={{ $sort }}" class="px-3 py-1 rounded-lg {{ $scope === 'nearby' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
+                {{ __('Nearby earthquakes') }}
+            </a>
+            <a href="?scope=all&sort={{ $sort }}" class="px-3 py-1 rounded-lg {{ $scope === 'all' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
+                {{ __('Worldwide') }}
+            </a>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-gray-400">{{ __('Sort by') }}:</span>
+            <a href="?scope={{ $scope }}&sort=time" class="px-3 py-1 rounded-lg {{ $sort === 'time' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
+                {{ __('Time') }}
+            </a>
+            <a href="?scope={{ $scope }}&sort=magnitude" class="px-3 py-1 rounded-lg {{ $sort === 'magnitude' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
+                {{ __('Magnitude') }}
+            </a>
+            <a href="?scope={{ $scope }}&sort=distance" class="px-3 py-1 rounded-lg {{ $sort === 'distance' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white' }}">
+                {{ __('Distance') }}
+            </a>
+        </div>
     </div>
 
     @if(count($earthquakes) > 0)
