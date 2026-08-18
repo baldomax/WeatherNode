@@ -18,10 +18,15 @@
     $rainviewerZoom = \App\Models\Setting::getValue('radar.rainviewer_zoom', 7);
     $useProxy = \App\Models\Setting::getValue('radar.use_proxy', false);
     $frameDelay = (int) \App\Models\Setting::getValue('radar.frame_delay', 1000);
-    // KNMI and Buienradar only cover the Netherlands, so they are offered
-    // when one of them is the configured provider rather than always.
-    $dutchProviders = ['knmi', 'buienradar'];
-    $showDutchSources = in_array($radarProvider, $dutchProviders, true);
+    // Which sources appear is an admin choice rather than something derived
+    // from the main provider, which is always shown on top of the selection.
+    $radarSources = \App\Support\RadarSourceRegistry::all();
+    $visibleSources = \App\Support\RadarSourceRegistry::visible(
+        \App\Models\Setting::getValue('radar.card_sources', ''),
+        $radarProvider
+    );
+    $showKnmi = in_array('knmi', $visibleSources, true);
+    $showBuienradar = in_array('buienradar', $visibleSources, true);
     $satelliteEnabled = (bool) \App\Models\Setting::getValue('satellite.enabled', true);
     $providerLabels = [
         'knmi' => 'KNMI',
@@ -38,17 +43,11 @@
             <p class="text-gray-400">{{ __('Radar page intro', ['location' => $stationLocation]) }}</p>
         </div>
         <div class="flex gap-2" x-data="{ activeProvider: '{{ $radarProvider }}' }" x-init="$watch('activeProvider', value => window.switchRadarProvider(value))">
-            @if($showDutchSources)
-            <button @click="activeProvider = 'knmi'" 
-                    :class="activeProvider === 'knmi' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
-                    class="px-4 py-2 rounded-lg text-sm transition-colors">KNMI</button>
-            <button @click="activeProvider = 'buienradar'" 
-                    :class="activeProvider === 'buienradar' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
-                    class="px-4 py-2 rounded-lg text-sm transition-colors">Buienradar</button>
-            @endif
-            <button @click="activeProvider = 'rainviewer'" 
-                    :class="activeProvider === 'rainviewer' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
-                    class="px-4 py-2 rounded-lg text-sm transition-colors">RainViewer</button>
+            @foreach($visibleSources as $sourceId)
+            <button @click="activeProvider = '{{ $sourceId }}'" 
+                    :class="activeProvider === '{{ $sourceId }}' ? 'bg-blue-600' : 'bg-white/10 hover:bg-white/20'"
+                    class="px-4 py-2 rounded-lg text-sm transition-colors">{{ $radarSources[$sourceId]['label'] }}</button>
+            @endforeach
         </div>
     </div>
 
@@ -56,9 +55,9 @@
     <div class="bg-weather-card rounded-2xl p-4 border border-white/10" 
          x-data="radarDisplay()" 
          x-init="init(); window.radarDisplayInstance = $data">
-        <div class="aspect-video md:aspect-[16/10] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
+        <div class="aspect-[4/5] md:aspect-[16/10] [@media(max-height:600px)]:max-h-[70vh] bg-black/30 rounded-xl overflow-hidden relative radar-main-stage">
             
-            @if($showDutchSources)
+            @if($showKnmi)
             {{-- KNMI Radar --}}
             <div x-show="currentProvider === 'knmi'" class="w-full h-full">
                 <img id="radar-main-image-knmi" 
@@ -68,6 +67,9 @@
                      onerror="this.parentElement.innerHTML='<div class=\'absolute inset-0 flex items-center justify-center text-gray-500\'>📡 {{ __('Radar not available') }}</div>'">
             </div>
             
+            @endif
+
+            @if($showBuienradar)
             {{-- Buienradar --}}
             <div x-show="currentProvider === 'buienradar'" class="w-full h-full">
                 <img id="radar-main-image-buienradar" 
@@ -96,14 +98,14 @@
                 </iframe>
             </div>
             
-            <div class="absolute bottom-4 left-4 radar-overlay-panel pointer-events-none text-xs bg-black/70 px-3 py-2 rounded-lg">
+            <div class="absolute bottom-6 left-2 md:bottom-4 md:left-4 radar-overlay-panel pointer-events-none text-xs bg-black/70 px-2 py-1.5 md:px-3 md:py-2 rounded-lg max-w-[60%] md:max-w-none">
                 <div class="flex items-center gap-2">
                     <span class="live-indicator inline-block w-2 h-2 bg-green-500 rounded-full"></span>
                     <span x-text="'{{ __('Live') }} - ' + getProviderLabel(currentProvider)"></span>
                 </div>
-                <div class="mt-1 text-[11px] text-gray-300" x-text="stationLocationLabel"></div>
+                <div class="mt-1 text-[11px] text-gray-300 truncate" x-text="stationLocationLabel"></div>
             </div>
-            <div class="absolute top-4 right-4 radar-overlay-panel pointer-events-none space-y-2">
+            <div class="absolute top-2 right-2 md:top-4 md:right-4 radar-overlay-panel pointer-events-none space-y-2">
                 <div class="bg-black/70 px-3 py-2 rounded-lg text-xs text-right">
                     <div class="text-gray-300">{{ __('Last update') }}</div>
                     <div class="font-semibold" x-text="radarFrameTimeLabel || radarFrameTimeFallback"></div>
@@ -133,10 +135,10 @@
     <!-- Additional Radar Views -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Buienradar -->
-        @if($showDutchSources)
+        @if($showBuienradar)
         <div class="bg-weather-card rounded-2xl p-4 border border-white/10">
             <h3 class="font-semibold mb-3">Buienradar</h3>
-            <div class="aspect-video bg-black/30 rounded-xl overflow-hidden relative">
+            <div class="aspect-square md:aspect-video [@media(max-height:600px)]:max-h-[70vh] bg-black/30 rounded-xl overflow-hidden relative">
                 <img id="radar-buienradar-image" 
                      src="https://api.buienradar.nl/image/1.0/radarmapnl?w=500&h=512&t={{ time() }}" 
                      alt="Buienradar" 
@@ -192,7 +194,7 @@
                     </div>
                 </div>
             </div>
-            <div class="aspect-video bg-black/30 rounded-xl overflow-hidden relative">
+            <div class="aspect-square md:aspect-video [@media(max-height:600px)]:max-h-[70vh] bg-black/30 rounded-xl overflow-hidden relative">
                 @if($looksLikeTile($chosenUrl))
                     <div id="satellite-map-main"
                          class="w-full h-full"
@@ -533,6 +535,11 @@ function radarDisplay() {
             });
             L.marker([this.stationLat, this.stationLon], { icon: stationIcon }).addTo(this.radarMap);
             
+            // This is a brand new map with no radar layers on it. loadRadarData()
+            // skips the render when the frame signature is unchanged, which is
+            // exactly the case after switching provider away and back, so the
+            // map would stay empty until RainViewer published a new frame.
+            this.lastRadarGenerated = null;
             this.loadRadarData();
 
             // Refresh the frames periodically so the animation advances with new timestamps.

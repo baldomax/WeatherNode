@@ -470,13 +470,14 @@ class SettingsController extends Controller
                 $order = [
                     'radar.enabled' => 1,
                     'radar.provider' => 2,         // Provider direct na enabled
-                    'radar.url' => 3,
-                    'radar.rainviewer_zoom' => 4,
-                    'radar.rainviewer_mode' => 5,
-                    'radar.frame_delay' => 6,      // Right after mode
-                    'radar.use_proxy' => 7,        // Then proxy
-                    'radar.widget_provider' => 8,
-                    'radar.widget_rainviewer_mode' => 9,
+                    'radar.card_sources' => 3,
+                    'radar.url' => 4,
+                    'radar.rainviewer_zoom' => 5,
+                    'radar.rainviewer_mode' => 6,
+                    'radar.frame_delay' => 7,      // Right after mode
+                    'radar.use_proxy' => 8,        // Then proxy
+                    'radar.widget_provider' => 9,
+                    'radar.widget_rainviewer_mode' => 10,
                 ];
                 return $order[$setting->key] ?? 99;
             });
@@ -685,6 +686,19 @@ class SettingsController extends Controller
             }
         }
 
+        if ($group === 'radar') {
+            // Checkboxes: an empty selection posts nothing at all, so this
+            // cannot be folded into the generic loop, which only writes keys
+            // that are present in the request.
+            $sources = (array) $request->input('radar_card_sources', []);
+            $sources = array_values(array_filter(
+                $sources,
+                fn ($id) => is_string($id) && \App\Support\RadarSourceRegistry::exists($id)
+            ));
+
+            Setting::setValue('radar.card_sources', implode(',', $sources), 'string', 'radar');
+        }
+
         if ($group === 'pollen') {
             $this->updatePollenSettings($request);
             Cache::forget('pollen_forecast');
@@ -741,6 +755,12 @@ class SettingsController extends Controller
                 'radar.widget_future_frames_provider',
             ], true)) {
                 // Managed by updateRadarNowcastSettings() to avoid duplicate processing.
+                continue;
+            }
+
+            if ($group === 'radar' && $setting->key === 'radar.card_sources') {
+                // Posted as a checkbox array and already stored above. The
+                // generic branch would write the raw array over it.
                 continue;
             }
 

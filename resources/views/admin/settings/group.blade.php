@@ -304,6 +304,7 @@
                 @endphp
                 
                 @php
+                    $isCardSources = $group === 'radar' && $setting->key === 'radar.card_sources';
                     $isRainviewerZoom = $group === 'radar' && $setting->key === 'radar.rainviewer_zoom';
                     $isRainviewerMode = $group === 'radar' && $setting->key === 'radar.rainviewer_mode';
                     $isFrameDelay = $group === 'radar' && $setting->key === 'radar.frame_delay';
@@ -379,7 +380,25 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{{ $displayDescription }}</p>
                         
                         <div class="w-full">
-                            @if($group === 'station' && $setting->key === 'station.timezone' && !empty($timezones))
+                            @if($isCardSources)
+                                @php $selectedSources = \App\Support\RadarSourceRegistry::parse($setting->value); @endphp
+                                <div class="space-y-2">
+                                    @foreach(\App\Support\RadarSourceRegistry::all() as $sourceId => $source)
+                                        <label class="flex items-center gap-3 text-sm text-gray-900 dark:text-white">
+                                            <input type="checkbox"
+                                                   name="radar_card_sources[]"
+                                                   value="{{ $sourceId }}"
+                                                   @checked(in_array($sourceId, $selectedSources, true))
+                                                   class="rounded border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-blue-600 focus:ring-blue-500">
+                                            <span>{{ $source['label'] }}</span>
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ __($source['coverage']) }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    {{ __('The main provider above is always shown, whatever is selected here.') }}
+                                </p>
+                            @elseif($group === 'station' && $setting->key === 'station.timezone' && !empty($timezones))
                                 <select name="{{ $formKey }}" 
                                         id="{{ $formKey }}"
                                         class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400">

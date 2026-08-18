@@ -380,6 +380,7 @@
             
             let lastScrollTop = 0;
             let ticking = false;
+            let settleUntil = 0;
             const scrollThreshold = 5;
             
             // Dynamically adjust body padding based on header height
@@ -398,9 +399,18 @@
             // Recalculate on resize
             window.addEventListener('resize', function() {
                 adjustBodyPadding();
-                if (window.innerWidth >= 1024) {
-                    header.style.transform = '';
-                }
+
+                // Bring the header back after any viewport change. Rotating a
+                // phone never crosses 1024px, so a header hidden by scrolling
+                // stayed hidden in the new orientation until the user happened
+                // to scroll up again.
+                header.style.transform = '';
+
+                // The reflow that follows moves the scroll position, and that
+                // lands after this handler returns. Left alone it reads as a
+                // large downward scroll and hides the header straight back
+                // again, so ignore scrolling while the layout settles.
+                settleUntil = Date.now() + 400;
             });
             
             // Also recalculate after fonts load (can change header height)
@@ -416,6 +426,16 @@
                 }
                 
                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+
+                // Settling after a resize: keep the header visible and follow
+                // the moving scroll position without acting on it.
+                if (Date.now() < settleUntil) {
+                    header.style.transform = '';
+                    lastScrollTop = scrollTop;
+                    ticking = false;
+                    return;
+                }
+
                 const scrollDelta = scrollTop - lastScrollTop;
                 
                 if (scrollDelta > scrollThreshold && scrollTop > 50) {
