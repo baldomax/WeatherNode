@@ -21,6 +21,7 @@ use App\Services\OpenData\OpenDataProviderRegistry;
 use App\Models\Setting;
 use App\Services\Security\ApiKeyService;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\URL;
 use Throwable;
@@ -82,6 +83,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // migrate:fresh, migrate:refresh, migrate:reset, migrate:rollback and
+        // db:wipe all destroy data, and --force skips the confirmation that
+        // would otherwise stop them. Updates only ever run "migrate --force",
+        // which is additive, so nothing legitimate needs these on a live
+        // install and an accidental one costs the user their database.
+        DB::prohibitDestructiveCommands($this->app->isProduction());
+
         if (! app()->runningInConsole()) {
             $configuredAppUrl = trim((string) config('app.url', ''));
             $effectiveAppUrl = $configuredAppUrl;
