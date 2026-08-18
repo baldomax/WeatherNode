@@ -12,6 +12,8 @@
 
     $lat = round((float) Setting::latitude(), 4);
     $lon = round((float) Setting::longitude(), 4);
+    $marineLat = trim((string) (Setting::getValue('marine.latitude', '') ?? ''));
+    $marineLon = trim((string) (Setting::getValue('marine.longitude', '') ?? ''));
 @endphp
 
 <div class="space-y-6">
@@ -71,23 +73,32 @@
             </div>
         </div>
 
-        {{-- Location info --}}
+        {{-- Location --}}
         <div class="bg-gray-800/50 rounded-2xl p-6 border border-white/10 mb-6">
             <h2 class="font-semibold text-white mb-4">{{ __('Data location') }}</h2>
             <p class="text-sm text-gray-400 mb-4">
-                {{ __('Wave and sea temperature data is fetched for your station coordinates. To change the location, update your Station Info settings.') }}
+                {{ __('Marine data is fetched for your station coordinates. If your station is inland, set the nearest stretch of coast here instead. Leave both empty to use the station location.') }}
             </p>
             <div class="grid grid-cols-2 gap-4">
-                <div class="bg-gray-900/40 rounded-xl p-4">
-                    <div class="text-xs text-gray-500 uppercase tracking-wider">{{ __('Latitude') }}</div>
-                    <div class="text-white font-mono text-lg mt-1">{{ $lat }}°</div>
+                <div>
+                    <label for="marine_latitude" class="block text-xs text-gray-500 uppercase tracking-wider mb-2">{{ __('Latitude') }}</label>
+                    <input type="number" step="0.0001" min="-90" max="90"
+                           name="marine_latitude" id="marine_latitude"
+                           value="{{ $marineLat }}" placeholder="{{ $lat }}"
+                           class="w-full px-4 py-2 rounded-xl bg-gray-900/40 border border-white/10 text-white font-mono">
                 </div>
-                <div class="bg-gray-900/40 rounded-xl p-4">
-                    <div class="text-xs text-gray-500 uppercase tracking-wider">{{ __('Longitude') }}</div>
-                    <div class="text-white font-mono text-lg mt-1">{{ $lon }}°</div>
+                <div>
+                    <label for="marine_longitude" class="block text-xs text-gray-500 uppercase tracking-wider mb-2">{{ __('Longitude') }}</label>
+                    <input type="number" step="0.0001" min="-180" max="180"
+                           name="marine_longitude" id="marine_longitude"
+                           value="{{ $marineLon }}" placeholder="{{ $lon }}"
+                           class="w-full px-4 py-2 rounded-xl bg-gray-900/40 border border-white/10 text-white font-mono">
                 </div>
             </div>
             <p class="mt-3 text-xs text-gray-500">
+                {{ __('Applies to waves, sea temperature and the tide sources that look up a grid point rather than a named station.') }}
+            </p>
+            <p class="mt-2 text-xs text-gray-500">
                 {{ __('Note: Open-Meteo Marine covers oceans and large bodies of water. Data may not be available for inland locations far from coast.') }}
             </p>
         </div>

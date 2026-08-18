@@ -65,8 +65,8 @@ class CopernicusMarineSource extends AbstractTideSource
     {
         $username  = Setting::getValue('tide.copernicus_username', '');
         $password  = Setting::getValue('tide.copernicus_password', '');
-        $latitude  = (float) Setting::latitude();
-        $longitude = (float) Setting::longitude();
+        $latitude  = Setting::marineLatitude();
+        $longitude = Setting::marineLongitude();
         $now       = now();
 
         if (empty($username) || empty($password)) {

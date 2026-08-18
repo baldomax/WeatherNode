@@ -168,6 +168,28 @@ class Setting extends Model
         return (float) static::getValue('station.longitude', 4.7078991);
     }
 
+    /**
+     * Where marine data is fetched for: waves, sea temperature and the tide
+     * sources that look up a grid cell rather than a named station.
+     *
+     * Falls back to the station. These APIs only cover ocean cells, so an
+     * inland station gets nothing back, and moving the station coordinates is
+     * not an option because every other reading uses them.
+     */
+    public static function marineLatitude(): float
+    {
+        $value = trim((string) (static::getValue('marine.latitude', '') ?? ''));
+
+        return $value !== '' ? (float) $value : static::latitude();
+    }
+
+    public static function marineLongitude(): float
+    {
+        $value = trim((string) (static::getValue('marine.longitude', '') ?? ''));
+
+        return $value !== '' ? (float) $value : static::longitude();
+    }
+
     public static function timezone(): string
     {
         return static::getValue('station.timezone', 'Europe/Amsterdam');
