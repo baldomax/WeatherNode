@@ -122,3 +122,7 @@ stderr_logfile_maxbytes=0\n' > /etc/supervisor/conf.d/supervisord.conf
 EXPOSE 80
 
 ENTRYPOINT ["/var/www/html/docker/entrypoint.sh"]
+
+# Default process. The entrypoint exec "$@", so overriding this (or passing a
+# command to docker run) runs that instead of the service manager.
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

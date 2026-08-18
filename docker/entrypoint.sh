@@ -237,4 +237,10 @@ if [ "$(id -u)" -eq 0 ]; then
     fix_ownership "$APP_DIR/bootstrap/cache"
 fi
 
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+# Run whatever the container was asked to run. The default comes from CMD in
+# the Dockerfile, so this is supervisord unless a command was given. Without
+# this the entrypoint ended at supervisord unconditionally and
+# `docker run <image> php artisan migrate` silently booted the container
+# instead of running the command, which makes the image impossible to poke at
+# and hides typos in one-off commands.
+exec "$@"
