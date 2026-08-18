@@ -81,28 +81,28 @@
             });
         }
 
-        function changeMap(mapType, fromError) {
+        function showMap(mapType, attempted) {
             currentMap = mapType;
-            if (!fromError) setActiveButton(mapType);
+            setActiveButton(mapType);
 
             const img = document.getElementById('pressureMapImage');
             const loading = document.querySelector('.loading');
             img.style.display = 'none';
             loading.style.display = 'block';
-            loading.textContent = '{{ __('Loading') }}...';
+            loading.textContent = attempted.length
+                ? '{{ __('Loading') }}... (' + mapType + ')'
+                : '{{ __('Loading') }}...';
 
             img.onerror = function() {
-                const nextIdx = mapOrder.indexOf(currentMap) + 1;
-                if (nextIdx < mapOrder.length) {
-                    currentMap = mapOrder[nextIdx];
-                    setActiveButton(currentMap);
-                    loading.textContent = '{{ __('Loading') }}... (' + currentMap + ')';
-                    img.onerror = null;
-                    img.src = maps[currentMap] + '?_' + Date.now();
-                } else {
+                // Walk the whole list. Handing over to the next chart used to clear
+                // this handler, so two charts down at once left the page loading.
+                const next = mapOrder.find(m => m !== mapType && attempted.indexOf(m) === -1);
+                if (!next) {
                     loading.textContent = '{{ __('Failed to load map') }}';
                     img.style.display = 'none';
+                    return;
                 }
+                showMap(next, attempted.concat(mapType));
             };
             img.onload = function() {
                 img.style.display = 'block';
@@ -111,19 +111,21 @@
             img.src = maps[mapType] + '?_' + Date.now();
         }
 
+        function changeMap(mapType) {
+            showMap(mapType, []);
+        }
+
         // Load initial map (from server: station location or ?map=)
-        setActiveButton(currentMap);
         changeMap(currentMap);
 
-        // Refresh map every 15 minutes
+        // Refresh every 15 minutes, in place: a failed refresh keeps the chart
+        // already on screen instead of blanking it or switching maps.
         setInterval(() => {
-            const img = document.getElementById('pressureMapImage');
-            const loading = document.querySelector('.loading');
-            img.style.display = 'none';
-            loading.style.display = 'block';
-            loading.textContent = '{{ __('Loading') }}...';
-            img.onerror = null;
-            img.src = maps[currentMap] + '?_' + Date.now();
+            const refreshed = new Image();
+            refreshed.onload = function() {
+                document.getElementById('pressureMapImage').src = refreshed.src;
+            };
+            refreshed.src = maps[currentMap] + '?_' + Date.now();
         }, 15 * 60 * 1000);
 </script>
 @endsection

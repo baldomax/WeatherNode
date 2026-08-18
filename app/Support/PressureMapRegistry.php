@@ -18,11 +18,11 @@ class PressureMapRegistry
     {
         return [
             'atlantic' => [
-                'url' => 'https://ocean.weather.gov/A_sfc_full_ocean_color.png',
+                'url' => 'https://ocean.weather.gov/shtml/A_00hrsfc.gif',
                 'label' => 'Atlantic Ocean',
             ],
             'pacific' => [
-                'url' => 'https://ocean.weather.gov/P_sfc_full_ocean_color.png',
+                'url' => 'https://ocean.weather.gov/shtml/P_00hrsfc.gif',
                 'label' => 'Pacific Ocean',
             ],
             'us' => [
