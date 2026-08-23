@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.08.9] - 2026-08-23
+
+- Fix the header on a phone cutting off buttons when signed in as an admin. The row now wraps, and the header ends up shorter than it was (#78)
+- The dashboard radar widget shows the most recent frame when the flat theme turns the animation off, instead of parking on one from two hours ago (#49)
+- Fix expired file cache entries never being deleted from disk. On one install the sweep freed 27MB and took 45,477 files down to 768. The Docker entrypoint also stops running one chmod per file, which cost about two minutes on every container start (#43)
+- History pages for days outside the recorded period now return 404. They used to answer for any date at all and link one day further back, so a crawler could walk from 2020 back to the year 1800 in each of the 18 languages. On one site that was 99% of all traffic (#55)
+- robots.txt now blocks the API and the ?units= duplicates, asks Bing to slow down, and explains what every line does so you can adapt it
+- Fix three Spanish translations: "Max temp" read as "maximum time" and "Min temp" read as "at what time?" (#79)
+
 ## [2026.08.8] - 2026-08-18
 
 - Fix the Atlantic and Pacific pressure charts. NOAA retired both URLs, so they had been returning 404 and the page sat on "Loading" instead of saying so
