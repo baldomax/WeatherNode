@@ -114,6 +114,42 @@ class CleanExpiredCacheCommandTest extends TestCase
      * Mirrors the on-disk format of Illuminate\Cache\FileStore: a 10 digit
      * expiry timestamp followed by the serialized value.
      */
+    /** The reported size comes from the same handle the expiry is read from. */
+    public function test_it_reports_the_size_of_what_it_deleted(): void
+    {
+        $this->writeEntry('aa/bb/expired-one', time() - 60);
+        $this->writeEntry('aa/bb/expired-two', time() - 60);
+
+        $expectedBytes = filesize($this->cachePath.'/aa/bb/expired-one')
+            + filesize($this->cachePath.'/aa/bb/expired-two');
+
+        Artisan::call('cache:clean-expired');
+
+        $this->assertStringContainsString("({$expectedBytes} B)", Artisan::output());
+    }
+
+    /**
+     * The app unlinks an expired entry itself whenever one is read, so a sweep
+     * of expired entries can meet a file that has just gone. Skip it and carry
+     * on rather than aborting the run partway through.
+     */
+    public function test_an_entry_it_cannot_read_does_not_stop_the_sweep(): void
+    {
+        $this->writeEntry('aa/bb/expired', time() - 60);
+        $this->writeEntry('aa/bb/unreadable', time() - 60);
+        chmod($this->cachePath.'/aa/bb/unreadable', 0000);
+
+        if (is_readable($this->cachePath.'/aa/bb/unreadable')) {
+            $this->markTestSkipped('Running as root, so file permissions do not apply.');
+        }
+
+        $exitCode = Artisan::call('cache:clean-expired');
+
+        $this->assertSame(0, $exitCode);
+        $this->assertStringContainsString('Deleted 1 expired cache entries', Artisan::output());
+        $this->assertFileDoesNotExist($this->cachePath.'/aa/bb/expired');
+    }
+
     private function writeEntry(string $relativePath, int $expiration): void
     {
         $fullPath = $this->cachePath.'/'.$relativePath;

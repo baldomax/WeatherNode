@@ -93,20 +93,20 @@ class CleanExpiredCache extends Command
         $liveCount = 0;
 
         foreach ($this->cacheFiles($path) as $file) {
-            $expiration = $this->readExpiration($file->getPathname());
+            $entry = $this->readEntry($file->getPathname());
 
-            // Not a cache payload (e.g. a .gitignore) - leave it alone.
-            if ($expiration === null) {
+            // Not a cache payload (e.g. a .gitignore), or gone already - leave it alone.
+            if ($entry === null) {
                 continue;
             }
 
-            if ($expiration > $now) {
+            if ($entry['expires'] > $now) {
                 $liveCount++;
                 continue;
             }
 
             $expiredCount++;
-            $expiredBytes += $file->getSize();
+            $expiredBytes += $entry['size'];
 
             if (!$isDryRun) {
                 @unlink($file->getPathname());
@@ -169,8 +169,14 @@ class CleanExpiredCache extends Command
     /**
      * The file store writes a 10 digit UNIX timestamp as the first 10 bytes of
      * every entry (9999999999 for forever). Anything else is not one of ours.
+     *
+     * Expiry and size come from one open handle on purpose. A second look at
+     * the path would be a second chance for the file to have gone, and the
+     * app deletes these same expired entries itself whenever one is read.
+     *
+     * @return array{expires: int, size: int}|null
      */
-    private function readExpiration(string $file): ?int
+    private function readEntry(string $file): ?array
     {
         $handle = @fopen($file, 'rb');
 
@@ -179,13 +185,17 @@ class CleanExpiredCache extends Command
         }
 
         $header = fread($handle, 10);
+        $stat = fstat($handle);
         fclose($handle);
 
         if (!is_string($header) || strlen($header) !== 10 || !ctype_digit($header)) {
             return null;
         }
 
-        return (int) $header;
+        return [
+            'expires' => (int) $header,
+            'size' => (int) ($stat['size'] ?? 0),
+        ];
     }
 
     private function removeEmptyDirectories(string $path): int
