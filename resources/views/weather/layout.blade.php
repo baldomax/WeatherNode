@@ -218,8 +218,8 @@
             <!-- Mobile: Two rows -->
             <div class="flex flex-col gap-2 lg:hidden">
                 <!-- Row 1: Logo and controls -->
-                <div class="flex items-center justify-between">
-                    <a href="{{ route('home') }}" class="flex items-center gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-y-2">
+                    <a href="{{ route('home') }}" class="flex items-center gap-3 min-w-0">
                         <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-400 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/>
@@ -230,7 +230,7 @@
                             <p class="text-xs text-gray-400">{{ \App\Models\Setting::stationLocation() }}</p>
                         </div>
                     </a>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 shrink-0 ml-auto">
                         @auth
                             @if(auth()->user()->is_admin)
                                 @if(($siteTheme ?? 'fx') !== 'flat')
