@@ -3895,5 +3895,10 @@
     "US West Coast": "Costa occidentale degli Stati Uniti",
     "Atlantic Tropics": "Tropici atlantici",
     "Pacific Tropics": "Tropici pacifici",
-    "Northern Hemisphere": "Emisfero settentrionale"
+    "Northern Hemisphere": "Emisfero settentrionale",
+    "sst_cold": "Fredda",
+    "sst_cool": "Fresca",
+    "sst_comfortable": "Confortevole",
+    "sst_warm": "Calda",
+    "sst_hot": "Molto calda"
 }
