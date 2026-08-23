@@ -145,13 +145,13 @@
                      class="w-full h-full object-contain"
                      onerror="this.parentElement.innerHTML='<div class=\'absolute inset-0 flex items-center justify-center text-gray-500\'>{{ __('Radar not available') }}</div>'">
             </div>
-        </div>
+        </div -->
 
         @endif
 
         <!-- Satellite -->
         @if($satelliteEnabled)
-        <div class="bg-weather-card rounded-2xl p-4 border border-white/10">
+        <div class="bg-weather-card rounded-2xl p-4 border border-white/10 md:col-span-2">
             @php
                 $yesterdayUtc = gmdate('Y-m-d', time() - 86400);
                 $satelliteProvider = \App\Models\Setting::getValue('satellite.provider', 'knmi');

@@ -25,20 +25,6 @@
         </div>
     </div>
 
-    @if(!$isInNetherlands)
-        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-            <div class="flex items-start gap-3">
-                <span class="text-xl flex-shrink-0">⚠️</span>
-                <div>
-                    <p class="text-sm text-yellow-200 font-medium">{{ __('Location Notice') }}</p>
-                    <p class="text-xs text-yellow-300 mt-1">
-                        {{ __('KNMI satellite data covers the Netherlands region. Your station appears to be outside this area, so the data may not be relevant for your location.') }}
-                    </p>
-                </div>
-            </div>
-        </div>
-    @endif
-
     <!-- Solar Radiation Forecast -->
     @php
         $solarForecastEnabled = \App\Models\Setting::getValue('solar_forecast.enabled', false);
@@ -131,6 +117,20 @@
                 <div class="text-gray-500 text-sm mb-2">{{ __('No solar forecast data available') }}</div>
                 <div class="text-gray-600 text-xs" x-show="(() => { const tz = stationTz(); const h = parseInt(new Intl.DateTimeFormat('en-CA', { hour: '2-digit', hour12: false, timeZone: tz }).format(new Date()), 10); return h < 5 || h > 21; })()">
                     {{ __('Solar radiation data is only available during daytime hours') }}
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if(!$isInNetherlands)
+        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+            <div class="flex items-start gap-3">
+                <span class="text-xl flex-shrink-0">⚠️</span>
+                <div>
+                    <p class="text-sm text-yellow-200 font-medium">{{ __('Location Notice') }}</p>
+                    <p class="text-xs text-yellow-300 mt-1">
+                        {{ __('The satellite imagery below uses KNMI data, which covers only the Netherlands region. Your station appears to be outside this area, so this imagery may not be relevant for your location. This does not affect the Solar Radiation Forecast above, which uses global Open-Meteo data.') }}
+                    </p>
                 </div>
             </div>
         </div>
