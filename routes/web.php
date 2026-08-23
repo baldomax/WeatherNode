@@ -45,6 +45,92 @@ Route::get('/manifest.json', function () {
 
 /*
 |--------------------------------------------------------------------------
+| robots.txt
+|--------------------------------------------------------------------------
+| Served from here so the Sitemap line carries this install's own domain.
+| A real file at public/robots.txt is served by the web server instead, so
+| anyone who wants different rules can copy this output there and edit it.
+*/
+Route::get('/robots.txt', function () {
+    $sitemap = rtrim(url('/'), '/').'/sitemap.xml';
+
+    $body = <<<TXT
+# robots.txt for WeatherNode
+#
+# Lines beginning with # are notes for you. Crawlers ignore them.
+#
+# To change any of this: save this page as public/robots.txt in your
+# install and edit that copy. A file there replaces this default.
+
+User-agent: *
+Allow: /
+
+# Admin, sign in and account pages. Nothing here belongs in a search engine.
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /password
+Disallow: /profile
+
+# The JSON API. Crawling it burns your bandwidth and indexes nothing a
+# person would search for. Page content is in the HTML already, so this
+# does not hide anything from Google.
+Disallow: /api/
+
+# The unit switch links (?units=imperial and so on) show the same page
+# in different units. Without this line every page gets fetched four
+# extra times for no new content.
+Disallow: /*?units=
+
+# Bing honours Crawl-delay. This asks for one page every 10 seconds.
+# Raise the number if bots are still using too much of your server.
+User-agent: bingbot
+Crawl-delay: 10
+
+# EXAMPLE, off by default. Daily archive pages are the biggest part of a
+# weather site and people do search for "weather on 12 February". Remove
+# the # marks only if you would rather they were never in search results.
+# User-agent: *
+# Disallow: /history/
+
+# EXAMPLE, off by default. Shut out one crawler completely. Replace the
+# name with the one you see in Admin > Analytics.
+# User-agent: BadBot
+# Disallow: /
+
+# EXAMPLE, off by default. Let one crawler in and keep the rest out.
+# User-agent: Googlebot
+# Allow: /
+# User-agent: *
+# Disallow: /
+
+Sitemap: {$sitemap}
+
+# --------------------------------------------------------------------
+# Still too much bot traffic?
+#
+# Bing: bing.com/webmasters, then Settings > Crawl Control. You can set
+#   the pages per hour, hour by hour. It takes effect faster than the
+#   Crawl-delay above and is the better tool of the two.
+#
+# Google: Googlebot ignores Crawl-delay, and the old crawl rate setting
+#   in Search Console was withdrawn. Google now decides the rate itself
+#   and slows down when a site answers with 429 or 503. If Googlebot is
+#   genuinely overloading you, report it at
+#   search.google.com/search-console and pick the crawl rate form.
+#
+# Neither one is instant. A change here can take hours or days to show
+# up, because crawlers re-read this file on their own schedule.
+# --------------------------------------------------------------------
+TXT;
+
+    return response($body, 200, [
+        'Content-Type' => 'text/plain; charset=UTF-8',
+    ]);
+})->name('robots');
+
+/*
+|--------------------------------------------------------------------------
 | Sitemap XML
 |--------------------------------------------------------------------------
 */
@@ -194,32 +280,6 @@ Route::get('/sitemap.xml', function () {
         'Content-Type' => 'application/xml; charset=UTF-8',
     ]);
 })->name('sitemap');
-
-/*
-|--------------------------------------------------------------------------
-| Robots.txt (dynamic)
-|--------------------------------------------------------------------------
-*/
-Route::get('/robots.txt', function () {
-    $sitemapUrl = url('/sitemap.xml');
-
-    $content = "User-agent: *\n";
-    $content .= "Allow: /\n";
-    $content .= "\n";
-    $content .= "# Disallow admin and auth pages\n";
-    $content .= "Disallow: /admin\n";
-    $content .= "Disallow: /login\n";
-    $content .= "Disallow: /register\n";
-    $content .= "Disallow: /password\n";
-    $content .= "Disallow: /profile\n";
-    $content .= "\n";
-    $content .= "# Sitemap\n";
-    $content .= "Sitemap: {$sitemapUrl}\n";
-
-    return response($content, 200, [
-        'Content-Type' => 'text/plain; charset=UTF-8',
-    ]);
-})->name('robots');
 
 /*
 |--------------------------------------------------------------------------

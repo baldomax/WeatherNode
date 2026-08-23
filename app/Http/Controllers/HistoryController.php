@@ -8,6 +8,7 @@ use App\Models\WeatherReading;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class HistoryController extends Controller
@@ -147,6 +148,23 @@ class HistoryController extends Controller
     /**
      * Show specific day detail
      */
+    /**
+     * The oldest day with a reading, or null when nothing has been recorded
+     * yet. Cached because it bounds every day page and never moves backwards.
+     */
+    private function firstRecordedDay(): ?Carbon
+    {
+        $first = Cache::remember('history.first_recorded_day', now()->addHours(12), function () {
+            return WeatherReading::min('recorded_at');
+        });
+
+        if (!$first) {
+            return null;
+        }
+
+        return Carbon::parse($first)->startOfDay();
+    }
+
     public function day(Request $request, string $date)
     {
         // Strict date parsing (prevents weird inputs + keeps routes predictable)
@@ -156,7 +174,17 @@ class HistoryController extends Controller
             abort(404);
         }
         $dateString = $dateObj->format('Y-m-d');
-        
+
+        // Outside the recorded period there is nothing to show, and the day
+        // page used to link one day further back forever. A crawler could walk
+        // from the first real day back to the year 1800, in every language.
+        $firstRecordedDay = $this->firstRecordedDay();
+
+        if ($dateObj->isAfter(now()->startOfDay())
+            || ($firstRecordedDay !== null && $dateObj->lt($firstRecordedDay))) {
+            abort(404);
+        }
+
         $summary = DailySummary::whereDate('date', $dateString)->first();
 
         // IMPORTANT: do NOT eager-load all readings here (can be thousands of rows).
@@ -458,6 +486,7 @@ class HistoryController extends Controller
         ];
 
         return view('weather.day', compact(
+            'firstRecordedDay',
             'summary',
             'date',
             'dayChart',

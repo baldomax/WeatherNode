@@ -83,6 +83,12 @@
     @if(is_string($seoSiteKeywords) && trim($seoSiteKeywords) !== '')
         <meta name="keywords" content="{{ trim($seoSiteKeywords) }}">
     @endif
+    @isset($seoNoIndex)
+        @if($seoNoIndex)
+            {{-- Real URL, but nothing worth putting in an index. --}}
+            <meta name="robots" content="noindex,follow">
+        @endif
+    @endisset
     <link rel="canonical" href="{{ $seoCanonical }}">
     @foreach($localeOptions as $code => $meta)
         <link rel="alternate" hreflang="{{ $code }}" href="{{ localeCanonicalUrl($code) }}">

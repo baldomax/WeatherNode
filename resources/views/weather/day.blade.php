@@ -1,6 +1,9 @@
 @extends('weather.layout')
 @section('og_image', isset($date) ? route('og.history', ['date' => $date]) : route('og.home'))
 @php
+    // A day inside the record with no readings is a real URL, but there is
+    // nothing on it worth indexing.
+    $seoNoIndex = ($readingsCount ?? 0) === 0;
     $activeUnits = $activeUnits ?? 'metric';
     $activeLocale = $activeLocale ?? app()->getLocale();
     $locale = str_replace('-', '_', $activeLocale);
@@ -27,11 +30,17 @@
             @php
                 $prevDay = $dateObj->copy()->subDay();
                 $nextDay = $dateObj->copy()->addDay();
+                // Stop at the first recorded day. Linking past it produced an
+                // endless run of empty pages for anything following links.
+                $hasPrevDay = !isset($firstRecordedDay) || $firstRecordedDay === null
+                    || $prevDay->gte($firstRecordedDay);
             @endphp
-            <a href="{{ route('history.day', $prevDay->format('Y-m-d')) }}" 
-               class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition">
-                ← {{ $prevDay->locale($locale)->translatedFormat('j M') }}
-            </a>
+            @if($hasPrevDay)
+                <a href="{{ route('history.day', $prevDay->format('Y-m-d')) }}"
+                   class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition">
+                    ← {{ $prevDay->locale($locale)->translatedFormat('j M') }}
+                </a>
+            @endif
             @if($nextDay->lte(now()))
                 <a href="{{ route('history.day', $nextDay->format('Y-m-d')) }}" 
                    class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition">
