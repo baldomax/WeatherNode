@@ -1976,6 +1976,16 @@ function weatherDashboard() {
                     return timeLabel;
                 },
 
+                newestObservedRadarFrameIndex() {
+                    for (let i = this._radarFrames.length - 1; i >= 0; i--) {
+                        if (this._radarFrames[i]?.source !== 'future_provider') {
+                            return i;
+                        }
+                    }
+
+                    return 0;
+                },
+
                 showRadarFrame(index) {
                     if (!this._radarMap || !this._radarFrames.length || !window.L) {
                         return;
@@ -2126,11 +2136,14 @@ function weatherDashboard() {
 
                 startRadarAnimation() {
                     this.stopRadarAnimation();
-                    this.showRadarFrame(this._radarCurrentFrameIndex);
 
                     if (document.body.classList.contains('theme-flat') || this._radarFrames.length <= 1) {
+                        this._radarCurrentFrameIndex = this.newestObservedRadarFrameIndex();
+                        this.showRadarFrame(this._radarCurrentFrameIndex);
                         return;
                     }
+
+                    this.showRadarFrame(this._radarCurrentFrameIndex);
 
                     const frameDelay = Math.max(250, Number(cfg.rainviewerFrameDelay || 1000));
                     this._radarAnimationInterval = setInterval(() => {
