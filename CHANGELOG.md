@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.09.2] - 2026-09-04
+
+- DWD can now actually be selected. It shipped in v2026.09.1 as a working forecast service with no way to reach it: it was missing from the forecast source dropdown, so the only way to pick it was editing the database by hand (#81)
+- New Settings > DWD page for the station id. Leave it empty and the nearest MOSMIX station to your coordinates is used
+- AEMET finally has a link in the admin menu. Its settings page has existed since v2026.08.7 but was reachable only by typing the address
+- Existing installs get the new dropdown entry from a migration, so run `php artisan migrate` after updating
+
+## [2026.09.1] - 2026-09-04
+
+- Add DWD as a forecast source. Deutscher Wetterdienst publishes MOSMIX, a forecast for each of its stations, as open data with no key or account needed. Switch DWD on in Admin > Settings > Open Data and it appears in the forecast source list; nothing changes over on its own (#81)
+- With no station picked, the nearest one is found automatically. MOSMIX covers stations worldwide, not only German ones, so this is useful outside Germany too
+- Corrections to 29 German strings, including "Ecowitt Datum Endpunkt" which meant date rather than data, and the air quality grade "Fair" which read as moderate instead of good
+
+## [2026.09.0] - 2026-09-04
+
+- Fix weather cards failing on Docker with a 500 and "undefined function imageftbbox()". The image was building GD with PNG only, losing FreeType, JPEG and WebP, because the build configured GD and then discarded that work before installing it (#87)
+- The same fault made the proxied pressure charts fall back to PNG on Docker, so those now download at roughly a quarter of the size. The image build fails now if GD comes out missing any of the four (#74)
+- Fix the PM2.5 widget showing "--" instead of the reading. A station with one sensor saw six empty rows, two of which were not sensors at all (#86)
+- The radar widget's "+" button works on a fresh install. It was greyed out because the map opened at its own maximum zoom. Zooming in now sharpens the street map and scales the radar, which only has detail to zoom 7 (#59)
+- Fix the satellite panel width on the radar page (#84)
+- More German translations, and the missing Italian sea temperature strings
+
 ## [2026.08.9] - 2026-08-23
 
 - Fix the header on a phone cutting off buttons when signed in as an admin. The row now wraps, and the header ends up shorter than it was (#78)

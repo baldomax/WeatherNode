@@ -97,6 +97,13 @@ class SettingsController extends Controller
             'color' => 'amber',
             'category' => 'datasources',
         ],
+        'dwd' => [
+            'label' => 'DWD',
+            'description' => 'Deutscher Wetterdienst MOSMIX forecast station',
+            'icon' => 'sun',
+            'color' => 'amber',
+            'category' => 'datasources',
+        ],
         'ecowitt' => [
             'label' => 'Ecowitt',
             'description' => 'Ecowitt local push or cloud API settings',
@@ -2292,6 +2299,7 @@ class SettingsController extends Controller
         $forecastSource = Setting::getValue('forecast.default_source', 'fct_yrno_block.php');
         $forecastMeta = [
             'fct_aemet_block.php' => ['name' => 'Forecast (AEMET)', 'group' => 'aemet', 'enabled' => !empty(Setting::getValue('aemet.api_key', ''))],
+            'fct_dwd_block.php' => ['name' => 'Forecast (DWD)', 'group' => 'dwd', 'enabled' => (bool) Setting::getValue('opendata.dwd.enabled', false)],
             'fct_yrno_block.php' => ['name' => 'Forecast (Yr.no)', 'group' => 'yrno', 'enabled' => true],
             'fct_darksky_block.php' => ['name' => 'Forecast (OpenWeatherMap)', 'group' => 'openweathermap', 'enabled' => !empty(Setting::getValue('openweathermap.api_key', ''))],
             'fct_wu_block.php' => ['name' => 'Forecast (Weather Underground)', 'group' => 'wunderground', 'enabled' => !empty(Setting::getValue('wunderground.api_key', ''))],
