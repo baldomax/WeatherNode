@@ -202,15 +202,39 @@ class CheckSensorHealth extends Command
     {
         $latitude = Setting::latitude();
         $longitude = Setting::longitude();
-        $cacheKey = "yrno_forecast_{$latitude}_{$longitude}";
+        // Whatever source is configured, not always Yr.no. This is why every
+        // other source showed "Offline" about an hour after being selected,
+        // and sent an alert titled "Forecast Data (Yr.no)". Issue #99.
+        $cacheKey = \App\Support\ForecastCacheKeys::forSource(
+            (string) Setting::getValue('forecast.default_source', 'fct_yrno_block.php'),
+            $latitude,
+            $longitude
+        );
 
         $forecastData = Cache::get($cacheKey);
+
+        // Both renderers fall back to the shared key when the source key is
+        // empty, and the poller writes both on success. Reading only the
+        // source key put a red Offline badge over a forecast that was on the
+        // page and correct.
+        if (!$forecastData || empty($forecastData['forecast'])) {
+            $genericKey = \App\Support\ForecastCacheKeys::generic($latitude, $longitude);
+            $generic = Cache::get($genericKey);
+
+            if (is_array($generic) && !empty($generic['forecast'])) {
+                $cacheKey = $genericKey;
+                $forecastData = $generic;
+            }
+        }
 
         $this->healthStatus['forecast'] = $this->freshness($cacheKey, $forecastData);
         $isStale = $this->healthStatus['forecast']['is_stale'];
 
-        if ($isStale && $forecastData === null) {
-            $this->sendAlertIfNeeded('forecast', 'Forecast Data (Yr.no)', 'Forecast data not available.');
+        // Alert whenever it is stale, not only when it is missing. A forecast
+        // that stopped updating days ago is still there, so the old condition
+        // never fired for the case people actually hit.
+        if ($isStale) {
+            $this->sendAlertIfNeeded('forecast', 'Forecast Data', 'Forecast data not available.');
         } else {
             $this->clearAlertIfNeeded('forecast', 'Forecast Data');
         }

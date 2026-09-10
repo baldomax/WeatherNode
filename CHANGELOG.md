@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.09.4] - 2026-09-09
+
+- Fix DWD going quiet for a week after one failed lookup. If the nearest station could not be found once, the empty result was remembered for seven days and every later update returned without even trying. Nothing cleared it (#99)
+- The forecast log now names the source it is polling. It used to say "forecast service", which told you nothing about what had failed
+- A failed update no longer marks the old forecast as freshly fetched, so a source that has been failing for days is reported instead of looking healthy
+- The "Offline" badge no longer appears over a forecast that is on the page and correct, and it warns when the forecast has stopped updating rather than only when it is missing
+
+## [2026.09.3] - 2026-09-06
+
+- Fix every forecast source except Yr.no going dark after a while. An API key that could not be read came back as null and crashed the forecast poller before it saved anything, which in Docker happens when APP_KEY is not kept across container recreations (#99)
+- The poller no longer deletes the forecast it already has before fetching a new one. A single failed fetch used to empty it until the next success, while reporting that it had kept the old data
+- Fix DWD returning its data in a shape the rest of the app discards, and saving it under a different cache key than the page reads. Both arrived with DWD in v2026.09.1
+- The "Offline" badge follows the source you chose instead of always checking Yr.no, so it no longer reports a problem that is not there, or sends an alert titled "Forecast Data (Yr.no)"
+- Fix Weather Underground reading the old v1 response format while calling the v3 API, which turned a good response into an empty forecast. Note that not every Weather Underground key can reach their hourly product, so the daily forecast now works on its own
+- More German translation corrections
+
 ## [2026.09.2] - 2026-09-04
 
 - DWD can now actually be selected. It shipped in v2026.09.1 as a working forecast service with no way to reach it: it was missing from the forecast source dropdown, so the only way to pick it was editing the database by hand (#81)

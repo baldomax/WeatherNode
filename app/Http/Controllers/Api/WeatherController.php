@@ -107,21 +107,12 @@ class WeatherController extends Controller
         $latitude = Setting::latitude();
         $longitude = Setting::longitude();
         $source = Setting::getValue('forecast.default_source', 'fct_yrno_block.php');
-        $stationId = Setting::getValue('weatherflow.station_id', '');
-        $sourceKeys = [
-            'fct_yrno_block.php' => "yrno_forecast_{$latitude}_{$longitude}",
-            'fct_darksky_block.php' => "openweathermap_forecast_{$latitude}_{$longitude}",
-            'fct_wu_block.php' => "wunderground_forecast_{$latitude}_{$longitude}",
-            'fct_wxsim_block.php' => "wxsim_forecast_" . md5(Setting::getValue('wxsim.file_path', '')),
-            'fct_ec_block.php' => "ec_forecast_{$latitude}_{$longitude}",
-            'fct_tempest_block.php' => 'tempest_forecast_' . ($stationId !== '' ? $stationId : '0'),
-            'fct_aemet_block.php' => "aemet_forecast_" . Setting::getValue('aemet.municipio', ''),
-            'fct_dwd_block.php' => 'dwd_forecast_' . Setting::getValue('dwd.station_id', ''),
-        ];
+        $forecastData = Cache::get(\App\Support\ForecastCacheKeys::forSource($source, $latitude, $longitude));
 
-        $forecastData = Cache::get($sourceKeys[$source] ?? null);
-        if (!$forecastData) {
-            $forecastData = Cache::get("forecast_{$latitude}_{$longitude}");
+        // An empty payload is a miss, not a hit. A source that cached a
+        // well formed but empty envelope used to block this fallback.
+        if (!$forecastData || empty($forecastData['forecast'])) {
+            $forecastData = Cache::get(\App\Support\ForecastCacheKeys::generic($latitude, $longitude)) ?: $forecastData;
         }
 
         $forecast = is_array($forecastData) ? ($forecastData['forecast'] ?? null) : null;
@@ -131,14 +122,16 @@ class WeatherController extends Controller
         // If we only have 1–2 days, cache is likely stale (poll may be failing). Force a fresh
         // fetch so the next request gets the full 9 days from Yr.no.
         if ($source === 'fct_yrno_block.php' && count($daily) < 3 && is_array($forecast) && count($forecast) > 12) {
-            $cacheKey = $sourceKeys[$source] ?? null;
+            // $sourceKeys no longer exists here, so this whole block became
+            // dead code when the key map moved to ForecastCacheKeys.
+            $cacheKey = \App\Support\ForecastCacheKeys::forSource($source, $latitude, $longitude);
             if ($cacheKey) {
                 Cache::forget($cacheKey);
                 Cache::forget("forecast_{$latitude}_{$longitude}");
                 $fresh = ForecastServiceFactory::make()->fetchForecast();
                 if ($fresh && isset($fresh['forecast']) && count($fresh['forecast']) > 12) {
-                    Cache::put($cacheKey, $fresh, now()->addMinutes(120));
-                    Cache::put("forecast_{$latitude}_{$longitude}", $fresh, now()->addMinutes(120));
+                    \App\Support\CacheFreshness::put($cacheKey, $fresh, now()->addMinutes(120));
+                    \App\Support\CacheFreshness::put(\App\Support\ForecastCacheKeys::generic($latitude, $longitude), $fresh, now()->addMinutes(120));
                     $forecast = $fresh['forecast'];
                     $daily = $this->extractDailyForecast($forecast, 14) ?? [];
                     $hourly = $this->extractHourlyForecast($forecast, 48) ?? [];

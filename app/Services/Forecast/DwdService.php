@@ -7,7 +7,9 @@ namespace App\Services\Forecast;
 use App\Contracts\Forecast\ForecastServiceInterface;
 use App\Models\Setting;
 use App\Support\CacheFreshness;
+use App\Support\ForecastCacheKeys;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use SimpleXMLElement;
@@ -39,7 +41,7 @@ class DwdService implements ForecastServiceInterface
             return null;
         }
 
-        return CacheFreshness::remember("dwd_forecast_{$station}", self::CACHE_TTL, function () use ($station) {
+        return CacheFreshness::remember(ForecastCacheKeys::forSource('fct_dwd_block.php'), self::CACHE_TTL, function () use ($station) {
             $url = self::BASE_URL."/{$station}/kml/MOSMIX_L_LATEST_{$station}.kmz";
 
             try {
@@ -96,12 +98,30 @@ class DwdService implements ForecastServiceInterface
 
         $latitude = Setting::latitude();
         $longitude = Setting::longitude();
+        $key = 'dwd_nearest_station_'.round($latitude, 3).'_'.round($longitude, 3);
 
-        return (string) CacheFreshness::remember(
-            'dwd_nearest_station_'.round($latitude, 3).'_'.round($longitude, 3),
-            86400 * 7,
-            fn () => $this->nearestStation($latitude, $longitude) ?? ''
-        );
+        $cached = Cache::get($key);
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
+        $station = $this->nearestStation($latitude, $longitude);
+
+        if ($station === null || $station === '') {
+            // Do not remember a failure. Caching '' here pinned DWD for seven
+            // days: every later poll returned before making a request or
+            // writing a log line, so it looked like nothing was happening.
+            Log::warning('DWD station lookup failed, will retry on the next poll', [
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+            ]);
+
+            return '';
+        }
+
+        Cache::put($key, $station, now()->addDays(7));
+
+        return $station;
     }
 
     private function nearestStation(float $latitude, float $longitude): ?string
@@ -218,6 +238,10 @@ class DwdService implements ForecastServiceInterface
         }
 
         return [
+            'updated_at' => now()->toIso8601String(),
+            // 'forecast' is the key the poller and both readers look for. Without
+            // it the payload is dropped on every poll, however good it is.
+            'forecast' => $hourly,
             'station' => [
                 'id' => (string) (($xml->xpath('//kml:Placemark/kml:name')[0] ?? '')),
                 'name' => (string) (($xml->xpath('//kml:Placemark/kml:description')[0] ?? '')),
