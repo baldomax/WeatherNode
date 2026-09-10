@@ -23,16 +23,14 @@
         $enabled = (bool) RiverProviderRegistry::getSetting($providerId, 'enabled', false);
 
         // Selected stations
-        $stationsRaw = RiverProviderRegistry::getSetting(
-            $providerId, 'stations',
-            $providerId === 'rws' ? null : null
-        );
+        $providerDefaults = RiverProviderRegistry::defaultStations($providerId);
+        $stationsRaw = RiverProviderRegistry::getSetting($providerId, 'stations', $providerDefaults);
         $stations = is_string($stationsRaw)
-            ? (json_decode($stationsRaw, true) ?? RijkswaterstaatRiverService::DEFAULT_STATIONS)
-            : ($stationsRaw ?? RijkswaterstaatRiverService::DEFAULT_STATIONS);
+            ? (json_decode($stationsRaw, true) ?? $providerDefaults)
+            : ($stationsRaw ?? $providerDefaults);
         $stations = array_values(array_filter((array) $stations, fn ($v) => is_string($v) && !is_numeric($v) && $v !== ''));
         if (empty($stations)) {
-            $stations = RijkswaterstaatRiverService::DEFAULT_STATIONS;
+            $stations = $providerDefaults;
         }
 
         // Custom stations

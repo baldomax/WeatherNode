@@ -1428,17 +1428,18 @@ class PollExternalData extends Command
 
             try {
                 // Selected stations
+                $providerDefaults = \App\Services\River\RiverProviderRegistry::defaultStations($providerId);
                 $stationsRaw = \App\Services\River\RiverProviderRegistry::getSetting(
-                    $providerId, 'stations', RijkswaterstaatRiverService::DEFAULT_STATIONS
+                    $providerId, 'stations', $providerDefaults
                 );
                 $stations = is_string($stationsRaw)
-                    ? (json_decode($stationsRaw, true) ?? RijkswaterstaatRiverService::DEFAULT_STATIONS)
-                    : ($stationsRaw ?? RijkswaterstaatRiverService::DEFAULT_STATIONS);
+                    ? (json_decode($stationsRaw, true) ?? $providerDefaults)
+                    : ($stationsRaw ?? $providerDefaults);
                 $stations = array_values(array_filter(
                     (array) $stations, fn ($v) => is_string($v) && !is_numeric($v) && $v !== ''
                 ));
                 if (empty($stations)) {
-                    $stations = RijkswaterstaatRiverService::DEFAULT_STATIONS;
+                    $stations = $providerDefaults;
                 }
 
                 // Catalog metadata

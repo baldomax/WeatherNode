@@ -70,6 +70,23 @@ class RiverProviderRegistry
             'catalog_service'  => RwsStationCatalogService::class,
             'station_search'   => true,   // whether the admin UI shows the station combobox
             'status'           => 'active',
+            'attribution_name' => 'Rijkswaterstaat WaterWebservices',
+            'attribution_url'  => 'https://waterinfo.rws.nl',
+        ],
+        'cfr_toscana' => [
+            'id'               => 'cfr_toscana',
+            'name'             => 'Centro Funzionale Regione Toscana',
+            'short'            => 'CFR Toscana',
+            'flag'             => '🇮🇹',
+            'country'          => 'Italy (Tuscany)',
+            'description'      => 'Real-time river gauge levels (metres above local hydrometric zero) from the Tuscany Region Functional Centre — Arno, Cecina, Scolmatore and ~190 other Tuscan stations.',
+            'api_key_required' => false,
+            'service'          => CfrToscanaRiverService::class,
+            'catalog_service'  => CfrToscanaStationCatalogService::class,
+            'station_search'   => true,
+            'status'           => 'active',
+            'attribution_name' => 'Centro Funzionale Regione Toscana',
+            'attribution_url'  => 'https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=idro',
         ],
     ];
 
@@ -119,5 +136,22 @@ class RiverProviderRegistry
     public static function cacheKey(string $providerId): string
     {
         return "rivers_{$providerId}";
+    }
+
+    /**
+     * Each provider's own DEFAULT_STATIONS constant (falls back to an empty
+     * list for a provider whose service class doesn't define one). Use this
+     * instead of hardcoding RijkswaterstaatRiverService::DEFAULT_STATIONS —
+     * that only makes sense for the 'rws' provider itself.
+     */
+    public static function defaultStations(string $providerId): array
+    {
+        $providerMeta = self::PROVIDERS[$providerId] ?? null;
+        if (!$providerMeta) {
+            return [];
+        }
+
+        $serviceClass = $providerMeta['service'];
+        return defined("{$serviceClass}::DEFAULT_STATIONS") ? $serviceClass::DEFAULT_STATIONS : [];
     }
 }

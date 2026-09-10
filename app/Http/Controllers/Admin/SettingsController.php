@@ -2887,7 +2887,11 @@ class SettingsController extends Controller
             $rawCustom  = json_decode($customJson, true) ?? [];
             $custom     = [];
             foreach ($rawCustom as $entry) {
-                $code = strtolower(trim($entry['code'] ?? ''));
+                // Don't force lowercase: RWS codes are conventionally lowercase
+                // dot-notation, but other providers (e.g. CFR Toscana) use
+                // uppercase codes like "TOS01004679" — forcing case here would
+                // silently break lookups against their catalog.
+                $code = trim($entry['code'] ?? '');
                 if (!$code) {
                     continue;
                 }

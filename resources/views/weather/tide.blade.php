@@ -652,15 +652,29 @@
 <div class="space-y-6">
 
     {{-- Header --}}
+    @php
+        $activeRiverProviders = array_filter(
+            \App\Services\River\RiverProviderRegistry::active(),
+            fn ($p) => (bool) \App\Services\River\RiverProviderRegistry::getSetting($p['id'], 'enabled', false)
+        );
+    @endphp
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl md:text-3xl font-bold">🏞 {{ __('River Levels') }}</h1>
-            <p class="text-gray-400">{{ __('Real-time gauge measurements') }} · Rijkswaterstaat</p>
+            <p class="text-gray-400">
+                {{ __('Real-time gauge measurements') }}
+                @if(count($activeRiverProviders))
+                    · {{ implode(', ', array_column($activeRiverProviders, 'short')) }}
+                @endif
+            </p>
         </div>
         <div class="text-right text-sm text-gray-500">
             {{ __('Data source') }}:
-            <a href="https://waterinfo.rws.nl" target="_blank" rel="noopener"
-               class="text-blue-400 hover:underline">Rijkswaterstaat</a>
+            @foreach($activeRiverProviders as $index => $provider)
+                @if($index > 0) · @endif
+                <a href="{{ $provider['attribution_url'] }}" target="_blank" rel="noopener"
+                   class="text-blue-400 hover:underline">{{ $provider['attribution_name'] }}</a>
+            @endforeach
         </div>
     </div>
 
@@ -724,7 +738,7 @@
                         <span class="text-3xl font-bold text-white">
                             {{ $riverLevel !== null ? number_format($riverLevel, 0) : '--' }}
                         </span>
-                        <span class="text-gray-400 mb-1 text-sm">cm NAP</span>
+                        <span class="text-gray-400 mb-1 text-sm">{{ $station['datum_label'] ?? 'cm NAP' }}</span>
                     </div>
                     <div class="mt-2 flex items-center justify-between">
                         <div class="text-sm {{ $riverTrendClass }} font-medium">
@@ -748,10 +762,16 @@
         </div>
 
         {{-- Attribution --}}
+        @php
+            $activeRiverProviders = collect(\App\Services\River\RiverProviderRegistry::active())
+                ->filter(fn ($meta, $id) => (bool) \App\Services\River\RiverProviderRegistry::getSetting($id, 'enabled', false));
+        @endphp
         <div class="bg-gray-900/40 rounded-2xl p-4 border border-white/5 text-sm text-gray-400">
             {{ __('River level data provided by') }}
-            <a href="https://waterinfo.rws.nl" target="_blank" rel="noopener"
-               class="text-blue-400 hover:underline">Rijkswaterstaat WaterWebservices</a>
+            @foreach($activeRiverProviders as $provider)
+                <a href="{{ $provider['attribution_url'] ?? '#' }}" target="_blank" rel="noopener"
+                   class="text-blue-400 hover:underline">{{ $provider['attribution_name'] ?? $provider['name'] }}</a>{{ !$loop->last ? ', ' : '' }}
+            @endforeach
             — {{ __('real-time gauge measurements') }}.
         </div>
 
