@@ -3300,5 +3300,7 @@
     "US West Coast": "US West Coast",
     "Atlantic Tropics": "Atlantic Tropics",
     "Pacific Tropics": "Pacific Tropics",
-    "Northern Hemisphere": "Northern Hemisphere"
+    "Northern Hemisphere": "Northern Hemisphere",
+    "Centimetres above this station's own reference point, called the \"zero idrometrico\" (hydrometric zero) — a fixed height set individually for each gauge, often near the riverbed at that spot. Because each station has its own reference, these values aren't directly comparable to other stations.": "Centimetres above this station's own reference point, called the \"zero idrometrico\" (hydrometric zero) — a fixed height set individually for each gauge, often near the riverbed at that spot. Because each station has its own reference, these values aren't directly comparable to other stations.",
+    "Normaal Amsterdams Peil — the Dutch national height reference datum.": "Normaal Amsterdams Peil — the Dutch national height reference datum."
 }

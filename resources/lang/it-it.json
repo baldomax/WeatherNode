@@ -3900,5 +3900,7 @@
     "sst_cool": "Fresca",
     "sst_comfortable": "Confortevole",
     "sst_warm": "Calda",
-    "sst_hot": "Molto calda"
+    "sst_hot": "Molto calda",
+    "Centimetres above this station's own reference point, called the \"zero idrometrico\" (hydrometric zero) — a fixed height set individually for each gauge, often near the riverbed at that spot. Because each station has its own reference, these values aren't directly comparable to other stations.": "Centimetri sopra il punto di riferimento proprio di questa stazione, chiamato \"zero idrometrico\" — un'altezza fissa stabilita singolarmente per ogni stazione di misura, spesso vicino al fondo dell'alveo in quel punto. Poiché ogni stazione usa un proprio riferimento, questi valori non sono direttamente comparabili con quelli di altre stazioni.",
+    "Normaal Amsterdams Peil — the Dutch national height reference datum.": "Normaal Amsterdams Peil — il riferimento altimetrico nazionale olandese."
 }

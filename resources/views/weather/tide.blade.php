@@ -723,6 +723,32 @@
                         'watch'   => __('Watch'),
                         default   => __('Normal'),
                     };
+
+                    // Alert-threshold gauge — only stations whose provider
+                    // publishes official thresholds (currently CFR Toscana;
+                    // RWS stations have no threshold_1_m/2_m in 'meta', so
+                    // this silently doesn't render for them).
+                    $riverT1M = $station['meta']['threshold_1_m'] ?? null;
+                    $riverT2M = $station['meta']['threshold_2_m'] ?? null;
+                    $riverT1  = $riverT1M !== null ? $riverT1M * 100 : null;
+                    $riverT2  = $riverT2M !== null ? $riverT2M * 100 : null;
+                    $riverHasThresholds = $riverT1 !== null || $riverT2 !== null;
+
+                    if ($riverHasThresholds) {
+                        $riverMaxScale = max($riverT2 ?? 0, $riverT1 ?? 0, $riverLevel ?? 0) * 1.15;
+                        $riverMaxScale = $riverMaxScale > 0 ? $riverMaxScale : 100;
+                        $riverPct = fn ($v) => $v === null ? null : max(0, min(100, ($v / $riverMaxScale) * 100));
+                        $riverT1Pct    = $riverPct($riverT1);
+                        $riverT2Pct    = $riverPct($riverT2);
+                        $riverLevelPct = $riverPct($riverLevel);
+                    }
+
+                    $riverDatumLabel   = $station['datum_label'] ?? 'cm NAP';
+                    $riverDatumTooltip = match(true) {
+                        str_contains($riverDatumLabel, 's.z.i.') => __('Centimetres above this station\'s own reference point, called the "zero idrometrico" (hydrometric zero) — a fixed height set individually for each gauge, often near the riverbed at that spot. Because each station has its own reference, these values aren\'t directly comparable to other stations.'),
+                        str_contains($riverDatumLabel, 'NAP')    => __('Normaal Amsterdams Peil — the Dutch national height reference datum.'),
+                        default => null,
+                    };
                 @endphp
                 <div class="bg-emerald-900/20 rounded-2xl p-5 border border-emerald-800/30">
                     <div class="flex items-center justify-between mb-3">
@@ -738,8 +764,37 @@
                         <span class="text-3xl font-bold text-white">
                             {{ $riverLevel !== null ? number_format($riverLevel, 0) : '--' }}
                         </span>
-                        <span class="text-gray-400 mb-1 text-sm">{{ $station['datum_label'] ?? 'cm NAP' }}</span>
+                        <span class="text-gray-400 mb-1 text-sm{{ $riverDatumTooltip ? ' cursor-help border-b border-dotted border-gray-500' : '' }}"
+                              @if($riverDatumTooltip) title="{{ $riverDatumTooltip }}" @endif>
+                            {{ $riverDatumLabel }}
+                        </span>
                     </div>
+                    @if($riverHasThresholds && $riverLevel !== null)
+                        <div class="mt-3">
+                            <div class="relative h-2 rounded-full overflow-hidden bg-gray-700/50 flex">
+                                @if($riverT1 !== null)
+                                    <div class="h-full bg-emerald-500/60" style="width: {{ $riverT1Pct }}%"></div>
+                                    <div class="h-full bg-yellow-500/60" style="width: {{ ($riverT2Pct ?? 100) - $riverT1Pct }}%"></div>
+                                @else
+                                    <div class="h-full bg-emerald-500/60" style="width: {{ $riverT2Pct ?? 100 }}%"></div>
+                                @endif
+                                <div class="h-full bg-orange-500/60 flex-1"></div>
+                                <div class="absolute top-0 h-full w-0.5 bg-white shadow" style="left: {{ $riverLevelPct }}%"></div>
+                            </div>
+                            <div class="mt-1 flex justify-between text-[10px] text-gray-500">
+                                <span>
+                                    @if($riverT1 !== null)
+                                        {{ __('Watch') }}: {{ number_format($riverT1, 0) }} cm
+                                    @endif
+                                </span>
+                                <span>
+                                    @if($riverT2 !== null)
+                                        {{ __('Warning') }}: {{ number_format($riverT2, 0) }} cm
+                                    @endif
+                                </span>
+                            </div>
+                        </div>
+                    @endif
                     <div class="mt-2 flex items-center justify-between">
                         <div class="text-sm {{ $riverTrendClass }} font-medium">
                             {{ $riverTrendIcon }}
