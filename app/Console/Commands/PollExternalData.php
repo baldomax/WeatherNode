@@ -18,6 +18,7 @@ use App\Services\Radar\RainViewerService;
 use App\Services\OpenData\KnmiNowcastService;
 use App\Services\OpenData\KnmiWmsService;
 use App\Services\Solar\SolarForecastFactory;
+use App\Services\Tide\TideServiceFactory;
 use App\Services\TideService;
 use App\Services\Wave\OpenMeteoWaveService;
 use App\Services\River\RijkswaterstaatRiverService;
@@ -262,7 +263,7 @@ class PollExternalData extends Command
                 return $data && is_array($data) && isset($data['kp']);
 
             case 'metar':
-                $icao = Setting::getValue('metar.primary_icao', 'EHAM');
+                $icao = Setting::getValue('metar.primary_icao', '');
                 $data = Cache::get("metar_{$icao}");
                 return $data && is_array($data) && !empty($data);
 
@@ -316,9 +317,9 @@ class PollExternalData extends Command
                 return $data && is_array($data) && !empty($data);
 
             case 'tide':
-                $tideSource  = Setting::getValue('tide.source', 'rws');
+                $tideSource  = Setting::getValue('tide.source', TideServiceFactory::DEFAULT_SOURCE);
                 $stationCode = Setting::getValue("tide.{$tideSource}_station_code",
-                               Setting::getValue('tide.station_code', TideService::DEFAULT_STATION));
+                               Setting::getValue('tide.station_code', ''));
                 $data = Cache::get("tide_{$tideSource}_{$stationCode}");
                 return $data && is_array($data) && !empty($data);
 
@@ -1034,7 +1035,7 @@ class PollExternalData extends Command
 
         try {
             $service = app(MetarService::class);
-            $primaryIcao = Setting::getValue('metar.primary_icao', 'EHAM');
+            $primaryIcao = Setting::getValue('metar.primary_icao', '');
             $icaoArray = [$primaryIcao];
             $cacheKey = "metar_{$primaryIcao}";
 
@@ -1343,13 +1344,13 @@ class PollExternalData extends Command
 
     private function pollTide(): bool
     {
-        $tideSource     = Setting::getValue('tide.source', 'rws');
-        $tideSourceName = \App\Services\Tide\TideServiceFactory::make($tideSource)->getName();
+        $tideSource     = Setting::getValue('tide.source', TideServiceFactory::DEFAULT_SOURCE);
+        $tideSourceName = TideServiceFactory::make($tideSource)->getName();
         $this->line("🌊 Polling Tide Data ({$tideSourceName})...");
 
         try {
             $stationCode = Setting::getValue("tide.{$tideSource}_station_code",
-                           Setting::getValue('tide.station_code', TideService::DEFAULT_STATION));
+                           Setting::getValue('tide.station_code', ''));
             $service     = app(TideService::class);
             $data        = $service->fetchTideData($stationCode);
 

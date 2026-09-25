@@ -79,6 +79,11 @@
 
         <!-- Station Data Preview -->
         @if($stationData)
+        @php
+            // The stored value is a key like "davis". Show the name.
+            $makerLabels = \App\Models\Setting::find('station.manufacturer')?->getOptionsArray() ?? [];
+            $makerLabel = $makerLabels[$stationData['manufacturer']] ?? $stationData['manufacturer'];
+        @endphp
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
             <div class="p-5 border-b border-gray-100 dark:border-gray-700">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Your Station Data') }}</h3>
@@ -92,15 +97,15 @@
                     </div>
                     <div>
                         <span class="text-gray-500 dark:text-gray-400">{{ __('Hardware') }}:</span>
-                        <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ $stationData['hardware'] ?? __('N/A') }}</span>
+                        <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ $stationData['hardware'] ?: __('N/A') }}</span>
                     </div>
                     <div>
                         <span class="text-gray-500 dark:text-gray-400">{{ __('Manufacturer') }}:</span>
-                        <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ $stationData['manufacturer'] ?? __('N/A') }}</span>
+                        <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ $makerLabel ?: __('N/A') }}</span>
                     </div>
                     <div>
                         <span class="text-gray-500 dark:text-gray-400">{{ __('Country') }}:</span>
-                        <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ $stationData['country_code'] ?? __('N/A') }}</span>
+                        <span class="ml-2 font-medium text-gray-900 dark:text-white">{{ $stationData['country_code'] ?: __('N/A') }}</span>
                     </div>
                     <div>
                         <span class="text-gray-500 dark:text-gray-400">{{ __('Location') }}:</span>

@@ -112,5 +112,6 @@ Recommended manual run settings:
   - `echo "base64:$(openssl rand -base64 32)"`
 - If first boot shows write/readonly errors, mounted volume permissions are wrong (`storage`, `bootstrap/cache`, `database`).
 - If you do not set `ADMIN_EMAIL` / `ADMIN_PASSWORD` in compose, create the first user via `/setup/admin` (only available before any users exist).
+- Either way the first login opens the two step setup: where the station is, then where its readings come from. Worth walking on a release candidate, since it is the first thing every new user meets.
 - If `/admin` redirects to the host panel/login on custom ports, `APP_URL` is incomplete or not applied.
 

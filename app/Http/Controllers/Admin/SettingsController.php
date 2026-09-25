@@ -15,10 +15,16 @@ use App\Services\Mail\MailConfigService;
 use App\Services\Nlg\NlgProviderModelDiscovery;
 use App\Services\OpenData\OpenDataProviderRegistry;
 use App\Services\Radar\RadarFutureFramesService;
+use App\Services\Tide\TideServiceFactory;
+use App\Support\AviationScene;
+use App\Support\CustomTheme;
 use App\Support\MenuFeatureMap;
+use App\Support\PublicAppearance;
 use App\Support\StatTileRegistry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -334,7 +340,7 @@ class SettingsController extends Controller
         ],
         'appearance' => [
             'label' => 'Appearance',
-            'description' => 'Site theme (FX vs Flat)',
+            'description' => 'Public colour palette, light/dark mode and visual effects',
             'icon' => 'paint',
             'color' => 'slate',
             'category' => 'display',
@@ -453,6 +459,12 @@ class SettingsController extends Controller
     {
         if (!isset($this->groups[$group])) {
             abort(404);
+        }
+
+        // Add settings introduced after installation without requiring a new
+        // seeder run. This keeps upgrades editable immediately.
+        if ($group === 'aviation') {
+            $this->ensureMetarDefaultSceneSetting();
         }
 
         // Order settings - provider/type fields first, then others
@@ -628,6 +640,15 @@ class SettingsController extends Controller
      */
     public function update(Request $request, string $group)
     {
+        if ($group === 'aviation') {
+            $this->ensureMetarDefaultSceneSetting();
+            if ($request->has('metar_default_scene')) {
+                $request->validate([
+                    'metar_default_scene' => ['required', Rule::in(AviationScene::IDS)],
+                ]);
+            }
+        }
+
         // Special handling for footer group
         if ($group === 'footer') {
             $this->updateFooterSettings($request);
@@ -691,6 +712,20 @@ class SettingsController extends Controller
             if ($errors !== []) {
                 throw \Illuminate\Validation\ValidationException::withMessages($errors);
             }
+        }
+
+        if ($group === 'station') {
+            // The same rules the first-run wizard applies. Without these the
+            // page accepted 999 as a latitude, and a cleared field was stored
+            // as a blank that reads back as 0.0: a real place in the Gulf of
+            // Guinea, where sunrise times come out plausible and wrong.
+            $request->validate(
+                array_intersect_key(
+                    SetupController::stationRules('station_'),
+                    $request->all()
+                ),
+                SetupController::stationMessages('station_')
+            );
         }
 
         if ($group === 'radar') {
@@ -879,6 +914,21 @@ class SettingsController extends Controller
         }
 
         return $query;
+    }
+
+    private function ensureMetarDefaultSceneSetting(): void
+    {
+        Setting::firstOrCreate(
+            ['key' => 'metar.default_scene'],
+            [
+                'value' => AviationScene::DEFAULT,
+                'type' => 'select',
+                'group' => 'aviation',
+                'description' => 'Used when a visitor has not chosen a scene.',
+                'options' => 'schiphol:Schiphol-inspired airport,village:Original village,arctic:Arctic research airstrip,volcanic:Volcanic island airport,spaceport:Desert spaceport',
+            ]
+        );
+        Setting::forgetCached('metar.default_scene');
     }
 
     /**
@@ -1314,6 +1364,11 @@ class SettingsController extends Controller
     public function appearance()
     {
         return view('admin.settings.appearance', [
+            'publicAppearance' => PublicAppearance::settings(),
+            'palettes' => PublicAppearance::PALETTES,
+            'customTheme' => CustomTheme::stored(),
+            'publishedCustomTheme' => CustomTheme::stored(true),
+            'visitorPalettes' => PublicAppearance::visitorPalettes(),
             'allGroups' => $this->groups,
         ]);
     }
@@ -1323,11 +1378,29 @@ class SettingsController extends Controller
      */
     public function updateAppearance(Request $request)
     {
-        $theme = in_array($request->input('appearance_theme'), ['fx', 'flat'], true)
-            ? $request->input('appearance_theme')
-            : 'fx';
-        Setting::setValue('appearance.theme', $theme, 'select', 'appearance');
-        Cache::forget('setting.appearance.theme');
+        $validated = $request->validate([
+            'appearance_theme' => ['required', 'in:fx,flat'],
+            'appearance_palette' => ['sometimes', 'required', Rule::in(array_merge(array_keys(PublicAppearance::PALETTES), CustomTheme::stored() ? ['custom'] : []))],
+            'appearance_color_mode' => ['sometimes', 'required', Rule::in(PublicAppearance::MODES)],
+            'appearance_visitor_palettes_present' => ['sometimes', 'accepted'],
+            'appearance_visitor_palettes' => ['sometimes', 'array', 'max:5'],
+            'appearance_visitor_palettes.*' => ['required', 'string', 'distinct', Rule::in(array_merge(array_keys(PublicAppearance::PALETTES), CustomTheme::stored(true) ? ['custom'] : []))],
+        ]);
+        // Older clients posting only FX/Flat retain their existing colour settings.
+        DB::transaction(function () use ($validated) {
+            if (isset($validated['appearance_visitor_palettes_present']) || array_key_exists('appearance_visitor_palettes', $validated)) {
+                Setting::setValue('appearance.visitor_palettes', array_values($validated['appearance_visitor_palettes'] ?? []), 'json', 'appearance');
+            }
+            // Saving visitor permissions or modes must not publish a newer draft.
+            if (($validated['appearance_palette'] ?? null) === 'custom' && ! isset(PublicAppearance::settings()['custom'])) {
+                Setting::setValue('appearance.active_custom_theme', CustomTheme::stored(), 'json', 'appearance');
+            }
+            foreach (['theme', 'palette', 'color_mode'] as $field) {
+                if (array_key_exists('appearance_'.$field, $validated)) {
+                    Setting::setValue('appearance.'.$field, $validated['appearance_'.$field], 'select', 'appearance');
+                }
+            }
+        });
         $this->clearSettingsCache();
 
         return redirect()
@@ -1349,7 +1422,7 @@ class SettingsController extends Controller
             'source' => $currentSource,
             
             // Europe (Meteoalarm)
-            'region_code' => Setting::getValue('alerts.region_code', 'NL011'),
+            'region_code' => Setting::getValue('alerts.region_code', ''),
             'region_name' => Setting::getValue('alerts.region_name', ''),
             
             // USA (NWS)
@@ -1413,7 +1486,7 @@ class SettingsController extends Controller
         Setting::setValue('alerts.source', $request->input('source', 'europe'), 'select', 'alerts');
         
         // Europe (Meteoalarm)
-        Setting::setValue('alerts.region_code', $request->input('region_code', 'NL011'), 'string', 'alerts');
+        Setting::setValue('alerts.region_code', $request->input('region_code', ''), 'string', 'alerts');
         Setting::setValue('alerts.region_name', $request->input('region_name', ''), 'string', 'alerts');
         
         // USA (NWS)
@@ -1520,7 +1593,9 @@ class SettingsController extends Controller
     public function telemetry()
     {
         $telemetryService = app(\App\Services\Telemetry\TelemetryService::class);
-        $stationData = $telemetryService->collectStationData();
+        // Preview, not collect: the page has to show what sharing would mean
+        // while it is still switched off, which is when somebody is deciding.
+        $stationData = $telemetryService->previewStationData();
         
         $settings = [
             'enabled' => Setting::getValue('telemetry.enabled', false),
@@ -1757,7 +1832,7 @@ class SettingsController extends Controller
 
                 case 'checkwx':
                     $svc = app(\App\Services\Aviation\MetarService::class);
-                    $data = $svc->fetchMetar([Setting::getValue('metar.primary_icao', 'EHAM')]);
+                    $data = $svc->fetchMetar([Setting::getValue('metar.primary_icao', '')]);
                     $result = $data ? 
                         ['success' => true, 'message' => 'CheckWX connection successful!'] :
                         ['success' => false, 'message' => 'No METAR data returned'];
@@ -2107,6 +2182,7 @@ class SettingsController extends Controller
         Setting::setValue('nlg.llm_enabled', $request->boolean('nlg_llm_enabled'), 'boolean', 'nlg');
         Setting::setValue('nlg.provider', $request->input('nlg_provider', 'openai'), 'string', 'nlg');
         Setting::setValue('nlg.default_tone', $request->input('nlg_default_tone', 'brief'), 'string', 'nlg');
+        Setting::setValue('nlg.rephrase_both_units', $request->boolean('nlg_rephrase_both_units'), 'boolean', 'nlg');
 
         $availableLocales = array_keys(config('localization.locales', []));
         $aiLocales = $request->input('nlg_ai_locales', []);
@@ -2806,14 +2882,14 @@ class SettingsController extends Controller
     private function updateTideSettings(Request $request): void
     {
         Setting::setValue('tide.enabled', $request->input('tide_enabled') === '1', 'boolean', 'tide');
-        Setting::setValue('tide.source',  trim($request->input('tide_source', 'rws')),           'string',  'tide');
+        Setting::setValue('tide.source',  trim($request->input('tide_source', TideServiceFactory::DEFAULT_SOURCE)), 'string', 'tide');
 
         // Only update station fields when the station section was actually rendered in the form
         // (i.e. the source is station-based). Skipping this prevents non-station sources like
         // Marea or Open-Meteo from overwriting the saved NOAA / RWS station code with the default.
         if ($request->has('tide_station_code')) {
             $newCode   = trim($request->input('tide_station_code'));
-            $newSource = trim($request->input('tide_source', 'rws'));
+            $newSource = trim($request->input('tide_source', TideServiceFactory::DEFAULT_SOURCE));
 
             // Save both the generic key (used by TideController) and a per-source key so that
             // switching away and back to a station-based source retains the correct station.
@@ -2821,7 +2897,7 @@ class SettingsController extends Controller
             Setting::setValue("tide.{$newSource}_station_code", $newCode, 'string', 'tide');
 
             // Auto-populate station name from the driver's built-in list when available
-            $driver   = \App\Services\Tide\TideServiceFactory::make($newSource);
+            $driver   = TideServiceFactory::make($newSource);
             $stations = $driver->getStations();
             $autoName = $stations[$newCode]['name'] ?? null;
 

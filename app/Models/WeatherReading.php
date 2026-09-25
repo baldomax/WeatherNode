@@ -387,7 +387,8 @@ class WeatherReading extends Model
     public function hasPm25Sensors(): bool
     {
         return $this->pm25_ch1 !== null || $this->pm25_ch2 !== null || 
-               $this->pm25_ch3 !== null || $this->pm25_ch4 !== null;
+               $this->pm25_ch3 !== null || $this->pm25_ch4 !== null ||
+               $this->pm10 !== null;
     }
 
     /**
@@ -509,6 +510,10 @@ class WeatherReading extends Model
                 'ch4' => $this->pm25_ch4,
                 'avg_24h_ch1' => $this->pm25_avg_24h_ch1,
                 'level' => $this->pm25_level,
+            ] : null,
+            'pm10' => $this->pm10 !== null ? [
+                'value' => $this->pm10,
+                'avg_24h' => $this->pm10_avg_24h,
             ] : null,
             'co2' => $this->co2 ? [
                 'value' => $this->co2,

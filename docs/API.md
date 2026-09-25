@@ -203,7 +203,7 @@ The optional `icao` parameter selects a four-letter ICAO station:
 /api/weather/metar?icao=EHAM
 ```
 
-An invalid ICAO code returns HTTP 422. When METAR support is disabled, the endpoint returns a successful response with `data: null`.
+An invalid ICAO code returns HTTP 422. When METAR support is disabled, or when it is on but no airport has been chosen, the endpoint returns a successful response with `data: null`. A fresh install has no airport: it is asked for on the aviation settings page, and nothing is fetched until one is set.
 
 #### KNMI WMS
 

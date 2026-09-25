@@ -17,6 +17,20 @@ class InitialAdminSetupTest extends TestCase
             ->assertSee('First-run setup');
     }
 
+    /**
+     * The very first page an owner sees was the one page in the app still on
+     * the framework's stock light styling, so a new install opened on
+     * something that looked like a different product.
+     */
+    public function test_the_setup_screen_looks_like_the_rest_of_the_app(): void
+    {
+        $response = $this->get(route('setup.admin.create'));
+
+        $response->assertSee('weather-bg', false);
+        $response->assertSee('bg-weather-card', false);
+        $response->assertDontSee('bg-gray-100', false);
+    }
+
     public function test_setup_can_create_first_admin(): void
     {
         $response = $this->post(route('setup.admin.store'), [

@@ -494,7 +494,7 @@
                 </details>
 
                 <!-- DISPLAY -->
-                <details class="sidebar-section" {{ request()->is('admin/settings/display') || request()->is('admin/settings/navigation') || request()->routeIs('admin.settings.widgets') || request()->routeIs('admin.settings.charts') || request()->routeIs('admin.settings.effects') || request()->routeIs('admin.settings.appearance') || request()->routeIs('admin.settings.integrations') || request()->is('admin/settings/seo') || request()->is('admin/settings/og') || request()->is('admin/settings/contact') ? 'open' : '' }}>
+                <details class="sidebar-section" {{ request()->is('admin/settings/display') || request()->is('admin/settings/navigation') || request()->routeIs('admin.settings.widgets') || request()->routeIs('admin.settings.charts') || request()->routeIs('admin.settings.effects') || request()->routeIs('admin.settings.appearance', 'admin.settings.theme-creator*') || request()->routeIs('admin.settings.integrations') || request()->is('admin/settings/seo') || request()->is('admin/settings/og') || request()->is('admin/settings/contact') ? 'open' : '' }}>
                     <summary class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer flex items-center justify-between hover:text-slate-300">
                         {{ __('Display') }}
                         <svg class="w-4 h-4 sidebar-chevron transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -538,7 +538,7 @@
                             <span>{{ __('Weather Effects') }}</span>
                         </a>
                         <a href="{{ route('admin.settings.appearance') }}" 
-                           class="flex items-center space-x-2 px-3 py-1.5 rounded-lg {{ request()->routeIs('admin.settings.appearance') ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700' }}">
+                           class="flex items-center space-x-2 px-3 py-1.5 rounded-lg {{ request()->routeIs('admin.settings.appearance', 'admin.settings.theme-creator*') ? 'bg-slate-700 text-white' : 'text-slate-300 hover:bg-slate-700' }}">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
                             </svg>
@@ -691,8 +691,11 @@
                             <img src="https://cdn.buymeacoffee.com/buttons/bmc-new-btn-logo.svg" alt="Buy me a coffee" class="h-7">
                         </a>
                         <!-- Buy Me a Coffee - Desktop (full button) -->
+                        {{-- The image is drawn on their side and served with a one year
+                             cache header, so a browser keeps showing whatever it drew the
+                             first time. The date gives it a new address each day. --}}
                         <a href="https://www.buymeacoffee.com/centauriprime" target="_blank" rel="noopener noreferrer" class="bmc-link bmc-desktop">
-                            <img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=centauriprime&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" class="h-8">
+                            <img src="https://img.buymeacoffee.com/button-api/?text=Buy+me+a+coffee&emoji=&slug=centauriprime&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff&v={{ now()->format('Y-m-d') }}" alt="Buy me a coffee" class="h-8">
                         </a>
                         
                         <!-- Theme Toggle -->
@@ -718,6 +721,7 @@
 
             <!-- Page Content -->
             <main id="main-content" class="flex-1 overflow-y-auto p-4 md:p-6">
+                @include('admin.partials.setup-pending-notice')
                 @include('admin.partials.update-available-notice')
                 @include('admin.partials.legacy-database-notice')
                 @yield('content')

@@ -22,6 +22,18 @@ storage/framework/sessions
 storage/framework/views
 bootstrap/cache
 
+# Databases. Never bake one into the image: the entrypoint creates a blank
+# SQLite file when none exists, and a file left in database/ is worse than
+# dead weight. entrypoint.sh:138 treats it as a pre-2026.08 install and
+# switches the app onto it, ignoring the configured volume. A local build
+# would then ship the builder's own readings, settings and API keys.
+# The pattern needs **/ to reach database/database.sqlite; a bare *.sqlite*
+# only matches the context root.
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm
+**/*.sqlite3
+
 # Optional / large
 storage/app/radar-tiles
 ecowitt

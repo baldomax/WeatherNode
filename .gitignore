@@ -63,3 +63,6 @@ ecowitt/ecco_key.arr
 ecowitt/ecco_test.arr
 ecowitt/ecco_stats.txt
 ecowitt/error_log
+
+# Browser automation scratch output (page snapshots, screenshots)
+.playwright-mcp/

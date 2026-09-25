@@ -17,15 +17,14 @@ class SettingsSeeder extends Seeder
         $settings = [
             // ===== Station Configuration =====
             ['key' => 'station.name', 'value' => 'WeatherNode', 'type' => 'string', 'group' => 'station', 'description' => 'Weather station display name'],
-            ['key' => 'station.location', 'value' => 'Waldijk - Uitgeest - Noord-Holland - Nederland', 'type' => 'string', 'group' => 'station', 'description' => 'Station location description'],
-            ['key' => 'station.latitude', 'value' => '52.5163996', 'type' => 'float', 'group' => 'station', 'description' => 'Station latitude (decimal degrees)'],
-            ['key' => 'station.longitude', 'value' => '4.7078991', 'type' => 'float', 'group' => 'station', 'description' => 'Station longitude (decimal degrees)'],
-            ['key' => 'station.elevation', 'value' => '-1', 'type' => 'float', 'group' => 'station', 'description' => 'Station elevation in meters above sea level'],
-            ['key' => 'station.timezone', 'value' => 'Europe/Amsterdam', 'type' => 'string', 'group' => 'station', 'description' => 'Station timezone'],
-            ['key' => 'station.hardware', 'value' => 'WH4000SE', 'type' => 'string', 'group' => 'station', 'description' => 'Weather station hardware model'],
-            ['key' => 'station.manufacturer', 'value' => 'fineoffset', 'type' => 'select', 'group' => 'station', 'description' => 'Weather station manufacturer', 'options' => 'fineoffset:Fine Offset/Ecowitt,davis:Davis Instruments,netatmo:Netatmo,ambient:Ambient Weather,weatherflow:WeatherFlow,other:Other'],
-            ['key' => 'station.start_date', 'value' => '2020-12-06', 'type' => 'date', 'group' => 'station', 'description' => 'Date station started recording'],
-            ['key' => 'station.wu_id', 'value' => 'IUITGE8', 'type' => 'string', 'group' => 'station', 'description' => 'Weather Underground Station ID'],
+            ['key' => 'station.location', 'value' => '', 'type' => 'string', 'group' => 'station', 'description' => 'Station location description'],
+            ['key' => 'station.latitude', 'value' => '51.4779', 'type' => 'float', 'group' => 'station', 'description' => 'Station latitude (decimal degrees)'],
+            ['key' => 'station.longitude', 'value' => '-0.0015', 'type' => 'float', 'group' => 'station', 'description' => 'Station longitude (decimal degrees)'],
+            ['key' => 'station.elevation', 'value' => '0', 'type' => 'float', 'group' => 'station', 'description' => 'Station elevation in meters above sea level'],
+            ['key' => 'station.timezone', 'value' => 'UTC', 'type' => 'string', 'group' => 'station', 'description' => 'Station timezone'],
+            ['key' => 'station.hardware', 'value' => '', 'type' => 'string', 'group' => 'station', 'description' => 'Weather station hardware model'],
+            ['key' => 'station.manufacturer', 'value' => '', 'type' => 'select', 'group' => 'station', 'description' => 'Weather station manufacturer', 'options' => ':Not set,fineoffset:Fine Offset/Ecowitt,davis:Davis Instruments,netatmo:Netatmo,ambient:Ambient Weather,weatherflow:WeatherFlow,other:Other'],
+            ['key' => 'station.start_date', 'value' => '', 'type' => 'date', 'group' => 'station', 'description' => 'Date station started recording'],
             ['key' => 'station.server_url', 'value' => '', 'type' => 'string', 'group' => 'station', 'description' => 'Public URL of this weather site (leave empty to use APP_URL)'],
 
             // ===== Live Data Source =====
@@ -45,7 +44,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'history.wu_sync_skip_existing', 'value' => '1', 'type' => 'boolean', 'group' => 'history', 'description' => 'Skip days that already have summaries when syncing WU'],
 
             // ===== Display Settings =====
-            ['key' => 'display.language', 'value' => 'nl-nl', 'type' => 'select', 'group' => 'display', 'description' => 'Default interface language', 'options' => 'auto:Auto (browser),nl-nl:Nederlands,en-us:English (US),en-gb:English (UK),de-de:Deutsch,fr-fr:Français,es-es:Español,it-it:Italiano,pt-pt:Português (PT),pt-br:Português (BR),pl-pl:Polski,da-dk:Dansk,nn-no:Norsk,sv-se:Svenska,fi-fi:Suomi,el-gr:Ελληνικά,hr-hr:Hrvatski,sr-rs:Srpski,ca-es:Català'],
+            ['key' => 'display.language', 'value' => 'auto', 'type' => 'select', 'group' => 'display', 'description' => 'Default interface language', 'options' => 'auto:Auto (browser),nl-nl:Nederlands,en-us:English (US),en-gb:English (UK),de-de:Deutsch,fr-fr:Français,es-es:Español,it-it:Italiano,pt-pt:Português (PT),pt-br:Português (BR),pl-pl:Polski,da-dk:Dansk,nn-no:Norsk,sv-se:Svenska,fi-fi:Suomi,el-gr:Ελληνικά,hr-hr:Hrvatski,sr-rs:Srpski,ca-es:Català'],
             ['key' => 'display.unit_system', 'value' => 'metric', 'type' => 'select', 'group' => 'display', 'description' => 'Default unit system', 'options' => 'auto:Auto (browser locale),metric:Metric (°C km/h mm hPa),imperial:Imperial (°F mph in inHg),uk:UK (°C mph mm hPa),scandinavia:Scandinavia (°C m/s mm hPa)'],
             ['key' => 'display.theme', 'value' => 'dark', 'type' => 'select', 'group' => 'display', 'description' => 'Default admin interface theme', 'options' => 'dark:Dark,light:Light,user:User preference'],
             ['key' => 'display.temperature_decimals', 'value' => '1', 'type' => 'select', 'group' => 'display', 'description' => 'Temperature decimal places', 'options' => '0:0,1:1,2:2'],
@@ -98,21 +97,20 @@ class SettingsSeeder extends Seeder
 
             // ===== Weather Underground =====
             ['key' => 'wunderground.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'wunderground', 'description' => 'Enable Weather Underground integration'],
-            ['key' => 'wunderground.station_id', 'value' => 'IUITGE8', 'type' => 'string', 'group' => 'wunderground', 'description' => 'Weather Underground Station ID'],
+            ['key' => 'wunderground.station_id', 'value' => '', 'type' => 'string', 'group' => 'wunderground', 'description' => 'Weather Underground Station ID'],
             ['key' => 'wunderground.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'wunderground', 'description' => 'Weather Underground API Key'],
-            ['key' => 'wunderground.start_date', 'value' => '2020-12-06', 'type' => 'date', 'group' => 'wunderground', 'description' => 'Start date for historical data'],
+            ['key' => 'wunderground.start_date', 'value' => '', 'type' => 'date', 'group' => 'wunderground', 'description' => 'Start date for historical data'],
             ['key' => 'wunderground.upload_enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'wunderground', 'description' => 'Upload live data to Weather Underground'],
             ['key' => 'wunderground.upload_password', 'value' => '', 'type' => 'encrypted', 'group' => 'wunderground', 'description' => 'WU Upload password/key'],
 
             // ===== OpenWeatherMap =====
             ['key' => 'openweathermap.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'openweathermap', 'description' => 'Enable OpenWeatherMap for forecasts'],
             ['key' => 'openweathermap.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'openweathermap', 'description' => 'OpenWeatherMap API Key'],
-            ['key' => 'openweathermap.language', 'value' => 'nl', 'type' => 'string', 'group' => 'openweathermap', 'description' => 'Forecast language code'],
+            ['key' => 'openweathermap.language', 'value' => 'en', 'type' => 'string', 'group' => 'openweathermap', 'description' => 'Forecast language code'],
             ['key' => 'openweathermap.units', 'value' => 'si', 'type' => 'select', 'group' => 'openweathermap', 'description' => 'Unit system', 'options' => 'si:Metric,imperial:Imperial'],
 
             // ===== Yr.no =====
             ['key' => 'yrno.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'yrno', 'description' => 'Enable Yr.no forecasts'],
-            ['key' => 'yrno.location', 'value' => 'Nederland/Nord-Holland/Uitgeest/', 'type' => 'string', 'group' => 'yrno', 'description' => 'Yr.no location path'],
 
             // ===== Aeris Weather =====
             ['key' => 'aeris.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'aeris', 'description' => 'Enable Aeris Weather API'],
@@ -124,8 +122,8 @@ class SettingsSeeder extends Seeder
             ['key' => 'airquality.index_type', 'value' => 'eea', 'type' => 'select', 'group' => 'airquality', 'description' => 'Index Type', 'options' => 'eea:European (EEA),us:US EPA,uk:UK DAQI'],
             ['key' => 'waqi.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'airquality', 'description' => 'Enable WAQI air quality data'],
             ['key' => 'waqi.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'airquality', 'description' => 'WAQI API token'],
-            ['key' => 'luftdaten.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'airquality', 'description' => 'Enable Luftdaten/Sensor.Community data'],
-            ['key' => 'luftdaten.sensor_id', 'value' => '69616', 'type' => 'string', 'group' => 'airquality', 'description' => 'Luftdaten sensor ID (particulate/air quality)'],
+            ['key' => 'luftdaten.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'airquality', 'description' => 'Enable Luftdaten/Sensor.Community data'],
+            ['key' => 'luftdaten.sensor_id', 'value' => '', 'type' => 'string', 'group' => 'airquality', 'description' => 'Luftdaten sensor ID (particulate/air quality)'],
             ['key' => 'luftdaten.sensor_type', 'value' => '0', 'type' => 'integer', 'group' => 'airquality', 'description' => 'Sensor type (0=default)'],
             ['key' => 'luftdaten_noise.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'airquality', 'description' => 'Enable Luftdaten/Sensor.Community noise sensor (DNMS)'],
             ['key' => 'luftdaten_noise.sensor_id', 'value' => '', 'type' => 'string', 'group' => 'airquality', 'description' => 'Luftdaten noise sensor ID (DNMS)'],
@@ -139,11 +137,11 @@ class SettingsSeeder extends Seeder
             ['key' => 'davis_aq.sensor_id', 'value' => '0', 'type' => 'string', 'group' => 'airquality', 'description' => 'Davis AirLink sensor ID'],
 
             // ===== Aviation/METAR =====
-            ['key' => 'metar.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'aviation', 'description' => 'Enable METAR data display'],
+            ['key' => 'metar.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'aviation', 'description' => 'Enable METAR data display'],
             ['key' => 'metar.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'aviation', 'description' => 'CheckWX API key'],
-            ['key' => 'metar.primary_icao', 'value' => 'EHAM', 'type' => 'string', 'group' => 'aviation', 'description' => 'Primary ICAO airport code'],
-            ['key' => 'metar.airport_name', 'value' => 'AMS', 'type' => 'string', 'group' => 'aviation', 'description' => 'Airport short name'],
-            ['key' => 'metar.airport_distance', 'value' => '34', 'type' => 'integer', 'group' => 'aviation', 'description' => 'Distance to airport (km)'],
+            ['key' => 'metar.primary_icao', 'value' => '', 'type' => 'string', 'group' => 'aviation', 'description' => 'Primary ICAO airport code'],
+            ['key' => 'metar.airport_name', 'value' => '', 'type' => 'string', 'group' => 'aviation', 'description' => 'Airport short name'],
+            ['key' => 'metar.airport_distance', 'value' => '0', 'type' => 'integer', 'group' => 'aviation', 'description' => 'Distance to airport (km)'],
             ['key' => 'metar.show_popup', 'value' => '1', 'type' => 'boolean', 'group' => 'aviation', 'description' => 'Show METAR popup details'],
 
             // ===== Marine data location =====
@@ -151,11 +149,11 @@ class SettingsSeeder extends Seeder
             ['key' => 'marine.longitude', 'value' => '', 'type' => 'string', 'group' => 'marine', 'description' => 'Longitude for marine data (leave empty to use the station location)'],
 
             // ===== Weather Alerts =====
-            ['key' => 'alerts.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'alerts', 'description' => 'Enable weather alerts/warnings'],
+            ['key' => 'alerts.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'alerts', 'description' => 'Enable weather alerts/warnings'],
             ['key' => 'alerts.source', 'value' => 'europe', 'type' => 'select', 'group' => 'alerts', 'description' => 'Alert data source', 'options' => 'europe:Meteoalarm (Europe),usa:NWS (USA),canada:Environment Canada,uk:Met Office (UK),australia:BOM (Australia)'],
             
             // Europe (Meteoalarm) settings
-            ['key' => 'alerts.region_code', 'value' => 'NL011', 'type' => 'string', 'group' => 'alerts', 'description' => 'Meteoalarm region code (e.g., NL011 for Noord-Holland)'],
+            ['key' => 'alerts.region_code', 'value' => '', 'type' => 'string', 'group' => 'alerts', 'description' => 'Meteoalarm region code (e.g., NL011 for Noord-Holland)'],
             ['key' => 'alerts.region_name', 'value' => '', 'type' => 'string', 'group' => 'alerts', 'description' => 'Friendly region name for alerts display (optional)'],
             
             // USA (NWS) settings  
@@ -215,7 +213,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'radar.rainviewer_zoom', 'value' => '7', 'type' => 'integer', 'group' => 'radar', 'description' => 'RainViewer map zoom level (0=world, 1-7; max 7 as of 2026)'],
             ['key' => 'radar.rainviewer_mode', 'value' => 'api', 'type' => 'select', 'group' => 'radar', 'description' => 'RainViewer display mode', 'options' => 'api:API (animated map),iframe:Iframe embed'],
             ['key' => 'radar.frame_delay', 'value' => '1000', 'type' => 'select', 'group' => 'radar', 'description' => 'Animation speed between radar frames. Slower = fewer requests, less chance of rate limiting.', 'options' => '500:Fast (500ms),800:Normal (800ms),1000:Balanced (1000ms),1500:Slow (1500ms),2000:Very slow (2000ms)'],
-            ['key' => 'radar.card_sources', 'value' => 'knmi,buienradar', 'type' => 'string', 'group' => 'radar', 'description' => 'Additional radar sources to show on the radar page, besides the main provider'],
+            ['key' => 'radar.card_sources', 'value' => '', 'type' => 'string', 'group' => 'radar', 'description' => 'Additional radar sources to show on the radar page, besides the main provider'],
             ['key' => 'radar.use_proxy', 'value' => '0', 'type' => 'boolean', 'group' => 'radar', 'description' => 'Use server-side tile caching. Prevents rate limiting and CORS issues. WARNING: May not work on shared hosting due to security restrictions (508 errors). Recommended for VPS/dedicated servers only.'],
             ['key' => 'radar.widget_provider', 'value' => '', 'type' => 'select', 'group' => 'radar', 'description' => 'Widget radar provider (leave empty to use main provider)', 'options' => ':Use main provider,knmi:KNMI,buienradar:Buienradar,rainviewer:RainViewer'],
             ['key' => 'radar.widget_rainviewer_mode', 'value' => 'api', 'type' => 'select', 'group' => 'radar', 'description' => 'Widget RainViewer display mode', 'options' => 'api:API (animated map),iframe:Iframe embed'],
@@ -223,16 +221,22 @@ class SettingsSeeder extends Seeder
 
             // ===== Satellite =====
             ['key' => 'satellite.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'satellite', 'description' => 'Enable satellite imagery display'],
-            ['key' => 'satellite.provider', 'value' => 'knmi', 'type' => 'select', 'group' => 'satellite', 'description' => 'Satellite provider', 'options' => 'knmi:KNMI (Local),nasa:NASA Worldview (Worldwide),custom:Custom URL'],
+            // NASA GIBS by default: a public tile service that covers the whole
+            // planet and centres on the station. This used to be the 'knmi' slot
+            // below, which was neither KNMI nor worldwide.
+            ['key' => 'satellite.provider', 'value' => 'nasa', 'type' => 'select', 'group' => 'satellite', 'description' => 'Satellite provider', 'options' => 'knmi:Local image (your own URL),nasa:NASA Worldview (Worldwide),custom:Custom URL'],
             ['key' => 'satellite.display_region', 'value' => 'europe', 'type' => 'select', 'group' => 'satellite', 'description' => 'Which satellite view to show on /radar', 'options' => 'europe:Local,world:Worldwide'],
             // NASA defaults (B): near-real-time + selectable daily + selectable truecolor/infrared
             ['key' => 'satellite.nasa.mode', 'value' => 'nrt', 'type' => 'select', 'group' => 'satellite', 'description' => 'NASA imagery mode', 'options' => 'nrt:Near real-time,daily:Daily mosaic'],
             ['key' => 'satellite.nasa.imagery', 'value' => 'truecolor', 'type' => 'select', 'group' => 'satellite', 'description' => 'NASA imagery type', 'options' => 'truecolor:True color,infrared:Infrared (thermal)'],
             // Defaults are tile templates (work in Leaflet). {time} will be replaced with today's YYYY-MM-DD in UTC.
             // Provider-specific storage (what the admin UI edits)
-            ['key' => 'satellite.sources.knmi.europe_url', 'value' => 'https://www.meteociel.fr/accueil/sat24ir.gif', 'type' => 'string', 'group' => 'satellite', 'description' => 'KNMI: Europe satellite image URL (IR, updates frequently)'],
-            ['key' => 'satellite.sources.knmi.world_url', 'value' => '', 'type' => 'string', 'group' => 'satellite', 'description' => 'KNMI: Worldwide tile URL template (optional)'],
-            ['key' => 'satellite.sources.knmi.zoom', 'value' => '4', 'type' => 'integer', 'group' => 'satellite', 'description' => 'KNMI: Zoom level'],
+            // Blank. This slot used to ship a hotlinked GIF from meteociel.fr,
+            // labelled KNMI, so every install pulled a French site's image every
+            // few minutes and credited it to a Dutch agency.
+            ['key' => 'satellite.sources.knmi.europe_url', 'value' => '', 'type' => 'string', 'group' => 'satellite', 'description' => 'Local: satellite image URL'],
+            ['key' => 'satellite.sources.knmi.world_url', 'value' => '', 'type' => 'string', 'group' => 'satellite', 'description' => 'Local: worldwide tile URL template (optional)'],
+            ['key' => 'satellite.sources.knmi.zoom', 'value' => '4', 'type' => 'integer', 'group' => 'satellite', 'description' => 'Local: zoom level'],
 
             // Default NASA URLs start with NRT truecolor (time includes {datetime}).
             // If a user selects daily or infrared in admin UI, the app will rewrite these values accordingly.

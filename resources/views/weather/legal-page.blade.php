@@ -9,7 +9,7 @@
     .legal-content h2,
     .legal-content h3,
     .legal-content h4 {
-        color: rgb(255 255 255);
+        color: rgb(var(--wn-fg));
         font-weight: 700;
         margin-top: 1.25rem;
         margin-bottom: 0.75rem;
@@ -27,7 +27,7 @@
 
     .legal-content p,
     .legal-content li {
-        color: rgb(209 213 219);
+        color: rgb(var(--wn-secondary));
         line-height: 1.7;
     }
 
@@ -39,7 +39,7 @@
     }
 
     .legal-content a {
-        color: rgb(96 165 250);
+        color: rgb(var(--wn-link));
         text-decoration: underline;
     }
 
@@ -55,18 +55,18 @@
 @section('content')
 <div class="max-w-4xl mx-auto">
     <div class="mb-6">
-        <a href="{{ route('home') }}" class="text-sm text-gray-400 hover:text-white transition-colors">← {{ __('Back to dashboard') }}</a>
+        <a href="{{ route('home') }}" class="text-sm text-ui-muted hover:text-ui-fg transition-colors">← {{ __('Back to dashboard') }}</a>
     </div>
 
-    <article class="bg-weather-card rounded-2xl border border-white/10 p-5 md:p-8">
-        <header class="mb-6 pb-4 border-b border-white/10">
-            <h1 class="text-2xl md:text-3xl font-bold text-white">{{ __($pageTitle) }}</h1>
-            <p class="text-xs text-gray-400 mt-2">{{ __('Last updated') }}: {{ $lastUpdated }}</p>
+    <article class="bg-weather-card rounded-2xl border border-ui-line/10 p-5 md:p-8">
+        <header class="mb-6 pb-4 border-b border-ui-line/10">
+            <h1 class="text-2xl md:text-3xl font-bold text-ui-fg">{{ __($pageTitle) }}</h1>
+            <p class="text-xs text-ui-muted mt-2">{{ __('Last updated') }}: {{ $lastUpdated }}</p>
         </header>
 
         <div class="legal-content space-y-4">
             @if(!empty($pageContentText))
-                <pre class="whitespace-pre-wrap break-words text-sm text-gray-200 bg-black/30 border border-white/10 rounded-xl p-4">{{ $pageContentText }}</pre>
+                <pre class="whitespace-pre-wrap break-words text-sm text-ui-body bg-ui-overlay/5 border border-ui-line/10 rounded-xl p-4">{{ $pageContentText }}</pre>
             @else
                 {!! $pageContentHtml !!}
             @endif

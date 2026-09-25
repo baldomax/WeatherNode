@@ -71,7 +71,7 @@ class MigrateHistoricalData extends Command
     }
 
     /**
-     * Import from IUITGE8-metric-YYYY.arr files (serialized PHP arrays)
+     * Import from <station>-metric-YYYY.arr files (serialized PHP arrays)
      * 
      * Format: a:N:{i:YYYYMMDD;s:XX:"YYYY-MM-DD,TempHigh,TempAvg,TempLow,DewHigh,DewAvg,DewLow,HumHigh,HumAvg,HumLow,PressMax,PressMin,WindMax,WindAvg,GustMax,Rain";...}
      */
@@ -79,8 +79,8 @@ class MigrateHistoricalData extends Command
     {
         $targetYear = $this->option('year');
         
-        // Find all metric files
-        $metricFiles = File::glob($wudataPath . '/IUITGE8-metric-*.arr');
+        // Any station's export, not one particular station id.
+        $metricFiles = File::glob($wudataPath . '/*-metric-*.arr');
         
         if (empty($metricFiles)) {
             $this->warn("No metric files found in {$wudataPath}");
@@ -234,7 +234,7 @@ class MigrateHistoricalData extends Command
 
             $filename = $file->getFilename();
             
-            // Extract date from filename: IUITGE8-day-20241208.txt
+            // Extract date from filename: <station>-day-20241208.txt
             if (preg_match('/day-(\d{8})\.txt$/', $filename, $matches)) {
                 $dateStr = $matches[1];
                 $date = Carbon::createFromFormat('Ymd', $dateStr)->format('Y-m-d');

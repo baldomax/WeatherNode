@@ -12,10 +12,22 @@ permissions:
   contents: write
   packages: write
 
+# One run per ref. A superseded main build is worth cancelling, since only the
+# newest matters; a tag build never is, because its artefacts are the release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+
 jobs:
+  # Note for anyone tempted to mark the VERSION bump [skip ci]: don't. The tag
+  # points at that very commit, so skipping it skips the tag build too, which
+  # is the build that produces the release. One redundant edge build per
+  # release is the cheaper problem, and the concurrency group above cancels it
+  # if another push follows.
   create-tag:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -70,6 +82,7 @@ jobs:
   build-release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -171,6 +184,11 @@ jobs:
   build-docker:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
+    # Two architectures, and arm64 is emulated, so this is slow by nature. 45
+    # was set from the wall-clock of past runs and promptly killed a healthy
+    # build at 46 minutes. The point of the limit is to catch a hang, not to
+    # race a normal build, so it sits well clear of one.
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -194,6 +212,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # latest is the newest release, not the newest commit. It used to follow
+      # main, so anyone running the shipped docker-compose.yml, which pulls
+      # latest on every start, was tracking unreleased work without asking.
+      # Main is still built so breakage surfaces before a release, but it is
+      # published as edge, a name nobody lands on by accident.
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -201,7 +224,8 @@ jobs:
           images: ${{ steps.image.outputs.name }}
           tags: |
             type=ref,event=tag
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6

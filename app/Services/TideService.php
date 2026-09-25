@@ -29,10 +29,20 @@ class TideService
     /**
      * Fetch tide data using the currently configured source.
      *
+     * A gauge network cannot be asked about "the usual station". Without one
+     * the drivers fall back to their own first entry, which is how a fresh
+     * install ended up publishing the tide at IJmuiden, so stop here instead.
+     *
      * @throws \RuntimeException on API failure or no data
      */
-    public function fetchTideData(string $stationCode = self::DEFAULT_STATION): array
+    public function fetchTideData(string $stationCode = ''): array
     {
-        return TideServiceFactory::make()->fetchTideData($stationCode);
+        $driver = TideServiceFactory::make();
+
+        if ($driver->isStationBased() && trim($stationCode) === '') {
+            throw new \RuntimeException('No tide station is configured for ' . $driver->getName());
+        }
+
+        return $driver->fetchTideData($stationCode);
     }
 }

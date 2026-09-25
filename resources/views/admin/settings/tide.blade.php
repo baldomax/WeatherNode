@@ -6,17 +6,16 @@
 @php
     use App\Models\Setting;
     use App\Services\Tide\TideServiceFactory;
-    use App\Services\Tide\RijkswaterstaatSource;
 
     $s = $settings->keyBy('key');
 
     $enabled     = (bool)   ($s->get('tide.enabled')?->getCastedValue()       ?? false);
-    $source      = (string) ($s->get('tide.source')?->value                   ?? 'rws');
+    $source      = (string) ($s->get('tide.source')?->value ?: TideServiceFactory::DEFAULT_SOURCE);
     // Prefer the per-source station key so switching between sources retains each source's station.
     $stationCode = (string) ($s->get("tide.{$source}_station_code")?->value
-                          ?? $s->get('tide.station_code')?->value
-                          ?? RijkswaterstaatSource::DEFAULT_STATION);
-    $stationName = (string) ($s->get('tide.station_name')?->value             ?? 'IJmuiden');
+                          ?: $s->get('tide.station_code')?->value
+                          ?: '');
+    $stationName = (string) ($s->get('tide.station_name')?->value             ?? '');
     $mareaKey         = (string) ($s->get('tide.marea_api_key')?->value           ?? '');
     $copernicusUser   = (string) ($s->get('tide.copernicus_username')?->value    ?? '');
     $copernicusPass   = (string) ($s->get('tide.copernicus_password')?->value    ?? '');
@@ -156,6 +155,9 @@
                     </label>
                     <select name="tide_station_code" id="tide_station_code"
                             class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
+                        <option value="" {{ $stationCode === '' ? 'selected' : '' }}>
+                            {{ __('Select a station…') }}
+                        </option>
                         @foreach($stations as $code => $info)
                             <option value="{{ $code }}" {{ $stationCode === $code ? 'selected' : '' }}>
                                 {{ $info['name'] }} ({{ $code }})
@@ -170,8 +172,7 @@
                     </label>
                     <input type="text" name="tide_station_name" id="tide_station_name"
                            value="{{ old('tide_station_name', $stationName) }}"
-                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500"
-                           placeholder="IJmuiden">
+                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-cyan-500">
                     <p class="text-xs text-gray-500 mt-1">{{ __('Name shown on the water page and dashboard widget.') }}</p>
                 </div>
             </div>

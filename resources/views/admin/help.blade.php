@@ -29,8 +29,11 @@
                 <div>
                     <p class="font-medium text-gray-800 dark:text-white">{{ __('Configure Station Info') }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ __('Set your station name, location, coordinates, and timezone in') }}
+                        {{ __('A new install asks for this on the first login, with a map for the coordinates. To change it afterwards, or if you put it off:') }}
                         <a href="{{ route('admin.settings.group', 'station') }}" class="text-blue-600 hover:underline">{{ __('Station Settings') }}</a>
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {{ __('Name, place, coordinates, height, timezone and the address this site is reached at. Everything else on the site is built from these.') }}
                     </p>
                 </div>
             </div>
@@ -39,7 +42,7 @@
                 <div>
                     <p class="font-medium text-gray-800 dark:text-white">{{ __('Set Up Weather Station') }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ __('Choose your live data source (Ecowitt, local file/API, WeatherLink, etc.) in') }}
+                        {{ __('Asked for on the first login too, right after the station. To change it afterwards:') }}
                         <a href="{{ route('admin.settings.group', 'livedata') }}" class="text-blue-600 hover:underline">{{ __('Live Data Source') }}</a>.
                         {{ __('Add provider keys in their own settings pages if needed.') }}
                     </p>

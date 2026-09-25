@@ -29,13 +29,23 @@ class TideServiceFactory
     ];
 
     /**
+     * The source used until the owner picks one.
+     *
+     * Open-Meteo Marine, because it is the only global driver: it works from
+     * the station coordinates, needs no key and needs no gauge to be chosen.
+     * This used to be Rijkswaterstaat, which reads the Dutch gauge network and
+     * has nothing to say anywhere else.
+     */
+    public const DEFAULT_SOURCE = 'open_meteo';
+
+    /**
      * Instantiate the configured (or specified) tide source driver.
-     * Falls back to Rijkswaterstaat if the configured source is unknown or fails.
+     * Falls back to the global source if the configured one is unknown or fails.
      */
     public static function make(?string $source = null): TideSourceInterface
     {
-        $source = $source ?? Setting::getValue('tide.source', 'rws');
-        $class  = self::SOURCES[$source] ?? RijkswaterstaatSource::class;
+        $source = $source ?? Setting::getValue('tide.source', self::DEFAULT_SOURCE);
+        $class  = self::SOURCES[$source] ?? self::SOURCES[self::DEFAULT_SOURCE];
 
         try {
             return app($class);
@@ -45,7 +55,7 @@ class TideServiceFactory
                 'class'  => $class,
                 'error'  => $e->getMessage(),
             ]);
-            return app(RijkswaterstaatSource::class);
+            return app(self::SOURCES[self::DEFAULT_SOURCE]);
         }
     }
 

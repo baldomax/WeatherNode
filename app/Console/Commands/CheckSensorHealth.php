@@ -275,7 +275,7 @@ class CheckSensorHealth extends Command
             return;
         }
 
-        $primaryIcao = Setting::getValue('metar.primary_icao', 'EHAM');
+        $primaryIcao = Setting::getValue('metar.primary_icao', '');
         $this->healthStatus['metar'] = $this->freshness("metar_{$primaryIcao}", Cache::get("metar_{$primaryIcao}"));
     }
 

@@ -44,7 +44,7 @@ class DataController extends Controller
             ] : null,
             'alerts' => $alerts,
             'source' => $source,
-            'region' => Setting::getValue('alerts.region_code', 'NL011'),
+            'region' => Setting::getValue('alerts.region_code', ''),
         ]);
     }
 
@@ -93,7 +93,7 @@ class DataController extends Controller
      */
     public function luftdaten(): JsonResponse
     {
-        $enabled = (bool) Setting::getValue('luftdaten.enabled', true);
+        $enabled = (bool) Setting::getValue('luftdaten.enabled', false);
 
         if (!$enabled) {
             return response()->json([
@@ -103,7 +103,7 @@ class DataController extends Controller
             ]);
         }
 
-        $sensorId = Setting::getValue('luftdaten.sensor_id', '69616');
+        $sensorId = Setting::getValue('luftdaten.sensor_id', '');
         $data = !empty($sensorId) ? Cache::get("luftdaten_{$sensorId}") : null;
 
         return response()->json([
@@ -165,7 +165,7 @@ class DataController extends Controller
         }
 
         // Luftdaten - read from cache
-        if (Setting::getValue('luftdaten.enabled', '1') === '1') {
+        if (Setting::getValue('luftdaten.enabled', '0') === '1') {
             $luftdatenSensorId = Setting::getValue('luftdaten.sensor_id', '');
             $luftdatenData = $luftdatenSensorId ? Cache::get("luftdaten_{$luftdatenSensorId}") : null;
             if ($luftdatenData) {

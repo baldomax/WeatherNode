@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.key' => \App\Http\Middleware\ApiKeyMiddleware::class,
             'api.private' => \App\Http\Middleware\RequirePrivateApiKeyMiddleware::class,
             'feature.menu' => \App\Http\Middleware\FeatureMenuEnabledMiddleware::class,
+            'setup.pending' => \App\Http\Middleware\RequireFirstRunSetup::class,
         ]);
         $middleware->appendToGroup('web', \App\Http\Middleware\LocaleUnitsMiddleware::class);
         $middleware->appendToGroup('api', \App\Http\Middleware\LocaleUnitsMiddleware::class);

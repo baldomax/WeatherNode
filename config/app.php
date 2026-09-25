@@ -13,7 +13,10 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    // Not 'Laravel'. Docker never writes a .env, so this default is what a
+    // containerised install calls itself: in the admin header, the page titles
+    // and anywhere else the framework prints the application name.
+    'name' => env('APP_NAME', 'WeatherNode'),
 
     /*
     |--------------------------------------------------------------------------

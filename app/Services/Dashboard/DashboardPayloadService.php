@@ -130,6 +130,10 @@ class DashboardPayloadService
             'solar_radiation',
             'lux',
             'co2',
+            // The station's own PM10. Without these the block below reads
+            // null and the card silently loses the values.
+            'pm10',
+            'pm10_avg_24h',
             'lightning_distance',
             'lightning_count',
             'lightning_count_daily',
@@ -222,6 +226,16 @@ class DashboardPayloadService
                 $extraSensors['pm25'] = [
                     'ch1' => $reading->pm25_ch1,
                     'level' => $reading->pm25_level,
+                ];
+            }
+
+            // The station's own PM10. The PM10 on the air quality card comes
+            // from the outside sources, not from the station.
+            if ($reading->pm10 !== null) {
+                $extraSensors = $extraSensors ?? [];
+                $extraSensors['pm10'] = [
+                    'value' => $reading->pm10,
+                    'avg_24h' => $reading->pm10_avg_24h,
                 ];
             }
 
@@ -433,10 +447,10 @@ class DashboardPayloadService
         // Tide data (cached by poller) — widget summary only (no full series)
         $tideWidget = null;
         if (Setting::getValue('tide.enabled', false)) {
-            $tideSource = Setting::getValue('tide.source', 'rws');
+            $tideSource = Setting::getValue('tide.source', \App\Services\Tide\TideServiceFactory::DEFAULT_SOURCE);
             $tideStation = Setting::getValue(
                 "tide.{$tideSource}_station_code",
-                Setting::getValue('tide.station_code', \App\Services\TideService::DEFAULT_STATION)
+                Setting::getValue('tide.station_code', '')
             );
             $tideRaw = Cache::get('tide_' . $tideSource . '_' . $tideStation);
             if ($tideRaw) {
@@ -477,7 +491,7 @@ class DashboardPayloadService
         // METAR data (cached by poller)
         $metarData = null;
         if (Setting::getValue('metar.enabled', false)) {
-            $primaryIcao = Setting::getValue('metar.primary_icao', 'EHAM');
+            $primaryIcao = Setting::getValue('metar.primary_icao', '');
             $metarData = Cache::get("metar_{$primaryIcao}");
         }
 

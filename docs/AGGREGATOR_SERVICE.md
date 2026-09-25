@@ -2,7 +2,7 @@
 
 ## Overview
 
-The telemetry system uses a **central aggregator service** that receives station data from all MeteoUitgeest installations and updates the GitHub repository. This approach:
+The telemetry system uses a **central aggregator service** that receives station data from all WeatherNode installations and updates the GitHub repository. This approach:
 
 - ✅ **No GitHub tokens needed** on individual sites
 - ✅ **Single point of update** - change aggregator code once, all sites benefit

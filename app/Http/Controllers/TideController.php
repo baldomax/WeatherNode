@@ -17,12 +17,12 @@ class TideController extends Controller
     {
         // ── Tide data ─────────────────────────────────────────────────────────
         $enabled = (bool) Setting::getValue('tide.enabled', false);
-        $source  = Setting::getValue('tide.source', 'rws');
+        $source  = Setting::getValue('tide.source', TideServiceFactory::DEFAULT_SOURCE);
 
         // Prefer per-source station key so switching sources retains each source's own station
         $stationCode = Setting::getValue("tide.{$source}_station_code",
-                       Setting::getValue('tide.station_code', TideService::DEFAULT_STATION));
-        $stationName = Setting::getValue('tide.station_name', 'IJmuiden');
+                       Setting::getValue('tide.station_code', ''));
+        $stationName = Setting::getValue('tide.station_name', '');
 
         $driver       = TideServiceFactory::make($source);
         $sourceLabel  = $driver->getName();

@@ -13,7 +13,7 @@
                 </svg>
                 {{ __('Appearance') }}
             </h1>
-            <p class="text-gray-400 mt-1">{{ __('Site theme (FX vs Flat)') }}</p>
+            <p class="text-gray-400 mt-1">{{ __('Public colour palette, colour mode and visual effects') }}</p>
         </div>
         <a href="{{ route('admin.settings.index') }}" class="text-gray-400 hover:text-white transition-colors">
             ← {{ __('Back to Settings') }}
@@ -31,7 +31,7 @@
         @csrf
 
         <div class="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
-            <h2 class="text-lg font-semibold text-white mb-4">{{ __('Site theme') }}</h2>
+            <h2 class="text-lg font-semibold text-white mb-4">{{ __('Visual effects') }}</h2>
             <p class="text-sm text-gray-400 mb-4">{{ __('With Flat, the entire public site uses a simplified design: no glass effects, blur, or animations; data and functionality stay the same.') }}</p>
             <p class="text-xs text-gray-500 mb-4">{{ __('Applies to the public weather pages (dashboard, login, etc.); the admin panel is unchanged.') }}</p>
 
@@ -46,6 +46,82 @@
                 </label>
             </div>
         </div>
+
+        @if($errors->any())
+            <div role="alert" class="rounded-lg border border-red-500 p-4 text-red-300">
+                @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
+            </div>
+        @endif
+
+        <fieldset class="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+            <legend class="text-lg font-semibold text-white px-2">{{ __('Colour palette') }}</legend>
+            <p class="text-sm text-gray-400 mb-4">{{ __('Each palette supports light and dark modes with either FX or Flat.') }}</p>
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                @foreach($palettes as $id => $label)
+                    @php
+                        $swatch = match ($id) {
+                            'ocean' => ['#132830', '#0f766e', '#f0fdfa'],
+                            'forest' => ['#1b2a21', '#15803d', '#f0fdf4'],
+                            'solar-flare' => ['#2c1838', '#f97316', '#fff1d6'],
+                            default => ['#1a2332', '#2563eb', '#f1f5f9'],
+                        };
+                    @endphp
+                    <label class="block rounded-lg border border-gray-600 p-4 cursor-pointer">
+                        <span class="flex rounded-md overflow-hidden h-12 mb-3" aria-hidden="true">
+                            @foreach($swatch as $colour)<span class="flex-1" style="background: {{ $colour }}"></span>@endforeach
+                        </span>
+                        <span class="flex items-center gap-2 text-white">
+                            <input type="radio" name="appearance_palette" value="{{ $id }}" @checked(old('appearance_palette', isset($publicAppearance['custom']) ? 'custom' : $publicAppearance['palette']) === $id)>
+                            {{ __($label) }}
+                            @if($id === 'weathernode')<span class="text-xs text-gray-400">{{ __('Original / default') }}</span>@endif
+                        </span>
+                    </label>
+                @endforeach
+                @if($customTheme)
+                    <label class="block rounded-lg border border-gray-600 p-4 cursor-pointer">
+                        <span class="flex items-center gap-2 text-white">
+                            <input type="radio" name="appearance_palette" value="custom" @checked(old('appearance_palette', isset($publicAppearance['custom']) ? 'custom' : $publicAppearance['palette']) === 'custom')>
+                            {{ $publicAppearance['custom']['name'] ?? $customTheme['name'] }}
+                        </span>
+                        <span class="text-xs text-gray-400">{{ __('Custom theme') }}</span>
+                    </label>
+                @endif
+            </div>
+            <a href="{{ route('admin.settings.theme-creator') }}" class="inline-block mt-4 text-cyan-400 hover:underline">{{ __('Theme creator') }} →</a>
+        </fieldset>
+
+        <div class="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+            <label for="appearance-color-mode" class="block text-lg font-semibold text-white mb-2">{{ __('Default colour mode') }}</label>
+            <select id="appearance-color-mode" name="appearance_color_mode" class="bg-gray-900 border-gray-600 text-white rounded-lg">
+                @foreach(['dark' => __('Dark mode'), 'light' => __('Light mode'), 'system' => __('System')] as $value => $label)
+                    <option value="{{ $value }}" @selected(old('appearance_color_mode', $publicAppearance['mode']) === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <p class="text-sm text-gray-400 mt-3">{{ __('Visitors can override this on the public site. System follows their device preference. The admin theme is separate.') }}</p>
+        </div>
+
+        <fieldset class="bg-gray-800/50 rounded-xl border border-gray-700 p-6">
+            <legend class="text-lg font-semibold text-white px-2">{{ __('Visitor theme choices') }}</legend>
+            <input type="hidden" name="appearance_visitor_palettes_present" value="1">
+            <p class="text-sm text-gray-400 mb-4">{{ __('Select themes visitors may choose. Leave all unchecked to use only the station palette.') }}</p>
+            @php($selectedVisitorPalettes = old('appearance_visitor_palettes_present') ? old('appearance_visitor_palettes', []) : array_keys($visitorPalettes))
+            <div class="grid gap-3 sm:grid-cols-2">
+                @foreach($palettes as $id => $label)
+                    <label class="flex items-center gap-3 text-white">
+                        <input type="checkbox" name="appearance_visitor_palettes[]" value="{{ $id }}" @checked(in_array($id, (array) $selectedVisitorPalettes, true))>
+                        {{ __($label) }}
+                    </label>
+                @endforeach
+                @if($publishedCustomTheme)
+                    <label class="flex items-center gap-3 text-white">
+                        <input type="checkbox" name="appearance_visitor_palettes[]" value="custom" @checked(in_array('custom', (array) $selectedVisitorPalettes, true))>
+                        {{ $publishedCustomTheme['name'] }} <span class="text-xs text-gray-400">{{ __('Custom theme') }}</span>
+                    </label>
+                @endif
+            </div>
+            <p class="text-sm text-gray-400 mt-4">{{ __('Custom themes use the last applied version. Apply a custom theme once to offer it here; saved drafts stay unpublished.') }}</p>
+            <p class="text-sm text-gray-400 mt-2">{{ __('Visitors keep their choice on their device. Removed choices return to the station default on their next page load.') }}</p>
+        </fieldset>
 
         <div class="flex justify-end">
             <button type="submit" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-lg transition-colors">

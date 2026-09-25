@@ -78,7 +78,7 @@ class MeteoalarmService implements AlertServiceInterface
 
     public function __construct()
     {
-        $this->regionCode = Setting::getValue('alerts.region_code', 'NL011');
+        $this->regionCode = Setting::getValue('alerts.region_code', '');
     }
 
     /**

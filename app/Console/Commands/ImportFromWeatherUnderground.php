@@ -11,7 +11,7 @@ class ImportFromWeatherUnderground extends Command
 {
     protected $signature = 'weather:import-wu 
                             {--api-key= : Weather Underground API key}
-                            {--station= : Station ID (default: IUITGE8)}
+                            {--station= : Station ID (defaults to the configured Weather Underground station)}
                             {--year= : Year to import (default: 2025)}
                             {--start-date= : Start date (YYYY-MM-DD)}
                             {--end-date= : End date (YYYY-MM-DD)}
@@ -26,7 +26,14 @@ class ImportFromWeatherUnderground extends Command
     public function handle(): int
     {
         $apiKey = $this->option('api-key');
-        $stationId = $this->option('station') ?? 'IUITGE8';
+        $stationId = $this->option('station')
+            ?: (string) \App\Models\Setting::getValue('wunderground.station_id', '');
+
+        if ($stationId === '') {
+            $this->error('No station given. Use --station=ID, or set one in Admin > Settings > Weather Underground.');
+
+            return 1;
+        }
         
         if (!$apiKey) {
             $this->error('API key is required. Use --api-key=YOUR_KEY');

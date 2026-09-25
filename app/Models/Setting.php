@@ -68,6 +68,15 @@ class Setting extends Model
     }
 
     /**
+     * Drop a cached value after a write that did not go through setValue(),
+     * such as a firstOrCreate.
+     */
+    public static function forgetCached(string $key): void
+    {
+        Cache::forget("setting.{$key}");
+    }
+
+    /**
      * Get all settings by group
      */
     public static function getByGroup(string $group): array
@@ -163,19 +172,48 @@ class Setting extends Model
         return static::getValue('station.name', 'WeatherNode');
     }
 
+    /**
+     * Where the station sits when nobody has said yet.
+     *
+     * Greenwich, because it reads as the origin of the coordinate system rather
+     * than as a place somebody chose, and because it is on land: every card
+     * still renders while the owner is working through setup. Null Island would
+     * hand marine APIs plausible ocean data and land APIs nothing, which looks
+     * like a broken install rather than an unconfigured one.
+     */
+    public const DEFAULT_LATITUDE = 51.4779;
+
+    public const DEFAULT_LONGITUDE = -0.0015;
+
     public static function stationLocation(): string
     {
-        return static::getValue('station.location', 'Waldijk - Uitgeest - Noord-Holland');
+        return (string) static::getValue('station.location', '');
     }
 
     public static function latitude(): float
     {
-        return (float) static::getValue('station.latitude', 52.5163996);
+        return static::coordinate('station.latitude', self::DEFAULT_LATITUDE);
     }
 
     public static function longitude(): float
     {
-        return (float) static::getValue('station.longitude', 4.7078991);
+        return static::coordinate('station.longitude', self::DEFAULT_LONGITUDE);
+    }
+
+    /**
+     * A float row holding '' casts to 0.0 long before getValue() could fall
+     * back, so an admin who cleared the field moved the station to the Gulf of
+     * Guinea without being told. Read the stored text instead of the cast.
+     */
+    private static function coordinate(string $key, float $default): float
+    {
+        $setting = Cache::remember("setting.{$key}", 3600, function () use ($key) {
+            return static::find($key);
+        });
+
+        $raw = trim((string) ($setting->value ?? ''));
+
+        return $raw === '' ? $default : (float) $raw;
     }
 
     /**
@@ -200,9 +238,19 @@ class Setting extends Model
         return $value !== '' ? (float) $value : static::longitude();
     }
 
+    /**
+     * A blank timezone is not survivable: new DateTimeZone('') throws, and the
+     * dashboard builds its date label from this with no guard.
+     */
     public static function timezone(): string
     {
-        return static::getValue('station.timezone', 'Europe/Amsterdam');
+        $value = trim((string) (static::getValue('station.timezone', '') ?? ''));
+
+        if ($value === '') {
+            return (string) config('app.timezone', 'UTC');
+        }
+
+        return $value;
     }
 
     public static function defaultUnit(): string
@@ -212,7 +260,7 @@ class Setting extends Model
 
     public static function defaultLanguage(): string
     {
-        return static::getValue('display.language', 'nl-nl');
+        return static::getValue('display.language', 'auto');
     }
 
     public static function defaultTheme(): string

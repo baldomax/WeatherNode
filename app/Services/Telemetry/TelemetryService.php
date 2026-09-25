@@ -12,21 +12,27 @@ class TelemetryService
     /**
      * Collect station data for telemetry
      */
-    public function collectStationData(): ?array
+    /**
+     * What would be sent, whether or not sending is switched on.
+     *
+     * The settings page shows this so an owner can see what sharing means
+     * before agreeing to it. Building it is not sending it: collectStationData
+     * below is the one the senders call, and it still refuses while the
+     * setting is off.
+     */
+    public function previewStationData(): ?array
     {
-        $enabled = Setting::getValue('telemetry.enabled', false);
-        
-        if (!$enabled) {
-            return null;
-        }
-
         try {
             $name = Setting::stationName();
             $hardware = Setting::getValue('station.hardware', '');
             $manufacturer = Setting::getValue('station.manufacturer', '');
             $latitude = Setting::latitude();
             $longitude = Setting::longitude();
-            $serverUrl = Setting::getValue('station.server_url', config('app.url', ''));
+            // A blank row is not a missing one: getValue hands back the blank,
+            // so the seeder's "leave empty to use APP_URL" never happened and a
+            // station was shared with no address to link to.
+            $serverUrl = trim((string) Setting::getValue('station.server_url', ''))
+                ?: (string) config('app.url', '');
             
             // Generate unique station ID (hash of URL + name)
             $stationId = $this->generateStationId($serverUrl, $name);
@@ -54,6 +60,18 @@ class TelemetryService
             ]);
             return null;
         }
+    }
+
+    /**
+     * The data to send, or null when sharing is switched off.
+     */
+    public function collectStationData(): ?array
+    {
+        if (!Setting::getValue('telemetry.enabled', false)) {
+            return null;
+        }
+
+        return $this->previewStationData();
     }
 
     /**

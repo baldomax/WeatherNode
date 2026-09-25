@@ -1,7 +1,7 @@
 const initTideChart = async () => {
     let ApexCharts;
     try {
-        ({ default: ApexCharts } = await import('apexcharts'));
+        ({ default: ApexCharts } = await import('../themed-apexcharts'));
     } catch (error) {
         console.error('Failed to load ApexCharts for tide page:', error);
         return;
@@ -23,8 +23,8 @@ const initTideChart = async () => {
 
     const isDark          = document.documentElement.classList.contains('dark');
     const effectsDisabled = document.body.classList.contains('effects-disabled');
-    const axisLabelColor  = isDark ? '#cbd5e1' : '#475569';
-    const gridColor       = isDark ? '#1f2937' : '#e2e8f0';
+    const axisLabelColor  = '#cbd5e1'; // Original dark shade; the shared theme adapter handles other modes.
+    const gridColor       = '#1f2937';
 
     // Build chart series from the time series data
     const chartData = series.map((p) => ({ x: p.timestamp_unix, y: p.value }));
@@ -44,6 +44,7 @@ const initTideChart = async () => {
             style: {
                 color: t.type === 'high' ? '#22d3ee' : '#60a5fa',
                 background: 'transparent',
+                cssClass: 'weather-chart-label',
                 fontSize: '10px',
                 fontWeight: 600,
                 padding: { top: 2, bottom: 2, left: 4, right: 4 },
@@ -61,7 +62,7 @@ const initTideChart = async () => {
             text: '▸ now',
             orientation: 'horizontal',
             position: 'top',
-            style: { color: '#94a3b8', background: 'transparent', fontSize: '10px' },
+            style: { color: '#94a3b8', background: 'transparent', cssClass: 'weather-chart-label', fontSize: '10px' },
         },
     });
 
@@ -74,7 +75,7 @@ const initTideChart = async () => {
             strokeDashArray: 4,
             label: {
                 text: `${datumLabel} 0`,
-                style: { color: '#64748b', background: 'transparent', fontSize: '10px' },
+                style: { color: '#64748b', background: 'transparent', cssClass: 'weather-chart-label', fontSize: '10px' },
             },
         },
     ];

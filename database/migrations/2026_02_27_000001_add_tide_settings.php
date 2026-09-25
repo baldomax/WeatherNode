@@ -7,10 +7,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Blank, not a station. This used to seed IJMH / IJmuiden, so every
+        // install in the world started out reporting a Dutch sea lock. Tides
+        // stay off until the owner picks a source and a station of their own.
         $defaults = [
-            ['key' => 'tide.enabled',      'value' => '0',         'type' => 'boolean', 'group' => 'tide'],
-            ['key' => 'tide.station_code', 'value' => 'IJMH',      'type' => 'string',  'group' => 'tide'],
-            ['key' => 'tide.station_name', 'value' => 'IJmuiden',  'type' => 'string',  'group' => 'tide'],
+            ['key' => 'tide.enabled',      'value' => '0',  'type' => 'boolean', 'group' => 'tide'],
+            ['key' => 'tide.station_code', 'value' => '',   'type' => 'string',  'group' => 'tide'],
+            ['key' => 'tide.station_name', 'value' => '',   'type' => 'string',  'group' => 'tide'],
         ];
 
         foreach ($defaults as $row) {

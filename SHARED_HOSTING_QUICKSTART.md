@@ -76,6 +76,7 @@ php artisan system:readiness
 
 Check:
 - Open your site and sign in at `/admin` using the admin account you created with `php artisan admin:create`
+- the first login asks where the station is and where its readings come from; answer that before judging anything else, since a fresh install knows about no particular place
 - dashboard loads without missing CSS/JS
 - weather data appears after first poll cycle
 

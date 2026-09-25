@@ -11,7 +11,6 @@ class MetarService
 {
     private string $apiKey;
     private string $baseUrl = 'https://api.checkwx.com/metar/';
-    private array $defaultStations = ['EHAM']; // Schiphol as default
 
     public function __construct()
     {
@@ -28,7 +27,13 @@ class MetarService
             return null;
         }
 
-        $stations = $stations ?? $this->defaultStations;
+        // No station configured means nothing to ask for. This used to fall
+        // back to Schiphol, so every install reported a Dutch airport.
+        $stations = array_filter($stations ?? []);
+
+        if ($stations === []) {
+            return null;
+        }
         $stationList = implode(',', $stations);
         $cacheKey = "metar_{$stationList}";
 
@@ -136,15 +141,6 @@ class MetarService
                 'text' => $condition['text'] ?? null,
             ];
         }, $conditions);
-    }
-
-    /**
-     * Get METAR for Schiphol (EHAM)
-     */
-    public function getSchipholMetar(): ?array
-    {
-        $data = $this->fetchMetar(['EHAM']);
-        return $data[0] ?? null;
     }
 
     /**

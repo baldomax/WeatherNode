@@ -106,9 +106,9 @@ Schedule::call(function () {
 
         // Tide data (cache key must match WaterController / PollExternalData: tide_{source}_{stationCode})
         if ((bool) Setting::getValue('tide.enabled', false)) {
-            $tideSource   = Setting::getValue('tide.source', 'rws');
+            $tideSource   = Setting::getValue('tide.source', \App\Services\Tide\TideServiceFactory::DEFAULT_SOURCE);
             $tideStation  = Setting::getValue("tide.{$tideSource}_station_code",
-                              Setting::getValue('tide.station_code', \App\Services\TideService::DEFAULT_STATION));
+                              Setting::getValue('tide.station_code', ''));
             $tide = Cache::get('tide_' . $tideSource . '_' . $tideStation);
             $tideValid = $tide && is_array($tide) && !empty($tide);
             if (!$tideValid) {

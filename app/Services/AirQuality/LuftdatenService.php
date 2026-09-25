@@ -17,7 +17,7 @@ class LuftdatenService
     
     public function __construct()
     {
-        $this->sensorId = Setting::getValue('luftdaten.sensor_id', '69616');
+        $this->sensorId = Setting::getValue('luftdaten.sensor_id', '');
     }
 
     /**

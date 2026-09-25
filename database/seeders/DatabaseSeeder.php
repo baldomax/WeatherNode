@@ -12,6 +12,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
+            // Before SettingsSeeder: it decides whether this is a first run by
+            // looking for settings that SettingsSeeder is about to create.
+            FirstRunSeeder::class,
             AdminUserSeeder::class,
             SettingsSeeder::class,
         ]);

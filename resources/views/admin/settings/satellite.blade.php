@@ -5,7 +5,7 @@
 @section('content')
 @php
     $enabled = (bool) \App\Models\Setting::getValue('satellite.enabled', true);
-    $provider = \App\Models\Setting::getValue('satellite.provider', 'knmi');
+    $provider = \App\Models\Setting::getValue('satellite.provider', 'nasa');
     $displayRegion = \App\Models\Setting::getValue('satellite.display_region', 'europe');
     $nasaMode = \App\Models\Setting::getValue('satellite.nasa.mode', 'nrt');
     $nasaImagery = \App\Models\Setting::getValue('satellite.nasa.imagery', 'truecolor');
@@ -91,7 +91,7 @@
                     <select name="satellite_provider"
                             id="satellite_provider"
                             class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400">
-                        <option value="knmi" {{ $provider === 'knmi' ? 'selected' : '' }}>{{ __('KNMI (Local)') }}</option>
+                        <option value="knmi" {{ $provider === 'knmi' ? 'selected' : '' }}>{{ __('Local image (your own URL)') }}</option>
                         <option value="nasa" {{ $provider === 'nasa' ? 'selected' : '' }}>{{ __('NASA Worldview (Worldwide)') }}</option>
                         <option value="custom" {{ $provider === 'custom' ? 'selected' : '' }}>{{ __('Custom URL') }}</option>
                     </select>

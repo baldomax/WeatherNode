@@ -58,11 +58,23 @@ Run commands from the repository root (the folder containing `docker-compose.yml
 
   If no user exists yet and you did not set `ADMIN_*` env values, open `/setup/admin` once to create the first admin account.
 
+  Either way, the first login opens a short setup that asks where the station is and where its readings come from. Nothing in the image knows about any particular place, so answer that before judging what the weather pages show.
+
 3. **Optional: initial weather data**
    ```bash
    docker compose exec app php artisan weather:fetch --save
    docker compose exec app php artisan weather:poll-external --force
    ```
+
+### Which image tag to run
+
+| Tag | What it is |
+| --- | --- |
+| `latest` | the newest release. What `docker-compose.yml` uses, and what you want |
+| `v2026.09.4` and so on | one specific release, pinned |
+| `edge` | the tip of `main`, built on every merge. Unreleased work, no release notes, and no promise it behaves |
+
+`latest` followed `main` until September 2026, so an older compose file pulling `latest` was tracking unreleased commits. It now moves only when a release is tagged.
 
 If you changed `Dockerfile` or other build-time files, rebuild with:
 

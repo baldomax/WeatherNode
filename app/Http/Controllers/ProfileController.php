@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
@@ -47,6 +49,16 @@ class ProfileController extends Controller
         ]);
 
         $user = $request->user();
+
+        // The last administrator may not walk out. On a single-admin install
+        // that empties the users table, and /setup/admin opens again to
+        // whoever reaches the site first. Even with other users left behind it
+        // leaves an install nobody can administer.
+        if ($user->is_admin && User::query()->where('is_admin', true)->where('id', '!=', $user->id)->doesntExist()) {
+            throw ValidationException::withMessages([
+                'password' => __('You are the only administrator. Make somebody else an admin before deleting your own account.'),
+            ])->errorBag('userDeletion');
+        }
 
         Auth::logout();
 

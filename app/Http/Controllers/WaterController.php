@@ -129,11 +129,11 @@ class WaterController extends Controller
     public function tides()
     {
         $enabled = (bool) Setting::getValue('tide.enabled', false);
-        $source  = Setting::getValue('tide.source', 'rws');
+        $source  = Setting::getValue('tide.source', TideServiceFactory::DEFAULT_SOURCE);
 
         $stationCode = Setting::getValue("tide.{$source}_station_code",
-                       Setting::getValue('tide.station_code', TideService::DEFAULT_STATION));
-        $stationName = Setting::getValue('tide.station_name', 'IJmuiden');
+                       Setting::getValue('tide.station_code', ''));
+        $stationName = Setting::getValue('tide.station_name', '');
 
         $driver       = TideServiceFactory::make($source);
         $sourceLabel  = $driver->getName();
@@ -191,7 +191,7 @@ class WaterController extends Controller
             'stationCode'   => null,
             'stationName'   => null,
             'stations'      => [],
-            'source'        => 'rws',
+            'source'        => '',
             'sourceLabel'   => '',
             'sourceDocUrl'  => null,
             'riverData'     => null,
@@ -213,7 +213,7 @@ class WaterController extends Controller
             'stationCode'   => null,
             'stationName'   => null,
             'stations'      => [],
-            'source'        => 'rws',
+            'source'        => '',
             'sourceLabel'   => '',
             'sourceDocUrl'  => null,
             'riverData'     => null,
@@ -236,7 +236,7 @@ class WaterController extends Controller
             'stationCode'   => null,
             'stationName'   => null,
             'stations'      => [],
-            'source'        => 'rws',
+            'source'        => '',
             'sourceLabel'   => '',
             'sourceDocUrl'  => null,
             'wavesEnabled'  => false,

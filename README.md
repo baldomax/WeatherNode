@@ -113,7 +113,7 @@ Detailed admin operations live in [ADMIN_GUIDE.md](ADMIN_GUIDE.md).
 
 🎨 Customization
 
-- Two public themes, FX and Flat.
+- FX and Flat visual modes, with WeatherNode, Ocean, Forest, and Solar Flare colour palettes and visitor-selectable light/dark/system modes.
 - Admin drag and drop widget ordering on the dashboard.
 - Optional visual effects like rain, snow, wind, lightning, and fog.
 
@@ -211,6 +211,8 @@ make docker-up
 
 The container startup runs migrations automatically. On first startup it also runs one-time bootstrap (`storage:link`, `db:seed`, and optional `admin:create` when `ADMIN_EMAIL` + `ADMIN_PASSWORD` are set in `docker-compose.yml`).
 If you leave `ADMIN_EMAIL` / `ADMIN_PASSWORD` empty, create the first admin account in the browser at `/setup/admin` (available only while no users exist).
+
+Log in and WeatherNode asks where the station is and where its readings come from, with a map for the coordinates. It ships knowing nothing about any particular place, so this is the one thing it needs before the weather pages mean anything. It takes a minute and can be put off.
 
 For a friendlier startup check flow, use:
 
