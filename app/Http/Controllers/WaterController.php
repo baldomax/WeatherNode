@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Support\WaterSections;
 use App\Services\TideService;
 use App\Services\Tide\TideServiceFactory;
 use App\Services\Wave\OpenMeteoWaveService;
@@ -14,17 +15,6 @@ use Illuminate\Support\Facades\Log;
 class WaterController extends Controller
 {
     // ── Shared helpers ──────────────────────────────────────────────────────
-
-    /** True if at least one river provider is enabled. */
-    private function riversEnabled(): bool
-    {
-        foreach (RiverProviderRegistry::active() as $providerId => $providerMeta) {
-            if ((bool) RiverProviderRegistry::getSetting($providerId, 'enabled', false)) {
-                return true;
-            }
-        }
-        return false;
-    }
 
     /** Load wave + SST data from cache; live-fetch on miss. */
     private function loadWaveData(): ?array
@@ -123,12 +113,28 @@ class WaterController extends Controller
         return empty($merged) ? null : $merged;
     }
 
+    /**
+     * A switched-off section sends visitors to the first one that is on, or
+     * 404s when the whole Water section is off.
+     */
+    private function elsewhere(): \Illuminate\Http\RedirectResponse
+    {
+        $first = WaterSections::firstRoute();
+        abort_if($first === null, 404);
+
+        return redirect()->route($first);
+    }
+
     // ── Tab controllers ─────────────────────────────────────────────────────
 
     /** GET /water — Tides (default tab) */
     public function tides()
     {
-        $enabled = (bool) Setting::getValue('tide.enabled', false);
+        if (!WaterSections::isEnabled('tides')) {
+            return $this->elsewhere();
+        }
+
+        $enabled = true;
         $source  = Setting::getValue('tide.source', TideServiceFactory::DEFAULT_SOURCE);
 
         $stationCode = Setting::getValue("tide.{$source}_station_code",
@@ -159,7 +165,7 @@ class WaterController extends Controller
 
         return view('weather.tide', [
             'activeTab'     => 'tides',
-            'riversEnabled' => $this->riversEnabled(),
+            'waterTabs'     => WaterSections::enabled(),
             // Tide
             'tideEnabled'   => $enabled,
             'tideData'      => $tideData,
@@ -179,9 +185,13 @@ class WaterController extends Controller
     /** GET /water/waves — Waves */
     public function waves()
     {
+        if (!WaterSections::isEnabled('waves')) {
+            return $this->elsewhere();
+        }
+
         return view('weather.tide', [
             'activeTab'     => 'waves',
-            'riversEnabled' => $this->riversEnabled(),
+            'waterTabs'     => WaterSections::enabled(),
             // Wave
             'wavesEnabled'  => true,
             'waveData'      => $this->loadWaveData(),
@@ -201,9 +211,13 @@ class WaterController extends Controller
     /** GET /water/temp — Sea Temperature */
     public function temperature()
     {
+        if (!WaterSections::isEnabled('temp')) {
+            return $this->elsewhere();
+        }
+
         return view('weather.tide', [
             'activeTab'     => 'temp',
-            'riversEnabled' => $this->riversEnabled(),
+            'waterTabs'     => WaterSections::enabled(),
             // SST data comes from wave service
             'wavesEnabled'  => true,
             'waveData'      => $this->loadWaveData(),
@@ -223,13 +237,15 @@ class WaterController extends Controller
     /** GET /water/rivers — River Levels */
     public function rivers()
     {
-        $riversEnabled = $this->riversEnabled();
+        if (!WaterSections::isEnabled('rivers')) {
+            return $this->elsewhere();
+        }
 
         return view('weather.tide', [
             'activeTab'     => 'rivers',
-            'riversEnabled' => $riversEnabled,
+            'waterTabs'     => WaterSections::enabled(),
             // River
-            'riverData'     => $riversEnabled ? $this->loadRiverData() : null,
+            'riverData'     => $this->loadRiverData(),
             // Unused on this tab
             'tideEnabled'   => false,
             'tideData'      => null,

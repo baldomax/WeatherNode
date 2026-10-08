@@ -18,7 +18,7 @@ This document describes running WeatherNode in Docker and how to use it.
 | Node/npm (frontend build) | Multi-stage build: run `npm ci && npm run build` in a Node stage and copy `public/build` into the PHP image. No Node in the final image. |
 | SQLite or MySQL | SQLite: named volume at `/var/lib/weathernode`, outside the app directory. MySQL: use a `mysql` service in `docker-compose` and set `DB_*` in `.env`. |
 | Web server (document root = `public/`) | Nginx runs in the same image via supervisord. |
-| Laravel scheduler (cron) | A second container from the same image runs `php artisan schedule:run` every minute. |
+| Laravel scheduler (cron) | A second container from the same image runs `php artisan schedule:run` every minute. Or set `DOCKER_RUN_SCHEDULER=true` to run it inside the app container instead (see below). |
 | Writable storage | Named volumes for `storage/` and `bootstrap/cache`. |
 
 ## Quick start
@@ -27,7 +27,7 @@ Run commands from the repository root (the folder containing `docker-compose.yml
 
 1. **Edit `docker-compose.yml`**
    - Update `APP_URL` for your host/domain.
-   - Replace `APP_KEY` with a real key.
+   - Optional: replace `APP_KEY` with your own key. If you leave the placeholder, the container generates one on first start and saves it in the storage volume as `storage/app/.app-key`. It encrypts saved API keys and passwords, so keep that volume in your backups.
    - Optional: set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for first-run admin creation.
      - If you prefer the normal web flow, leave them empty and create the first admin from `/setup/admin` in the browser after startup.
      - `/setup/admin` is only available on a fresh install and disables itself after the first user is created.
@@ -108,17 +108,20 @@ Run migrations (and optionally seed/create admin) as above.
 
 - **Laravel Sail**: The project has `laravel/sail` in `require-dev` for local development. This Docker setup is a self-contained production-style alternative.
 - **Cron on the host**: Not required; the `scheduler` container replaces it.
+- **One container instead of two**: set `DOCKER_RUN_SCHEDULER: "true"` and the app container runs the scheduler itself, next to nginx and php-fpm. This is for platforms that install one container per app, such as Unraid. It is off by default, so existing compose setups keep working unchanged. If you turn it on, remove the `scheduler` service from `docker-compose.yml`. If you forget, nothing runs twice: every task takes a lock in the shared cache first, so each one still runs once per slot.
 - **Deploy script**: `deploy.sh` excludes `Dockerfile` and `docker-compose*.yml`, so they are not overwritten when deploying to a non-Docker server.
 - **Bootstrap toggles**: set `DOCKER_AUTO_MIGRATE` or `DOCKER_AUTO_SEED` to `"false"` in `docker-compose.yml` to disable automatic startup actions.
 - **Makefile helpers**:
-  - `make docker-up` checks that the `APP_KEY` placeholder was replaced, then runs `docker compose up -d`.
-  - `make docker-rebuild` does the same check, then runs `docker compose build --no-cache && docker compose up -d`.
+  - `make docker-up` runs `docker compose up -d`, and notes when `APP_KEY` will be generated.
+  - `make docker-rebuild` runs `docker compose build --no-cache && docker compose up -d`, with the same note.
 
 ## Lessons learned (first-boot reliability)
 
-### 1) APP_KEY must be valid for Laravel
+### 1) APP_KEY must be valid for Laravel, and must never change
 
-Use a 32-byte key encoded as `base64:...`:
+If `APP_KEY` is empty or still the placeholder, the entrypoint generates a key on first start and saves it to `storage/app/.app-key` in the storage volume. Every later start reuses it, and `config/app.php` reads the same file, so the separate scheduler container uses the same key. A key set in the environment always wins. If it differs from the saved one, the log warns that settings encrypted with the saved key cannot be read.
+
+To set your own key instead, use a 32-byte key encoded as `base64:...`:
 
 ```bash
 echo "base64:$(openssl rand -base64 32)"

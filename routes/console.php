@@ -177,6 +177,12 @@ $loggedSchedulerTask('weather-fetch', 'weather:fetch --save', 'weather-fetch.log
     ->everyMinute()
     ->withoutOverlapping();
 
+// Fill gaps in the readings from the Ecowitt cloud history. Does nothing until
+// cloud keys and a MAC address are set, whatever the live source is.
+$loggedSchedulerTask('ecowitt-backfill', 'ecowitt:backfill', 'ecowitt-backfill.log')
+    ->hourlyAt(17)
+    ->withoutOverlapping();
+
 // Refresh per-source health status (drives stale/offline overlays on dashboard cards)
 $loggedSchedulerTask('check-sensor-health', 'weather:check-sensor-health', 'check-sensor-health.log')
     ->everyFiveMinutes()
@@ -456,3 +462,28 @@ $telemetryMinute = (($telemetrySeed >> 8) & 0x7FFFFFFF) % 60;
 $loggedSchedulerTask('telemetry-send', 'telemetry:send', 'telemetry-send.log')
     ->dailyAt(sprintf('%02d:%02d', $telemetryHour, $telemetryMinute))
     ->withoutOverlapping();
+
+// =============================================================================
+// ONE RUN PER SLOT
+// =============================================================================
+
+// Every task runs at most once per scheduled minute, however many schedulers
+// fire. The Docker image can run the scheduler inside the app container
+// (DOCKER_RUN_SCHEDULER=true, used by the Unraid template). Someone who turns
+// that on and keeps the separate scheduler container from docker-compose.yml
+// would otherwise run every task twice, and withoutOverlapping() does not stop
+// that: it only blocks a second run while the first is still going, and most
+// of these tasks finish in seconds.
+//
+// The lock lives in the cache. Both containers share the storage volume, so a
+// file cache is shared too. With only one scheduler this changes nothing.
+//
+// A closure without ->name() cannot take a lock, and onOneServer() throws on
+// one, which would take down every schedule:run. Those are skipped instead.
+foreach (Schedule::events() as $event) {
+    if ($event instanceof \Illuminate\Console\Scheduling\CallbackEvent && empty($event->description)) {
+        continue;
+    }
+
+    $event->onOneServer();
+}

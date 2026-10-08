@@ -188,15 +188,18 @@ Route::get('/sitemap.xml', function () {
         ['loc' => '/community-stations', 'changefreq' => 'daily',   'priority' => '0.5'],
         ['loc' => '/aviation',           'changefreq' => 'hourly',  'priority' => '0.7', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER],
         ['loc' => '/alerts',             'changefreq' => 'hourly',  'priority' => '0.7', 'feature' => MenuFeatureMap::FEATURE_ALERTS],
-        ['loc' => '/water',              'changefreq' => 'hourly',  'priority' => '0.7', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER],
-        ['loc' => '/water/waves',        'changefreq' => 'hourly',  'priority' => '0.6', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER],
-        ['loc' => '/water/temp',         'changefreq' => 'hourly',  'priority' => '0.6', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER],
-        ['loc' => '/water/rivers',       'changefreq' => 'hourly',  'priority' => '0.6', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER],
+        ['loc' => '/water',              'changefreq' => 'hourly',  'priority' => '0.7', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER, 'water' => 'tides'],
+        ['loc' => '/water/waves',        'changefreq' => 'hourly',  'priority' => '0.6', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER, 'water' => 'waves'],
+        ['loc' => '/water/temp',         'changefreq' => 'hourly',  'priority' => '0.6', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER, 'water' => 'temp'],
+        ['loc' => '/water/rivers',       'changefreq' => 'hourly',  'priority' => '0.6', 'feature' => MenuFeatureMap::FEATURE_SKY_WATER, 'water' => 'rivers'],
     ];
 
     $featureFlags = MenuFeatureMap::all();
     $pages = array_values(array_filter($pages, static function (array $page) use ($featureFlags): bool {
         $feature = $page['feature'] ?? null;
+        if (isset($page['water']) && !\App\Support\WaterSections::isEnabled($page['water'])) {
+            return false;
+        }
         if (!$feature) {
             return true;
         }
@@ -549,6 +552,13 @@ Route::prefix('admin')
             ], 405);
         });
         Route::post('/settings/test-api', [SettingsController::class, 'testApi'])->name('settings.test-api');
+        Route::post('/settings/weatherlink/stations', [SettingsController::class, 'weatherLinkStations'])->name('settings.weatherlink.stations');
+        Route::post('/settings/ecowitt/stations', [\App\Http\Controllers\Admin\EcowittSettingsController::class, 'stations'])->name('settings.ecowitt.stations');
+        Route::get('/settings/ecowitt/status', [\App\Http\Controllers\Admin\EcowittSettingsController::class, 'status'])->name('settings.ecowitt.status');
+        Route::post('/settings/ecowitt/backfill', [\App\Http\Controllers\Admin\EcowittSettingsController::class, 'backfill'])->name('settings.ecowitt.backfill');
+        Route::get('/settings/netatmo/connect', [\App\Http\Controllers\Admin\NetatmoSettingsController::class, 'connect'])->name('settings.netatmo.connect');
+        Route::get('/settings/netatmo/callback', [\App\Http\Controllers\Admin\NetatmoSettingsController::class, 'callback'])->name('settings.netatmo.callback');
+        Route::post('/settings/netatmo/disconnect', [\App\Http\Controllers\Admin\NetatmoSettingsController::class, 'disconnect'])->name('settings.netatmo.disconnect');
         Route::post('/settings/nlg/models', [SettingsController::class, 'fetchNlgModels'])->name('settings.nlg.models');
         Route::post('/settings/history/sync', [SettingsController::class, 'syncHistory'])->name('settings.history.sync');
         Route::post('/settings/history/wu-sync', [SettingsController::class, 'syncWundergroundHistory'])->name('settings.history.wu-sync');

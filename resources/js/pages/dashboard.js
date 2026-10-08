@@ -2880,6 +2880,20 @@ function weatherDashboard() {
                     return `${t('Sensor')} ${id}`;
                 },
 
+                // Lines for the More sensors card come from App\Support\ExtraSensors::lines():
+                // English labels, translated here; temperatures follow the visitor's unit.
+                moreSensorLabel(line) {
+                    if (!line || typeof line !== 'object') return '';
+                    return t(line.label) + (line.channel ? ` ${line.channel}` : '');
+                },
+
+                moreSensorValue(line) {
+                    if (!line || typeof line !== 'object' || line.value === null || line.value === undefined) return '--';
+                    if (line.kind === 'temp') return this.formatTemp(line.value);
+                    if (line.kind === 'state') return t(line.value);
+                    return line.unit ? `${line.value} ${line.unit}` : String(line.value);
+                },
+
                 getSoilLabel(key) {
                     const label = this.extraSensorLabels?.soil?.[key] || this.extraSensorLabels?.soil?.[`soil_${key}`];
                     if (label && String(label).trim()) return label;
@@ -3323,100 +3337,66 @@ function weatherDashboard() {
                 },
 
                 // Battery status helpers
-                getBatteryLabel(key) {
+                // Each battery arrives already judged by BatteryStatus on the server,
+                // the same rules the admin card uses (#131): label, kind, state,
+                // status and value. Only naming and colour are decided here.
+                getBatteryLabel(key, entry) {
                     const customLabel = this.extraSensorLabels?.battery?.[key];
                     if (customLabel && String(customLabel).trim()) return customLabel;
 
-                    const tempMatch = String(key).match(/^batt(\d+)$/);
-                    if (tempMatch) {
-                        const id = tempMatch[1];
-                        return this.extraSensorLabels?.temps?.[`temp_${id}`]
-                            || `${t('Sensor')} ${id}`;
+                    if (!entry || typeof entry !== 'object') return key;
+
+                    const ch = entry.channel;
+                    if (ch) {
+                        const own = {
+                            temps: this.extraSensorLabels?.temps?.[`temp_${ch}`],
+                            soil: this.extraSensorLabels?.soil?.[ch] || this.extraSensorLabels?.soil?.[`soil_${ch}`],
+                            pm25: this.extraSensorLabels?.pm25?.[`pm25_${ch}`] || this.extraSensorLabels?.pm25?.[`ch${ch}`],
+                            leak: this.extraSensorLabels?.leak?.[`leak_${ch}`],
+                        }[entry.family];
+                        if (own && String(own).trim()) return own;
+
+                        return `${t(entry.label)} ${ch}`;
                     }
 
-                    const soilMatch = String(key).match(/^soilbatt(\d+)$/);
-                    if (soilMatch) {
-                        const id = soilMatch[1];
-                        return this.extraSensorLabels?.soil?.[id]
-                            || this.extraSensorLabels?.soil?.[`soil_${id}`]
-                            || `${t('Soil Sensor')} ${id}`;
-                    }
-
-                    const pm25Match = String(key).match(/^pm25batt(\d+)$/);
-                    if (pm25Match) {
-                        const id = pm25Match[1];
-                        return this.extraSensorLabels?.pm25?.[`pm25_${id}`]
-                            || this.extraSensorLabels?.pm25?.[`ch${id}`]
-                            || `${t('PM2.5 Sensor')} ${id}`;
-                    }
-
-                    const leakMatch = String(key).match(/^leakbatt(\d+)$/);
-                    if (leakMatch) {
-                        const id = leakMatch[1];
-                        return this.extraSensorLabels?.leak?.[`leak_${id}`]
-                            || `${t('Leak Sensor')} ${id}`;
-                    }
-
-                    const labels = {
-                        'wh26batt': t('Temperature/Humidity Sensor'),
-                        'wh57batt': t('Lightning Sensor (WH57)'),
-                        'wh65batt': t('Outdoor Sensor (WH65)'),
-                        'batt1': t('Extra Sensor 1'),
-                        'batt2': t('Extra Sensor 2'),
-                        'batt3': t('Extra Sensor 3'),
-                        'batt4': t('Extra Sensor 4'),
-                        'batt_co2': t('CO2 Sensor'),
-                        'batt_pm25': t('PM2.5 Sensor'),
-                        'batt_leak': t('Leak Sensor'),
-                        'batt_soil': t('Soil Sensor'),
-                        'co2_batt': t('CO2 Sensor'),
-                        'haptic_array_battery': t('WS90 Batteries (AA)'),
-                        'haptic_array_capacitor': t('WS90 Solar Capacitor'),
-                    };
-                    return labels[key] || key;
+                    return entry.label ? t(entry.label) : key;
                 },
 
-                getBatteryIcon(key, value) {
-                    // For most Ecowitt sensors: 0 = OK, 1+ = low
-                    // WH57 lightning sensor: 0-5 battery level (5 = full)
-                    // WS90 haptic array: real voltage readings, not a 0/1 flag
-                    if (typeof value === 'undefined' || value === null) return '❓';
-                    if (key === 'haptic_array_battery') {
-                        return value <= 2.7 ? '🪫' : '🔋';
-                    }
-                    if (key === 'haptic_array_capacitor') {
-                        return value <= 2.5 ? '🪫' : '⚡';
-                    }
-                    if (value === 0) return '🔋'; // Good
-                    if (value <= 2) return '🪫'; // Low/medium
-                    return '⚡'; // High value (WH57 style - higher is better)
+                // One short value per sensor, the same width in every language:
+                // volts when there are any, a check mark when a sensor without
+                // volts is fine, nothing for mains (the plug says it), and a word
+                // only when something needs attention. A low voltage stays the
+                // number in red; the word is in the title and aria-label.
+                batteryValue(entry) {
+                    if (!entry || typeof entry !== 'object') return t('Unknown');
+                    if (entry.type === 'volts') return `${entry.value} V`;
+                    if (entry.status === 'Mains') return '';
+                    if (entry.state === 'good') return '✓';
+                    return t(entry.status);
                 },
 
-                getBatteryStatus(key, value) {
-                    // WH57 uses 0-5 scale where 5 is full
-                    if (key === 'wh57batt') {
-                        if (value >= 4) return { text: t('Full'), class: 'text-data-green-400' };
-                        if (value >= 2) return { text: t('Moderate'), class: 'text-data-yellow-400' };
-                        return { text: t('Low'), class: 'text-data-red-400' };
-                    }
-                    // WS90 AA battery pack: real voltage (V), not a 0/1 flag.
-                    // Low-battery threshold per Ecowitt WS90 manual: 2.7V (alkaline/lithium,
-                    // the conservative default since we don't know which chemistry is in use).
-                    if (key === 'haptic_array_battery') {
-                        return value <= 2.7
-                            ? { text: t('Low'), class: 'text-data-red-400' }
-                            : { text: t('Good'), class: 'text-data-green-400' };
-                    }
-                    // WS90 solar-charged supercapacitor: voltage naturally dips overnight
-                    // without indicating a fault, so this only flags a persistently low panel.
-                    if (key === 'haptic_array_capacitor') {
-                        return value <= 2.5
-                            ? { text: t('Low'), class: 'text-data-red-400' }
-                            : { text: t('Good'), class: 'text-data-green-400' };
-                    }
-                    // Other sensors: 0 = OK, 1+ = low
-                    if (value === 0) return { text: t('Good'), class: 'text-data-green-400' };
-                    return { text: t('Low'), class: 'text-data-red-400' };
+                batteryStatusText(entry) {
+                    return t(entry?.status || 'Unknown');
+                },
+
+                batteryTone(entry) {
+                    return {
+                        good: 'text-data-green-400',
+                        medium: 'text-data-yellow-400',
+                        low: 'text-data-red-400',
+                    }[entry?.state] || 'text-gray-400';
+                },
+
+                // Width of the charge bar inside the battery icon (12 = full).
+                batteryFill(entry) {
+                    const pct = entry?.percentage ?? { good: 100, medium: 50, low: 20 }[entry?.state] ?? 0;
+                    return Math.max(1.5, Math.min(12, (pct / 100) * 12));
+                },
+
+                batterySummary() {
+                    const low = Object.values(this.batteryStatus || {}).filter((e) => e?.state === 'low').length;
+                    // "Low (2)" reuses the status word, so no language needs plural forms.
+                    return { low, text: low > 0 ? `${t('Low')} (${low})` : t('All good') };
                 },
 
 	                clearWeatherEffectContainers() {

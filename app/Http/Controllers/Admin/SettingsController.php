@@ -112,7 +112,7 @@ class SettingsController extends Controller
         ],
         'ecowitt' => [
             'label' => 'Ecowitt',
-            'description' => 'Ecowitt local push or cloud API settings',
+            'description' => 'Ecowitt and other Fine Offset stations, such as Froggit, Sainlogic and Misol',
             'icon' => 'key',
             'color' => 'green',
             'category' => 'datasources',
@@ -157,6 +157,13 @@ class SettingsController extends Controller
             'description' => 'Ambient Weather API settings',
             'icon' => 'wifi',
             'color' => 'teal',
+            'category' => 'datasources',
+        ],
+        'netatmo' => [
+            'label' => 'Netatmo',
+            'description' => 'Netatmo weather station, your own or a favorite',
+            'icon' => 'wifi',
+            'color' => 'cyan',
             'category' => 'datasources',
         ],
         'weatherflow' => [
@@ -532,6 +539,8 @@ class SettingsController extends Controller
             'schedulerTasks' => $schedulerTasks,
             'timezones' => $timezones,
             'radarFutureFrameProviders' => $radarFutureFrameProviders,
+            'ecowitt' => $group === 'ecowitt' ? EcowittSettingsController::pageData() : null,
+            'netatmo' => $group === 'netatmo' ? NetatmoSettingsController::pageData() : null,
         ]);
     }
 
@@ -640,6 +649,14 @@ class SettingsController extends Controller
      */
     public function update(Request $request, string $group)
     {
+        if ($group === 'ecowitt') {
+            return app(EcowittSettingsController::class)->save($request);
+        }
+
+        if ($group === 'netatmo') {
+            return app(NetatmoSettingsController::class)->save($request);
+        }
+
         if ($group === 'aviation') {
             $this->ensureMetarDefaultSceneSetting();
             if ($request->has('metar_default_scene')) {
@@ -820,8 +837,11 @@ class SettingsController extends Controller
             if ($request->has($formKey)) {
                 $value = $request->input($formKey);
                 
-                // Don't update encrypted fields if they're empty (keeps existing value)
-                if ($setting->type === 'encrypted' && empty($value)) {
+                // Don't update encrypted fields if they're empty (keeps existing value),
+                // or if they hold only a display mask like ******** that a page
+                // prefilled. The mask is not the secret, and saving it replaces the
+                // real key (#97).
+                if ($setting->type === 'encrypted' && (empty($value) || preg_match('/^\*+$/', (string) $value))) {
                     continue;
                 }
                 
@@ -879,16 +899,9 @@ class SettingsController extends Controller
 
         try {
             $telemetryService = app(\App\Services\Telemetry\TelemetryService::class);
-            $aggregatorService = app(\App\Services\Telemetry\TelemetryAggregatorService::class);
-            
+
             if ($telemetryService->shouldUpdate()) {
-                $stationData = $telemetryService->collectStationData();
-                if ($stationData) {
-                    $success = $aggregatorService->sendStationData($stationData);
-                    if ($success) {
-                        $telemetryService->markAsUpdated($stationData);
-                    }
-                }
+                $telemetryService->publish();
             }
         } catch (\Exception $e) {
             \Log::error('Failed to auto-update telemetry', [
@@ -970,6 +983,7 @@ class SettingsController extends Controller
             'pm25' => ['label' => 'PM2.5 Air Quality', 'icon' => 'cloud', 'description' => 'Particulate matter sensors'],
             'co2' => ['label' => 'CO2 Monitor', 'icon' => 'gauge', 'description' => 'Carbon dioxide levels'],
             'leak' => ['label' => 'Leak Detection', 'icon' => 'droplet', 'description' => 'Water leak sensor alerts'],
+            'more_sensors' => ['label' => 'More Sensors', 'icon' => 'gauge', 'description' => 'Black globe, soil EC, water level, wetness and water quality sensors'],
             'battery' => ['label' => 'Battery Status', 'icon' => 'battery', 'description' => 'Sensor battery levels'],
             
             // Advertising widget
@@ -1641,15 +1655,11 @@ class SettingsController extends Controller
         if ($enabled) {
             try {
                 $telemetryService = app(\App\Services\Telemetry\TelemetryService::class);
-                $aggregatorService = app(\App\Services\Telemetry\TelemetryAggregatorService::class);
-                
+
                 if ($telemetryService->shouldUpdate()) {
-                    $stationData = $telemetryService->collectStationData();
-                    if ($stationData) {
-                        $success = $aggregatorService->sendStationData($stationData);
-                        if ($success) {
-                            $telemetryService->markAsUpdated($stationData);
-                        }
+                    $result = $telemetryService->publish();
+                    if (!$result['success']) {
+                        session()->flash('error', $result['message']);
                     }
                 }
             } catch (\Exception $e) {
@@ -1660,12 +1670,7 @@ class SettingsController extends Controller
         } else {
             // If disabled, remove station from aggregator
             try {
-                $telemetryService = app(\App\Services\Telemetry\TelemetryService::class);
-                $aggregatorService = app(\App\Services\Telemetry\TelemetryAggregatorService::class);
-                $stationId = $telemetryService->getStationId();
-                if ($stationId) {
-                    $aggregatorService->removeStation($stationId);
-                }
+                app(\App\Services\Telemetry\TelemetryService::class)->unpublish();
             } catch (\Exception $e) {
                 \Log::error('Failed to remove station from aggregator', [
                     'error' => $e->getMessage(),
@@ -1684,38 +1689,7 @@ class SettingsController extends Controller
     public function updateTelemetryNow()
     {
         try {
-            $telemetryService = app(\App\Services\Telemetry\TelemetryService::class);
-            $aggregatorService = app(\App\Services\Telemetry\TelemetryAggregatorService::class);
-            
-            $enabled = Setting::getValue('telemetry.enabled', false);
-            if (!$enabled) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Telemetry is disabled. Enable it first.',
-                ]);
-            }
-            
-            $stationData = $telemetryService->collectStationData();
-            if (!$stationData) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to collect station data.',
-                ]);
-            }
-            
-            $result = $aggregatorService->sendStationData($stationData);
-            if ($result) {
-                $telemetryService->markAsUpdated($stationData);
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Station data sent to aggregator successfully!',
-                ]);
-            }
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to send data to aggregator. Check aggregator URL and API key.',
-            ]);
+            return response()->json(app(\App\Services\Telemetry\TelemetryService::class)->publish());
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1725,8 +1699,50 @@ class SettingsController extends Controller
     }
 
     /**
+     * List the WeatherLink v2 stations the API key can read, for the station
+     * picker on the WeatherLink page. Uses the key and secret typed on the page
+     * when given, so it works before anything is saved.
+     */
+    public function weatherLinkStations(Request $request)
+    {
+        $request->validate([
+            'api_key' => ['nullable', 'string', 'max:255'],
+            'api_secret' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        return response()->json(
+            app(\App\Services\Weather\WeatherLinkService::class)->listStations(
+                $request->input('api_key'),
+                $request->input('api_secret'),
+            )
+        );
+    }
+
+    /**
      * Test API connection.
      */
+    /** Connected, and the chosen station answers. */
+    private static function netatmoTest(): array
+    {
+        $client = app(\App\Services\Weather\NetatmoClient::class);
+        if (!$client->connected()) {
+            return ['success' => false, 'message' => 'Not connected to Netatmo yet. Use Connect Netatmo on the Netatmo page.'];
+        }
+
+        $station = $client->station();
+        if ($station === null) {
+            $error = $client->lastError();
+            return ['success' => false, 'message' => $error !== '' ? $error : 'Netatmo returned no station. Pick one on the Netatmo page.'];
+        }
+
+        $data = app(\App\Services\Weather\NetatmoParser::class)->parse($station);
+        $name = (string) ($station['station_name'] ?? 'your station');
+
+        return isset($data['temperature']) || isset($data['temperature_indoor'])
+            ? ['success' => true, 'message' => "Netatmo returned data for {$name}."]
+            : ['success' => false, 'message' => "Netatmo answered, but {$name} has no readings right now."];
+    }
+
     public function testApi(Request $request)
     {
         try {
@@ -1762,19 +1778,9 @@ class SettingsController extends Controller
 
         switch ($service) {
                 case 'ecowitt':
-                    $format = Setting::getValue('livedata.format', '');
-                    $source = Setting::getValue('ecowitt.data_source', '');
-
-                    if ($format === 'ecoLcl' || $source === 'local_api') {
-                        $result = $cacheCheck();
-                        break;
-                    }
-
-                    $svc = app(\App\Services\Weather\EcowittService::class);
-                    $data = $svc->fetchRealTimeData();
-                    $result = $data ?
-                        ['success' => true, 'message' => 'Connection successful! Data received.'] :
-                        ['success' => false, 'message' => 'No data returned. Check your API keys or file path.'];
+                    $result = \App\Support\EcowittSource::reader() === \App\Support\EcowittSource::PUSH
+                        ? $cacheCheck()
+                        : EcowittSettingsController::testConnection();
                     break;
 
                 case 'yrno':
@@ -1855,12 +1861,18 @@ class SettingsController extends Controller
                         break;
                     }
 
+                    if ($format === \App\Support\WuPush::FORMAT) {
+                        $last = \App\Support\WuPush::lastReceived();
+                        $result = $last === null
+                            ? ['success' => false, 'message' => 'Nothing received yet. Check the address and station key in your uploader.']
+                            : ($last->diffInMinutes(now()) <= 10
+                                ? ['success' => true, 'message' => 'Last upload ' . (int) $last->diffInMinutes(now()) . ' min ago.']
+                                : ['success' => false, 'message' => 'Last upload ' . (int) $last->diffInMinutes(now()) . ' min ago (stale).']);
+                        break;
+                    }
+
                     if ($format === 'ecowittAPI') {
-                        $svc = app(\App\Services\Weather\EcowittService::class);
-                        $data = $svc->fetchRealTimeData();
-                        $result = $data ?
-                            ['success' => true, 'message' => 'Ecowitt cloud API returned data.'] :
-                            ['success' => false, 'message' => 'No data returned. Check Ecowitt API credentials.'];
+                        $result = EcowittSettingsController::testConnection();
                         break;
                     }
 
@@ -1879,6 +1891,11 @@ class SettingsController extends Controller
                         $result = $data ?
                             ['success' => true, 'message' => 'WeatherFlow returned data.'] :
                             ['success' => false, 'message' => 'No data returned. Check station ID.'];
+                        break;
+                    }
+
+                    if ($format === 'netatmo') {
+                        $result = self::netatmoTest();
                         break;
                     }
 
@@ -1946,6 +1963,10 @@ class SettingsController extends Controller
                     $result = $data
                         ? ['success' => true, 'message' => 'WeatherFlow connection successful!']
                         : ['success' => false, 'message' => 'No data returned. For public stations leave API token blank. For your own or a private station, use a token from tempestwx.com → Settings → Data Authorizations. Check storage/logs/laravel.log for the API response if it keeps failing.'];
+                    break;
+
+                case 'netatmo':
+                    $result = self::netatmoTest();
                     break;
 
                 case 'ambient':
@@ -3010,7 +3031,7 @@ class SettingsController extends Controller
         Setting::setValue('weatherlink.type', $type, 'select', 'weatherlink');
         
         // Handle enabled toggle
-        Setting::setValue('weatherlink.enabled', $request->has('weatherlink_enabled'), 'boolean', 'weatherlink');
+        Setting::setValue('weatherlink.enabled', $request->boolean('weatherlink_enabled'), 'boolean', 'weatherlink');
         
         // Type-specific settings
         if ($type === 'v1') {
@@ -3059,7 +3080,7 @@ class SettingsController extends Controller
             if ($request->has('weatherlink_station_id')) {
                 Setting::setValue('weatherlink.station_id', $request->input('weatherlink_station_id'), 'string', 'weatherlink');
             }
-            Setting::setValue('weatherlink.demo_mode', $request->has('weatherlink_demo_mode'), 'boolean', 'weatherlink');
+            Setting::setValue('weatherlink.demo_mode', $request->boolean('weatherlink_demo_mode'), 'boolean', 'weatherlink');
         } elseif ($type === 'airlink_local') {
             // AirLink Local settings
             if ($request->has('weatherlink_airlink_ip')) {
@@ -3076,7 +3097,7 @@ class SettingsController extends Controller
             if ($request->has('weatherlink_wll_port')) {
                 Setting::setValue('weatherlink.wll_port', $request->input('weatherlink_wll_port'), 'integer', 'weatherlink');
             }
-            Setting::setValue('weatherlink.wll_udp_enabled', $request->has('weatherlink_wll_udp_enabled'), 'boolean', 'weatherlink');
+            Setting::setValue('weatherlink.wll_udp_enabled', $request->boolean('weatherlink_wll_udp_enabled'), 'boolean', 'weatherlink');
             if ($request->has('weatherlink_wll_udp_port')) {
                 Setting::setValue('weatherlink.wll_udp_port', $request->input('weatherlink_wll_udp_port'), 'integer', 'weatherlink');
             }
@@ -3095,6 +3116,11 @@ class SettingsController extends Controller
         
         // Save the format
         Setting::setValue('livedata.format', $format, 'select', 'livedata');
+
+        if ($format === \App\Support\WuPush::FORMAT
+            && (\App\Support\WuPush::stationKey() === '' || $request->boolean('wupush_new_key'))) {
+            \App\Support\WuPush::makeStationKey();
+        }
         
         // Handle fetch mode and file/api URL (for local file sources)
         if ($request->has('livedata_fetch_mode')) {
@@ -3119,41 +3145,20 @@ class SettingsController extends Controller
             Setting::setValue('livedata.rain_yearly_source', $request->input('rain_yearly_source'), 'select', 'livedata');
         }
 
+        // Keep the Ecowitt reader in step with the live data source.
+        if ($format === 'ecowittAPI') {
+            Setting::setValue('ecowitt.data_source', 'cloud_api', 'select', 'ecowitt');
+        } elseif ($format === 'ecoLcl' && Setting::getValue('ecowitt.data_source') === 'cloud_api') {
+            Setting::setValue('ecowitt.data_source', 'push', 'select', 'ecowitt');
+        }
+
         // Source-specific settings (only livedata-specific, not API credentials)
         if ($format === 'ecoLcl') {
-            // Ecowitt Local (push) - only passkey (livedata-specific)
-            if ($request->has('ecowitt_passkey')) {
-                Setting::setValue('ecowitt.passkey', $request->input('ecowitt_passkey'), 'string', 'ecowitt');
+            // Push security lives on the Ecowitt page now; a form that still
+            // posts it is honoured, one that does not leaves it alone.
+            if ($request->hasAny(EcowittSettingsController::PUSH_SECURITY_FIELDS)) {
+                EcowittSettingsController::savePushSecurity($request);
             }
-
-            // Optional hardening for WS View push receiver.
-            $secureMode = $request->boolean('ecowitt_secure_mode');
-            Setting::setValue('ecowitt.secure_mode', $secureMode, 'boolean', 'ecowitt');
-
-            $secureToken = trim((string) $request->input('ecowitt_secure_token', ''));
-            if ($secureToken !== '') {
-                $secureToken = preg_replace('/[^A-Za-z0-9_-]/', '', $secureToken) ?? '';
-            }
-            Setting::setValue('ecowitt.secure_token', $secureToken, 'string', 'ecowitt');
-
-            // Optional source filters for shared hosting environments (app-level allowlists).
-            $ipFilterEnabled = $request->boolean('ecowitt_ip_filter_enabled');
-            Setting::setValue('ecowitt.ip_filter_enabled', $ipFilterEnabled, 'boolean', 'ecowitt');
-            Setting::setValue(
-                'ecowitt.ip_allowlist',
-                $this->normalizeEcowittAllowlist((string) $request->input('ecowitt_ip_allowlist', '')),
-                'text',
-                'ecowitt'
-            );
-
-            $nameFilterEnabled = $request->boolean('ecowitt_name_filter_enabled');
-            Setting::setValue('ecowitt.name_filter_enabled', $nameFilterEnabled, 'boolean', 'ecowitt');
-            Setting::setValue(
-                'ecowitt.name_allowlist',
-                $this->normalizeEcowittAllowlist((string) $request->input('ecowitt_name_allowlist', '')),
-                'text',
-                'ecowitt'
-            );
         } elseif ($format === 'DWL_v2api_demo') {
             // WeatherLink v2 Demo Mode - enable demo mode and save API key (only API credential allowed on livedata page)
             Setting::setValue('weatherlink.demo_mode', '1', 'boolean', 'weatherlink');
@@ -3165,22 +3170,6 @@ class SettingsController extends Controller
             Setting::setValue('weatherlink.demo_mode', '0', 'boolean', 'weatherlink');
         }
         // Note: API credentials (ecowittAPI, wu, DWL, wf, AWapi) are configured on their dedicated settings pages
-    }
-
-    private function normalizeEcowittAllowlist(string $raw): string
-    {
-        $parts = preg_split('/[\r\n,;]+/', $raw) ?: [];
-        $values = [];
-
-        foreach ($parts as $part) {
-            $candidate = trim($part);
-            if ($candidate === '' || in_array($candidate, $values, true)) {
-                continue;
-            }
-            $values[] = $candidate;
-        }
-
-        return implode("\n", $values);
     }
 
     /**

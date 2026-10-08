@@ -137,6 +137,7 @@
         'indoor' => $ssrWidgetEnabled('indoor'),
         'extra_temps' => $ssrWidgetEnabled('extra_temps'),
         'soil' => $ssrWidgetEnabled('soil'),
+        'more_sensors' => $ssrWidgetEnabled('more_sensors'),
         'pm25' => $ssrWidgetEnabled('pm25'),
         'co2' => $ssrWidgetEnabled('co2'),
         'battery' => $ssrWidgetEnabled('battery'),
@@ -348,6 +349,14 @@
             }
             $ssrHybridCards[] = ['id' => 'soil', 'title' => __('Soil sensors'), 'lines' => $lines ?: [__('No soil sensor data')]];
         }
+        if ($ssrWidgetFlags['more_sensors']) {
+            $lines = [];
+            foreach (array_slice((array) ($ssrExtraSensors['more'] ?? []), 0, 6) as $line) {
+                $value = $line['kind'] === 'state' ? __($line['value']) : $line['value'] . ($line['unit'] !== '' ? ' ' . $line['unit'] : '');
+                $lines[] = __($line['label']) . ($line['channel'] ? ' ' . $line['channel'] : '') . ': ' . $value;
+            }
+            $ssrHybridCards[] = ['id' => 'more_sensors', 'title' => __('More sensors'), 'lines' => $lines ?: [__('No data')]];
+        }
         if ($ssrWidgetFlags['pm25']) {
             $lines = [];
             foreach (['ch1', 'ch2', 'ch3', 'ch4'] as $key) {
@@ -372,7 +381,18 @@
         if ($ssrWidgetFlags['battery']) {
             $lines = [];
             foreach (array_slice($ssrBatteryStatus, 0, 5, true) as $key => $val) {
-                $lines[] = (string) $key . ': ' . ((string) $val);
+                // Already judged by BatteryStatus: name it and give its status.
+                $name = is_array($val) && ($val['label'] ?? '') !== ''
+                    ? __($val['label']) . (($val['channel'] ?? null) !== null ? ' ' . $val['channel'] : '')
+                    : (string) $key;
+                // The same short value as the card: volts when there are any, else the status.
+                $value = match (true) {
+                    !is_array($val) => (string) $val,
+                    ($val['type'] ?? '') === 'volts' => $val['value'] . ' V' . (($val['state'] ?? '') === 'low' ? ' (' . __('Low') . ')' : ''),
+                    ($val['state'] ?? '') === 'good' => __($val['status'] ?? 'OK'),
+                    default => __($val['status'] ?? 'Unknown'),
+                };
+                $lines[] = $name . ': ' . $value;
             }
             $ssrHybridCards[] = ['id' => 'battery', 'title' => __('Battery Status'), 'lines' => $lines ?: [__('No battery data')]];
         }
@@ -418,7 +438,7 @@
     $ssrFallbackDefaults = [
         'sortable-left-column' => ['current', 'wind', 'pressure', 'rain'],
         'sortable-middle-column' => ['forecast', 'hourly'],
-        'sortable-right-column' => ['sun_moon', 'uv_solar', 'airquality', 'pollen', 'tide', 'lightning', 'indoor', 'extra_temps', 'soil', 'pm25', 'co2', 'battery', 'aurora', 'astro_events'],
+        'sortable-right-column' => ['sun_moon', 'uv_solar', 'airquality', 'pollen', 'tide', 'lightning', 'indoor', 'extra_temps', 'soil', 'more_sensors', 'pm25', 'co2', 'battery', 'aurora', 'astro_events'],
         'sortable-media-row' => ['webcam', 'radar'],
         'sortable-widgets' => ['metar', 'earthquakes', 'alerts', 'ads'],
     ];
@@ -964,8 +984,35 @@
                     // Wind compass points (English keys; locale files may remap e.g. NNE→NNO)
                     'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
                     'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW',
+                    // More sensors card labels from App\Support\ExtraSensors::lines().
+                    'More sensors',
+                    'Black globe',
+                    'WBGT',
+                    'Soil EC',
+                    'Soil moisture',
+                    'Soil temperature',
+                    'Water depth',
+                    'Temperature probe',
+                    'Rain sensor',
+                    'Wetness',
+                    'Wet',
+                    'Dry',
+                    'Water EC',
+                    'TDS',
+                    'COD',
+                    'TOC',
+                    'Turbidity',
+                    'Water CO2',
+                    'Water quality alarm',
+                    'Leak',
+                    'Water shortage',
+                    'Dirty',
+                    // Battery card summary (#131). The labels and statuses come from
+                    // App\Support\BatteryStatus::translatable(), added below.
+                    'All good',
                 ];
 
+        $dashboardI18nKeys = array_merge($dashboardI18nKeys, \App\Support\BatteryStatus::translatable());
         $dashboardI18n = [];
         foreach ($dashboardI18nKeys as $dashboardI18nKey) {
             $dashboardI18n[$dashboardI18nKey] = __($dashboardI18nKey);
@@ -3782,20 +3829,44 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
                         </svg>
                     </div>
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-semibold">🔋 {{ __('Battery Status') }}</h3>
-                        <span class="text-xs text-ui-muted">{{ __('Sensor status') }}</span>
+                    <div class="flex flex-wrap items-center justify-between mb-4 gap-x-2 gap-y-1">
+                        <h3 class="font-semibold whitespace-nowrap">🔋 {{ __('Battery Status') }}</h3>
+                        <span class="text-xs font-medium px-2 py-0.5 rounded-full whitespace-nowrap"
+                              :class="batterySummary().low > 0 ? 'bg-red-500/15 text-data-red-400' : 'bg-green-500/15 text-data-green-400'"
+                              x-text="batterySummary().text"></span>
                     </div>
-                    <div class="space-y-2 text-sm">
+                    {{-- One line per sensor (#131): the icon's colour carries the state, the
+                         right side shows volts when there are any, and Low is spelled out. --}}
+                    <div class="space-y-1 text-sm">
                         <template x-for="(value, key) in batteryStatus" :key="key">
-                            <div class="flex justify-between items-center py-1 border-b border-ui-line/5 last:border-0">
-                                <span class="text-ui-muted flex items-center gap-2">
-                                    <span x-text="getBatteryIcon(key, value)"></span>
-                                    <span x-text="getBatteryLabel(key)"></span>
+                            <div class="flex items-center gap-2 py-1 border-b border-ui-line/5 last:border-0">
+                                <span class="shrink-0" :class="batteryTone(value)">
+                                    <template x-if="value?.icon === 'capacitor'">
+                                        <svg data-battery-icon="capacitor" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                            <path d="M2 12h7M15 12h7M9 5v14M15 5v14"/>
+                                        </svg>
+                                    </template>
+                                    <template x-if="value?.icon === 'mains'">
+                                        <svg data-battery-icon="mains" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4"/>
+                                        </svg>
+                                    </template>
+                                    <template x-if="value?.icon !== 'capacitor' && value?.icon !== 'mains'">
+                                        <svg data-battery-icon="battery" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">
+                                            <rect x="2" y="7" width="17" height="10" rx="2"/>
+                                            <path d="M21 10.5v3" stroke-linecap="round"/>
+                                            <rect x="4.5" y="9.5" height="5" rx="0.5" fill="currentColor" stroke="none" :width="batteryFill(value)"/>
+                                        </svg>
+                                    </template>
                                 </span>
-                                <span class="font-medium" 
-                                      :class="getBatteryStatus(key, value).class"
-                                      x-text="getBatteryStatus(key, value).text"></span>
+                                <span class="min-w-0 flex-1 truncate text-ui-muted"
+                                      :title="getBatteryLabel(key, value)"
+                                      x-text="getBatteryLabel(key, value)"></span>
+                                <span class="shrink-0 font-medium tabular-nums whitespace-nowrap"
+                                      :class="value?.state === 'low' ? 'text-data-red-400' : 'text-ui-fg'"
+                                      :title="batteryStatusText(value)"
+                                      :aria-label="(batteryStatusText(value) + ' ' + batteryValue(value)).trim()"
+                                      x-text="batteryValue(value)"></span>
                             </div>
                         </template>
                     </div>
@@ -3891,6 +3962,30 @@
                                     <span class="font-bold text-data-blue-400" x-text="data?.moisture !== undefined ? data.moisture + '%' : '--'"></span>
                                     <span class="font-bold" x-text="formatTemp(data?.temperature)"></span>
                                 </div>
+                            </div>
+                        </template>
+                    </div>
+	                </div>
+	                </template>
+
+	                <!-- More Sensors Widget: newer Ecowitt sensors (App\Support\ExtraSensors) -->
+	                <template x-if="isWidgetEnabled('more_sensors') && extraSensors?.more?.length > 0">
+		                <div class="sortable-widget bg-weather-card card-3d rounded-2xl p-5 border border-ui-line/10"
+		                     data-widget="more_sensors"
+		                     @mouseenter="!editMode && tiltCard($event)" @mouseleave="!editMode && resetCard($event)" @mousemove="!editMode && tiltCard($event)">
+                    <div class="drag-handle absolute top-2 right-2 p-2 cursor-grab hover:bg-ui-overlay/10 rounded-lg transition-colors z-20">
+                        <svg class="w-4 h-4 text-data-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                        </svg>
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold">📟 {{ __('More sensors') }}</h3>
+                    </div>
+                    <div class="space-y-3 text-sm">
+                        <template x-for="(line, idx) in extraSensors?.more || []" :key="idx">
+                            <div class="flex justify-between items-center py-2 border-b border-ui-line/5 last:border-0">
+                                <span class="text-ui-muted" x-text="moreSensorLabel(line)"></span>
+                                <span class="font-bold" x-text="moreSensorValue(line)"></span>
                             </div>
                         </template>
                     </div>

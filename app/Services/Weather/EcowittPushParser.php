@@ -2,6 +2,9 @@
 
 namespace App\Services\Weather;
 
+use App\Support\BatteryStatus;
+use App\Support\ExtraSensors;
+use App\Support\RainGauge;
 use App\Services\Weather\Normalization\UnitConverter;
 use Carbon\Carbon;
 
@@ -78,29 +81,10 @@ class EcowittPushParser
             $data['wind_direction_avg_10m'] = (int) $raw['winddir_avg10m'];
         }
 
-        if (isset($raw['rainratein'])) {
-            $data['rain_rate'] = UnitConverter::inchesToMm((float) $raw['rainratein'], 2);
-        }
-        if (isset($raw['hourlyrainin'])) {
-            $data['rain_hourly'] = UnitConverter::inchesToMm((float) $raw['hourlyrainin'], 2);
-        }
-        if (isset($raw['dailyrainin'])) {
-            $data['rain_daily'] = UnitConverter::inchesToMm((float) $raw['dailyrainin'], 2);
-        }
-        if (isset($raw['weeklyrainin'])) {
-            $data['rain_weekly'] = UnitConverter::inchesToMm((float) $raw['weeklyrainin'], 2);
-        }
-        if (isset($raw['monthlyrainin'])) {
-            $data['rain_monthly'] = UnitConverter::inchesToMm((float) $raw['monthlyrainin'], 2);
-        }
-        if (isset($raw['yearlyrainin'])) {
-            $data['rain_yearly'] = UnitConverter::inchesToMm((float) $raw['yearlyrainin'], 2);
-        }
-        if (isset($raw['eventrainin'])) {
-            $data['rain_event'] = UnitConverter::inchesToMm((float) $raw['eventrainin'], 2);
-        }
-        if (isset($raw['totalrainin'])) {
-            $data['rain_total'] = UnitConverter::inchesToMm((float) $raw['totalrainin'], 2);
+        // Both gauges, so a WS90's piezo rain is not lost (#132). RainGauge
+        // decides which one to store.
+        foreach (RainGauge::choose(RainGauge::fromPush($raw)) as $column => $mm) {
+            $data[$column] = $mm;
         }
 
         if (isset($raw['solarradiation'])) {
@@ -139,6 +123,10 @@ class EcowittPushParser
             }
             if (isset($raw["leaf_wetness{$i}"])) {
                 $data["leaf_wetness_{$i}"] = (int) $raw["leaf_wetness{$i}"];
+            }
+            // What a GW2000A sends (ecowitt2mqtt's payload_gw2000a_1, aioecowitt).
+            if (isset($raw["leafwetness_ch{$i}"])) {
+                $data["leaf_wetness_{$i}"] = (int) $raw["leafwetness_ch{$i}"];
             }
         }
 
@@ -188,22 +176,16 @@ class EcowittPushParser
             }
         }
 
-        $batteries = [];
-        $batteryFields = [
-            'wh26batt', 'wh40batt', 'wh57batt', 'wh65batt', 'wh68batt', 'wh80batt',
-            'batt1', 'batt2', 'batt3', 'batt4', 'batt5', 'batt6', 'batt7', 'batt8',
-            'soilbatt1', 'soilbatt2', 'soilbatt3', 'soilbatt4', 'soilbatt5', 'soilbatt6', 'soilbatt7', 'soilbatt8',
-            'pm25batt1', 'pm25batt2', 'pm25batt3', 'pm25batt4',
-            'leakbatt1', 'leakbatt2', 'leakbatt3', 'leakbatt4',
-            'co2_batt', 'leafbatt1', 'leafbatt2', 'leafbatt3', 'leafbatt4',
-        ];
-        foreach ($batteryFields as $field) {
-            if (isset($raw[$field])) {
-                $batteries[$field] = (int) $raw[$field];
-            }
-        }
+        // Every battery the payload carries, each kept as its own kind: a flag,
+        // a level, or volts as a decimal (#131).
+        $batteries = BatteryStatus::fromPush($raw);
         if (!empty($batteries)) {
             $data['battery_status'] = $batteries;
+        }
+
+        $extra = ExtraSensors::fromPush($raw);
+        if ($extra !== []) {
+            $data['extra_sensors'] = $extra;
         }
 
         if (isset($raw['stationtype'])) {

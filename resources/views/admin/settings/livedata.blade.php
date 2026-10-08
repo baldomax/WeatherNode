@@ -8,16 +8,38 @@
     $fetchMode = \App\Models\Setting::getValue('livedata.fetch_mode', 'file');
     $filePath = \App\Models\Setting::getValue('livedata.file_path', './ecowitt/ecco_lcl.arr');
     $apiUrl = \App\Models\Setting::getValue('livedata.api_url', '');
+    $wuPushKey = \App\Support\WuPush::stationKey();
+    $wuPushUrl = \App\Support\WuPush::url();
+    $wuPushLast = \App\Support\WuPush::lastReceived();
+
+    // An example file for each local format. The Ecowitt file is the shipped
+    // default and means nothing to these formats, so it is not shown for them.
+    $ecowittDefaultPath = './ecowitt/ecco_lcl.arr';
+    $realtimeExample = [
+        'placeholder' => '/path/to/realtime.txt',
+        'hint' => __('Path or web address of your realtime.txt file, for example /path/to/realtime.txt or http://192.168.1.10/realtime.txt'),
+    ];
+    $clientrawExample = [
+        'placeholder' => '/path/to/clientraw.txt',
+        'hint' => __('Path or web address of your clientraw.txt file, for example /path/to/clientraw.txt or http://192.168.1.10/clientraw.txt'),
+    ];
+    $localFileExamples = [
+        'cumulus' => $realtimeExample,
+        'weewx' => [
+            'placeholder' => '/var/tmp/realtime.txt',
+            'hint' => __('Path or web address of the realtime.txt that WeeWX writes, for example /var/tmp/realtime.txt or http://raspberrypi.local/weewx/realtime.txt'),
+        ],
+        'weathercat' => $realtimeExample,
+        'meteohub' => $clientrawExample,
+        'wswin' => $clientrawExample,
+        'weatherlink' => $realtimeExample,
+        'wifilogger' => $realtimeExample,
+        'MB_rt' => $realtimeExample,
+        'wd' => $clientrawExample,
+    ];
+    $localFileExample = $localFileExamples[$format] ?? $realtimeExample;
+    $shownFilePath = isset($localFileExamples[$format]) && $filePath === $ecowittDefaultPath ? '' : $filePath;
     
-    // Only load livedata-specific settings (not API credentials)
-    $ecowittPasskey = \App\Models\Setting::getValue('ecowitt.passkey', '');
-    $ecowittSecureMode = (bool) \App\Models\Setting::getValue('ecowitt.secure_mode', false);
-    $ecowittSecureToken = (string) \App\Models\Setting::getValue('ecowitt.secure_token', '');
-    $ecowittIpFilterEnabled = (bool) \App\Models\Setting::getValue('ecowitt.ip_filter_enabled', false);
-    $ecowittIpAllowlist = (string) \App\Models\Setting::getValue('ecowitt.ip_allowlist', '');
-    $ecowittNameFilterEnabled = (bool) \App\Models\Setting::getValue('ecowitt.name_filter_enabled', false);
-    $ecowittNameAllowlist = (string) \App\Models\Setting::getValue('ecowitt.name_allowlist', '');
-    $ecowittEndpointPath = '/api/ecowitt/receive' . (($ecowittSecureMode && $ecowittSecureToken !== '') ? '/' . $ecowittSecureToken : '');
     
     // WeatherLink demo mode requires API key (only API credential allowed on livedata page)
     $wlDemoApiKey = \App\Models\Setting::getValue('weatherlink.api_key', '');
@@ -72,11 +94,13 @@
                         <option value="ecoLcl" {{ $format === 'ecoLcl' ? 'selected' : '' }}>{{ __('Ecowitt Local (push)') }}</option>
                         <option value="ecowittAPI" {{ $format === 'ecowittAPI' ? 'selected' : '' }}>{{ __('Ecowitt Cloud API') }}</option>
                         <option value="wu" {{ $format === 'wu' ? 'selected' : '' }}>{{ __('Weather Underground') }}</option>
+                        <option value="wuPush" {{ $format === 'wuPush' ? 'selected' : '' }}>{{ __('Wunderground upload (push)') }}</option>
                         <option value="DWL" {{ $format === 'DWL' ? 'selected' : '' }}>{{ __('WeatherLink Cloud v1') }}</option>
                         <option value="DWL_v2api" {{ $format === 'DWL_v2api' ? 'selected' : '' }}>{{ __('WeatherLink Cloud v2') }}</option>
                         <option value="DWL_v2api_demo" {{ $format === 'DWL_v2api_demo' ? 'selected' : '' }}>{{ __('WeatherLink Cloud v2 (Demo Mode)') }}</option>
                         <option value="wf" {{ $format === 'wf' ? 'selected' : '' }}>{{ __('WeatherFlow') }}</option>
                         <option value="AWapi" {{ $format === 'AWapi' ? 'selected' : '' }}>{{ __('Ambient Weather API') }}</option>
+                        <option value="netatmo" {{ $format === 'netatmo' ? 'selected' : '' }}>{{ __('Netatmo') }}</option>
                         <option value="cumulus" {{ $format === 'cumulus' ? 'selected' : '' }}>{{ __('Cumulus') }}</option>
                         <option value="weewx" {{ $format === 'weewx' ? 'selected' : '' }}>{{ __('WeeWX') }}</option>
                         <option value="weathercat" {{ $format === 'weathercat' ? 'selected' : '' }}>{{ __('WeatherCat') }}</option>
@@ -92,132 +116,13 @@
 
             {{-- Ecowitt Local (push) Configuration --}}
             <div class="p-5" id="source-ecoLcl-config" style="display: {{ $format === 'ecoLcl' ? 'block' : 'none' }};">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ __('Ecowitt Local (Push) Configuration') }}</h3>
-                <div class="space-y-4">
-                    <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                        <p class="text-sm text-blue-800 dark:text-blue-200">
-                            {{ __('Ecowitt devices push data to this station. Configure your Ecowitt device to send data to this server.') }}
-                        </p>
-                    </div>
-                    <div>
-                        <label for="ecowitt_passkey" class="block text-sm font-medium text-gray-900 dark:text-white mb-2">{{ __('Passkey (Optional)') }}</label>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{{ __('Passkey for upload validation (leave empty to accept all)') }}</p>
-                        <input type="text"
-                               name="ecowitt_passkey"
-                               id="ecowitt_passkey"
-                               value="{{ $ecowittPasskey }}"
-                               class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
-                               placeholder="Enter passkey" />
-                    </div>
-
-                    <div class="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50/70 dark:bg-amber-900/20 p-4 space-y-3">
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <label for="ecowitt_secure_mode" class="block text-sm font-medium text-gray-900 dark:text-white">{{ __('Secure Push Mode') }}</label>
-                                <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                    {{ __('Enable strict receiver security (requires endpoint token + passkey). Default is off for backward compatibility.') }}
-                                </p>
-                            </div>
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="hidden" name="ecowitt_secure_mode" value="0">
-                                <input type="checkbox"
-                                       name="ecowitt_secure_mode"
-                                       id="ecowitt_secure_mode"
-                                       value="1"
-                                       class="sr-only peer"
-                                       {{ $ecowittSecureMode ? 'checked' : '' }}>
-                                <div class="relative w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-400 rounded-full peer dark:bg-gray-600 peer-checked:bg-blue-600 transition-colors">
-                                    <div class="absolute top-0.5 left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform peer-checked:translate-x-full"></div>
-                                </div>
-                            </label>
-                        </div>
-
-                        <div>
-                            <label for="ecowitt_secure_token" class="block text-sm font-medium text-gray-900 dark:text-white mb-2">{{ __('Endpoint Token') }}</label>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                                {{ __('Use only letters, numbers, "-" and "_". Configure this exact token in WS View Path when Secure Push Mode is enabled.') }}
-                            </p>
-                            <div class="flex items-center gap-2">
-                                <input type="text"
-                                       name="ecowitt_secure_token"
-                                       id="ecowitt_secure_token"
-                                       value="{{ $ecowittSecureToken }}"
-                                       class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 font-mono"
-                                       placeholder="e.g. AbC123_secure_token" />
-                                <button type="button"
-                                        id="ecowitt_generate_token"
-                                        class="px-3 py-2 text-xs font-medium rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600">
-                                    {{ __('Generate') }}
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="text-xs text-gray-700 dark:text-gray-300">
-                            <strong>{{ __('WS View Path') }}:</strong>
-                            <code id="ecowitt_endpoint_preview" class="ml-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800">{{ $ecowittEndpointPath }}</code>
-                        </div>
-                    </div>
-
-                    <div class="rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/20 p-4 space-y-4">
-                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('Optional Source Allowlist') }}</h4>
-                        <p class="text-xs text-gray-600 dark:text-gray-300">
-                            {{ __('This works on shared hosting because checks run in the Laravel app before data is stored.') }}
-                        </p>
-
-                        <div class="space-y-2">
-                            <div class="flex items-center justify-between gap-4">
-                                <div>
-                                    <label for="ecowitt_ip_filter_enabled" class="block text-sm font-medium text-gray-900 dark:text-white">{{ __('Limit by Source IP') }}</label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Allow uploads only from listed IP addresses or CIDR ranges.') }}</p>
-                                </div>
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="hidden" name="ecowitt_ip_filter_enabled" value="0">
-                                    <input type="checkbox"
-                                           name="ecowitt_ip_filter_enabled"
-                                           id="ecowitt_ip_filter_enabled"
-                                           value="1"
-                                           class="sr-only peer"
-                                           {{ $ecowittIpFilterEnabled ? 'checked' : '' }}>
-                                    <div class="relative w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-400 rounded-full peer dark:bg-gray-600 peer-checked:bg-blue-600 transition-colors">
-                                        <div class="absolute top-0.5 left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform peer-checked:translate-x-full"></div>
-                                    </div>
-                                </label>
-                            </div>
-                            <textarea
-                                name="ecowitt_ip_allowlist"
-                                id="ecowitt_ip_allowlist"
-                                rows="4"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 font-mono text-sm"
-                                placeholder="203.0.113.10&#10;198.51.100.0/24&#10;2001:db8::/64">{{ $ecowittIpAllowlist }}</textarea>
-                        </div>
-
-                        <div class="space-y-2">
-                            <div class="flex items-center justify-between gap-4">
-                                <div>
-                                    <label for="ecowitt_name_filter_enabled" class="block text-sm font-medium text-gray-900 dark:text-white">{{ __('Limit by Station Name/Model') }}</label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Case-insensitive partial match against payload fields such as station name, station type, or model.') }}</p>
-                                </div>
-                                <label class="inline-flex items-center cursor-pointer">
-                                    <input type="hidden" name="ecowitt_name_filter_enabled" value="0">
-                                    <input type="checkbox"
-                                           name="ecowitt_name_filter_enabled"
-                                           id="ecowitt_name_filter_enabled"
-                                           value="1"
-                                           class="sr-only peer"
-                                           {{ $ecowittNameFilterEnabled ? 'checked' : '' }}>
-                                    <div class="relative w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-400 rounded-full peer dark:bg-gray-600 peer-checked:bg-blue-600 transition-colors">
-                                        <div class="absolute top-0.5 left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform peer-checked:translate-x-full"></div>
-                                    </div>
-                                </label>
-                            </div>
-                            <textarea
-                                name="ecowitt_name_allowlist"
-                                id="ecowitt_name_allowlist"
-                                rows="3"
-                                class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400 text-sm"
-                                placeholder="GW2000&#10;WS3900&#10;Backyard Station">{{ $ecowittNameAllowlist }}</textarea>
-                        </div>
-                    </div>
+                <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                    <p class="font-semibold mb-1">{{ __('Configure Ecowitt push') }}</p>
+                    <p class="mb-2">{{ __('The console set-up, passkey and push security are on the Ecowitt settings page.') }}</p>
+                    <a href="{{ route('admin.settings.group', 'ecowitt') }}" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium">
+                        {{ __('Go to Ecowitt Settings') }}
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
                 </div>
             </div>
 
@@ -360,6 +265,57 @@
                 </div>
             </div>
 
+            {{-- Wunderground upload (push) Configuration --}}
+            <div class="p-5" id="source-wuPush-config" style="display: {{ $format === 'wuPush' ? 'block' : 'none' }};">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">{{ __('Wunderground upload') }}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{{ __('WeeWX, Meteobridge and many consoles can upload to a Wunderground-style address of your choosing. Point them here instead of at Wunderground.') }}</p>
+                @if($wuPushKey === '')
+                    <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                        {{ __('Click Save Changes to make your station key.') }}
+                    </div>
+                @else
+                    <dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
+                        <dt class="text-gray-500 dark:text-gray-400">{{ __('Upload address') }}</dt>
+                        <dd class="font-mono break-all text-gray-900 dark:text-white">{{ $wuPushUrl }}</dd>
+                        <dt class="text-gray-500 dark:text-gray-400">{{ __('Station ID') }}</dt>
+                        <dd class="text-gray-900 dark:text-white">{{ __('Anything you like') }}</dd>
+                        <dt class="text-gray-500 dark:text-gray-400">{{ __('Station key') }}</dt>
+                        <dd class="font-mono break-all text-gray-900 dark:text-white">{{ $wuPushKey }}</dd>
+                        <dt class="text-gray-500 dark:text-gray-400">{{ __('Last upload') }}</dt>
+                        <dd class="text-gray-900 dark:text-white">{{ $wuPushLast ? $wuPushLast->diffForHumans() : __('Nothing received yet') }}</dd>
+                    </dl>
+                    <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">{{ __('For WeeWX, add this to weewx.conf and restart WeeWX:') }}</p>
+                    <pre class="mt-2 p-3 rounded-lg bg-gray-100 dark:bg-gray-900 text-xs text-gray-800 dark:text-gray-200 overflow-x-auto">[StdRESTful]
+    [[Wunderground]]
+        enable = true
+        station = weathernode
+        password = {{ $wuPushKey }}
+        rapidfire = true
+        server_url = {{ $wuPushUrl }}</pre>
+                    <label class="mt-4 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="wupush_new_key" value="1" class="rounded border-gray-300 dark:border-gray-600">
+                        {{ __('Make a new station key when I save. The old key stops working.') }}
+                    </label>
+                @endif
+                <p class="mt-4 text-xs">
+                    <a href="https://github.com/centauri/WeatherNode/blob/main/docs/WEEWX.md" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium">{{ __('How to set up WeeWX') }}</a>
+                </p>
+            </div>
+
+            {{-- Netatmo Configuration --}}
+            <div class="p-5" id="source-netatmo-config" style="display: {{ $format === 'netatmo' ? 'block' : 'none' }};">
+                <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                    <p class="font-semibold mb-1">{{ __('Configure Netatmo') }}</p>
+                    <p class="mb-2">{{ __('Connect your Netatmo account and pick a station on the Netatmo settings page.') }}</p>
+                    <a href="{{ route('admin.settings.group', 'netatmo') }}" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium">
+                        {{ __('Go to Netatmo Settings') }}
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
             {{-- Ambient Weather Configuration --}}
             <div class="p-5" id="source-AWapi-config" style="display: {{ $format === 'AWapi' ? 'block' : 'none' }};">
                 <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
@@ -397,13 +353,17 @@
                     </div>
                     <div id="local-file-config" style="display: {{ $fetchMode === 'file' ? 'block' : 'none' }};">
                         <label for="livedata_file_path" class="block text-sm font-medium text-gray-900 dark:text-white mb-2">{{ __('File Path') }}</label>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{{ __('Path to the live data file (e.g., ./realtime.txt or /path/to/file.txt)') }}</p>
+                        <p id="livedata_file_path_hint" class="text-xs text-gray-500 dark:text-gray-400 mb-2">{{ $localFileExample['hint'] }}</p>
                         <input type="text"
                                name="livedata_file_path"
                                id="livedata_file_path"
-                               value="{{ $filePath }}"
+                               value="{{ $shownFilePath }}"
+                               data-saved="{{ $filePath }}"
                                class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400"
-                               placeholder="./realtime.txt" />
+                               placeholder="{{ $localFileExample['placeholder'] }}" />
+                        <p id="livedata_weewx_guide" class="mt-2 text-xs" style="display: {{ $format === 'weewx' ? 'block' : 'none' }};">
+                            <a href="https://github.com/centauri/WeatherNode/blob/main/docs/WEEWX.md" target="_blank" rel="noopener" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium">{{ __('How to set up WeeWX') }}</a>
+                        </p>
                     </div>
                     <div id="local-api-config" style="display: {{ $fetchMode === 'local_api' ? 'block' : 'none' }};">
                         <label for="livedata_api_url" class="block text-sm font-medium text-gray-900 dark:text-white mb-2">{{ __('API URL') }}</label>
@@ -474,10 +434,6 @@
     const fetchModeSelect = document.getElementById('livedata_fetch_mode');
     const testBtn = document.getElementById('test-connection-btn');
     const testResult = document.getElementById('test-result');
-    const secureModeToggle = document.getElementById('ecowitt_secure_mode');
-    const secureTokenInput = document.getElementById('ecowitt_secure_token');
-    const generateTokenBtn = document.getElementById('ecowitt_generate_token');
-    const endpointPreview = document.getElementById('ecowitt_endpoint_preview');
     
     // Source config containers (only for sources that need livedata-specific config)
     const configs = {
@@ -489,6 +445,8 @@
         'DWL_v2api_demo': document.getElementById('source-DWL_v2api_demo-config'),
         'wf': document.getElementById('source-wf-config'),
         'AWapi': document.getElementById('source-AWapi-config'),
+        'wuPush': document.getElementById('source-wuPush-config'),
+        'netatmo': document.getElementById('source-netatmo-config'),
     };
     
     const localConfig = document.getElementById('source-local-config');
@@ -496,9 +454,28 @@
     const localApiConfig = document.getElementById('local-api-config');
     
     const localSources = ['cumulus', 'weewx', 'weathercat', 'meteohub', 'wswin', 'weatherlink', 'wifilogger', 'MB_rt', 'wd'];
+    const localFileExamples = @json($localFileExamples);
+    const ecowittDefaultPath = @json($ecowittDefaultPath);
+    const filePathInput = document.getElementById('livedata_file_path');
+    const filePathHint = document.getElementById('livedata_file_path_hint');
+    const weewxGuide = document.getElementById('livedata_weewx_guide');
+
+    function updateLocalFileExample() {
+        const format = formatSelect.value;
+        const example = localFileExamples[format];
+        if (!example || !filePathInput) {
+            // Back on Ecowitt: put its saved path back so saving keeps it.
+            if (filePathInput && filePathInput.value === '') filePathInput.value = filePathInput.dataset.saved || '';
+            return;
+        }
+        filePathInput.placeholder = example.placeholder;
+        if (filePathHint) filePathHint.textContent = example.hint;
+        if (weewxGuide) weewxGuide.style.display = format === 'weewx' ? 'block' : 'none';
+        if (filePathInput.value === ecowittDefaultPath) filePathInput.value = '';
+    }
     
     // Sources that only show info/link (no form fields)
-    const infoOnlySources = ['ecowittAPI', 'wu', 'DWL', 'DWL_v2api', 'wf', 'AWapi'];
+    const infoOnlySources = ['ecowittAPI', 'wu', 'DWL', 'DWL_v2api', 'wf', 'AWapi', 'netatmo'];
 
     function updateVisibility() {
         const format = formatSelect.value;
@@ -523,54 +500,9 @@
         if (localApiConfig) localApiConfig.style.display = mode === 'local_api' ? 'block' : 'none';
     }
 
-    function sanitizeToken(value) {
-        return (value || '').replace(/[^A-Za-z0-9_-]/g, '');
-    }
-
-    function buildEndpointPath() {
-        const basePath = '/api/ecowitt/receive';
-        if (!secureModeToggle || !secureModeToggle.checked) return basePath;
-        const token = sanitizeToken(secureTokenInput?.value || '');
-        return token ? `${basePath}/${token}` : basePath;
-    }
-
-    function updateEndpointPreview() {
-        if (!endpointPreview) return;
-        if (secureTokenInput) {
-            const sanitized = sanitizeToken(secureTokenInput.value);
-            if (secureTokenInput.value !== sanitized) {
-                secureTokenInput.value = sanitized;
-            }
-        }
-        endpointPreview.textContent = buildEndpointPath();
-    }
-
-    function generateSecureToken() {
-        const randomHex = (length) => {
-            if (window.crypto && window.crypto.getRandomValues) {
-                return Array.from(window.crypto.getRandomValues(new Uint8Array(length)))
-                    .map((byte) => byte.toString(16).padStart(2, '0'))
-                    .join('');
-            }
-            return Array.from({ length: length * 2 })
-                .map(() => Math.floor(Math.random() * 16).toString(16))
-                .join('');
-        };
-        const token = randomHex(16);
-        if (secureTokenInput) {
-            secureTokenInput.value = token;
-        }
-        if (secureModeToggle) {
-            secureModeToggle.checked = true;
-        }
-        updateEndpointPreview();
-    }
-
     formatSelect?.addEventListener('change', updateVisibility);
+    formatSelect?.addEventListener('change', updateLocalFileExample);
     fetchModeSelect?.addEventListener('change', updateLocalConfigVisibility);
-    secureModeToggle?.addEventListener('change', updateEndpointPreview);
-    secureTokenInput?.addEventListener('input', updateEndpointPreview);
-    generateTokenBtn?.addEventListener('click', generateSecureToken);
 
     // Test connection
     testBtn?.addEventListener('click', async function() {
@@ -621,7 +553,6 @@
     // Initialize visibility
     updateVisibility();
     updateLocalConfigVisibility();
-    updateEndpointPreview();
 })();
 </script>
 @endpush

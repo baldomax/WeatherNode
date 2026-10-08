@@ -16,7 +16,6 @@ use App\Services\Weather\Sources\WeatherLinkV1Adapter;
 use App\Services\Weather\Sources\WundergroundAdapter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
 use App\Models\Setting;
 
 class FetchWeatherData extends Command
@@ -66,6 +65,7 @@ class FetchWeatherData extends Command
         if (!$data) {
             $hasError = true;
             $this->error('Failed to fetch data from configured source after ' . $maxAttempts . ' attempts.');
+            \App\Support\LiveSource::recordError($format, $errorMessage ?? 'The source sent no data.');
             
             // Alert user about persistent failure
             $this->sendAlert('Weather data fetch failed', [
@@ -86,6 +86,7 @@ class FetchWeatherData extends Command
         if ($this->option('save')) {
             if ($fromDb) {
                 // ecoLcl with receive (push): data already in DB, only update summary/records
+                $this->clearErrorState($format);
                 $this->updateDailySummary($reading);
                 $this->checkClimateRecords($reading);
                 return Command::SUCCESS;
@@ -97,7 +98,7 @@ class FetchWeatherData extends Command
             $duplicateWarning = false;
 
             if ($sourceStatus['stale']) {
-                $lastReading = WeatherReading::orderBy('id', 'desc')->first();
+                $lastReading = WeatherReading::mostRecent();
                 if ($lastReading) {
                     $timeDiff = $lastReading->recorded_at->diffInMinutes(now());
                     // Only skip if we have a very recent reading (within 2 minutes) 
@@ -119,7 +120,8 @@ class FetchWeatherData extends Command
                 }
 
                 if ($shouldSave) {
-                    $this->warn("⚠️  Saving stale data (source file {$sourceStatus['age_minutes']} minutes old)");
+                    $age = $sourceStatus['age_minutes'] ?? '?';
+                    $this->warn("⚠️  Saving stale data (source file {$age} minutes old)");
                 } else {
                     $this->warn('⚠️  Skipping duplicate reading (same timestamp as recent reading)');
                 }
@@ -141,6 +143,7 @@ class FetchWeatherData extends Command
                     $hasError = true;
                     $this->error("Failed to save reading: {$e->getMessage()}");
                     Log::error('Weather save error', ['error' => $e->getMessage()]);
+                    \App\Support\LiveSource::recordError($format, 'Saving the reading failed: ' . $e->getMessage());
                     
                     // Alert on save failure
                     $this->sendAlert('Weather data save failed', [
@@ -293,6 +296,11 @@ class FetchWeatherData extends Command
     {
         $rows = [];
 
+        // The Ecowitt local file holds raw push fields (tempf, ...).
+        if (isset($data['tempf'])) {
+            $data = app(\App\Services\Weather\EcowittPushParser::class)->parse($data);
+        }
+
         if (isset($data['outdoor']) || isset($data['wind']) || isset($data['pressure'])) {
             $outdoor = $data['outdoor'] ?? [];
             $wind = $data['wind'] ?? [];
@@ -388,6 +396,17 @@ class FetchWeatherData extends Command
             return $ambient->fetch();
         }
 
+        // Netatmo stations send about every ten minutes. The same reading
+        // again is already stored, so only the summary is left to do.
+        if ($format === \App\Services\Weather\Sources\NetatmoAdapter::FORMAT) {
+            $data = app(\App\Services\Weather\Sources\NetatmoAdapter::class)->fetch();
+            $last = $data !== null ? WeatherReading::mostRecent() : null;
+            if ($last !== null && $last->recorded_at->equalTo($data['recorded_at'])) {
+                return ['__from_db' => true, '__reading' => $last];
+            }
+            return $data;
+        }
+
         if ($format === 'DWL') {
             return $weatherLinkV1->fetch();
         }
@@ -400,13 +419,19 @@ class FetchWeatherData extends Command
             return $weatherLink->fetch();
         }
 
+        // Wunderground uploads are stored as they arrive; only the summary is left to do.
+        if ($format === \App\Support\WuPush::FORMAT) {
+            $reading = WeatherReading::mostRecent();
+            return $reading !== null ? ['__from_db' => true, '__reading' => $reading] : null;
+        }
+
         // ecoLcl: try file/API first; when using receive (push) only, fall back to latest from DB
         if ($format === 'ecoLcl') {
             $data = $ecowitt->fetchRealTimeData();
             if ($data !== null) {
                 return $data;
             }
-            $reading = WeatherReading::orderBy('id', 'desc')->first();
+            $reading = WeatherReading::mostRecent();
             if ($reading !== null) {
                 return ['__from_db' => true, '__reading' => $reading];
             }
@@ -422,7 +447,7 @@ class FetchWeatherData extends Command
             return $writer->store($data);
         }
 
-        if (in_array($format, ['wu', 'wf', 'AWapi', 'DWL', 'DWL_v2api', 'DWL_v2api_demo'], true)) {
+        if (in_array($format, ['wu', 'wf', 'AWapi', 'netatmo', 'DWL', 'DWL_v2api', 'DWL_v2api_demo'], true)) {
             return $writer->store($data);
         }
 
@@ -460,6 +485,11 @@ class FetchWeatherData extends Command
                 }
             }
             return ['stale' => false, 'error' => true, 'error_message' => 'File path not configured'];
+        }
+
+        // A web address is fetched like an API, there is no file to check.
+        if (str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://')) {
+            return ['stale' => false, 'error' => false];
         }
 
         // Resolve path
@@ -566,7 +596,6 @@ class FetchWeatherData extends Command
      */
     private function clearErrorState(string $format): void
     {
-        $errorKey = "weather_fetch_error_{$format}";
-        Cache::forget($errorKey);
+        \App\Support\LiveSource::clearError();
     }
 }

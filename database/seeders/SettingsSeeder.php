@@ -28,7 +28,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'station.server_url', 'value' => '', 'type' => 'string', 'group' => 'station', 'description' => 'Public URL of this weather site (leave empty to use APP_URL)'],
 
             // ===== Live Data Source =====
-            ['key' => 'livedata.format', 'value' => 'ecoLcl', 'type' => 'select', 'group' => 'livedata', 'description' => 'Primary live data format/source', 'options' => 'ecoLcl:Ecowitt Local (push),ecowittAPI:Ecowitt Cloud API,wu:Weather Underground,cumulus:Cumulus,weewx:WeeWX,weathercat:WeatherCat,DWL:WeatherLink Cloud v1,DWL_v2api:WeatherLink Cloud v2,DWL_v2api_demo:WeatherLink Cloud v2 (Demo Mode),meteohub:Meteohub,wswin:WSWIN,weatherlink:WeatherLink Local,wifilogger:WiFiLogger,MB_rt:Meteobridge (realtime.txt),wf:WeatherFlow,AWapi:Ambient Weather API,wd:Weather Display'],
+            ['key' => 'livedata.format', 'value' => 'ecoLcl', 'type' => 'select', 'group' => 'livedata', 'description' => 'Primary live data format/source', 'options' => 'ecoLcl:Ecowitt Local (push),ecowittAPI:Ecowitt Cloud API,wu:Weather Underground,wuPush:Wunderground upload (push),cumulus:Cumulus,weewx:WeeWX,weathercat:WeatherCat,DWL:WeatherLink Cloud v1,DWL_v2api:WeatherLink Cloud v2,DWL_v2api_demo:WeatherLink Cloud v2 (Demo Mode),meteohub:Meteohub,wswin:WSWIN,weatherlink:WeatherLink Local,wifilogger:WiFiLogger,MB_rt:Meteobridge (realtime.txt),wf:WeatherFlow,AWapi:Ambient Weather API,netatmo:Netatmo,wd:Weather Display'],
             ['key' => 'livedata.fetch_mode', 'value' => 'file', 'type' => 'select', 'group' => 'livedata', 'description' => 'How to fetch local live data', 'options' => 'file:Local file,local_api:Local API URL'],
             ['key' => 'livedata.file_path', 'value' => './ecowitt/ecco_lcl.arr', 'type' => 'string', 'group' => 'livedata', 'description' => 'Path to live data file (if applicable)'],
             ['key' => 'livedata.api_url', 'value' => '', 'type' => 'string', 'group' => 'livedata', 'description' => 'Local API URL for live data (if applicable)'],
@@ -54,8 +54,7 @@ class SettingsSeeder extends Seeder
             ['key' => 'display.rainrate_unit', 'value' => '/h', 'type' => 'select', 'group' => 'display', 'description' => 'Rain rate display unit', 'options' => '/h:per hour (/h),/min:per minute (/min)'],
 
             // ===== Ecowitt Settings =====
-            ['key' => 'ecowitt.enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Enable Ecowitt data source'],
-            ['key' => 'ecowitt.data_source', 'value' => 'local_file', 'type' => 'select', 'group' => 'ecowitt', 'description' => 'Ecowitt data source mode', 'options' => 'local_file:Local file,local_api:Local API,cloud_api:Cloud API'],
+            ['key' => 'ecowitt.data_source', 'value' => 'push', 'type' => 'select', 'group' => 'ecowitt', 'description' => 'How the Ecowitt station sends data', 'options' => 'push:Push from the console,local_file:Local file,cloud_api:Ecowitt cloud'],
             ['key' => 'ecowitt.passkey', 'value' => '', 'type' => 'string', 'group' => 'ecowitt', 'description' => 'Passkey for local upload validation (leave empty to accept all)'],
             ['key' => 'ecowitt.secure_mode', 'value' => '0', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Require endpoint token and strict passkey validation for Ecowitt push receiver'],
             ['key' => 'ecowitt.secure_token', 'value' => '', 'type' => 'string', 'group' => 'ecowitt', 'description' => 'Optional endpoint token appended to /api/ecowitt/receive/{token}'],
@@ -66,17 +65,11 @@ class SettingsSeeder extends Seeder
             ['key' => 'ecowitt.application_key', 'value' => '', 'type' => 'encrypted', 'group' => 'ecowitt', 'description' => 'Ecowitt Application Key (for cloud API - from api.ecowitt.net)'],
             ['key' => 'ecowitt.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'ecowitt', 'description' => 'Ecowitt API Key (for cloud API)'],
             ['key' => 'ecowitt.mac_address', 'value' => '', 'type' => 'string', 'group' => 'ecowitt', 'description' => 'Ecowitt device MAC address (e.g., AA:BB:CC:DD:EE:FF)'],
+            ['key' => 'ecowitt.rain_gauge', 'value' => 'auto', 'type' => 'select', 'group' => 'ecowitt', 'description' => 'Which rain gauge to read. Auto uses a WS90 or WS85 piezo gauge unless a tipping bucket has recorded rain this year', 'options' => 'auto:Auto,tipping:Tipping bucket (WH40 / WS69),piezo:Piezo (WS90 / WS85)'],
             ['key' => 'ecowitt.api_base_url', 'value' => 'https://api.ecowitt.net/api/v3/', 'type' => 'string', 'group' => 'ecowitt', 'description' => 'Ecowitt API base URL (cloud or local gateway)'],
             ['key' => 'ecowitt.local_file', 'value' => './ecowitt/ecco_lcl.arr', 'type' => 'string', 'group' => 'ecowitt', 'description' => 'Path to local Ecowitt data file'],
-            ['key' => 'ecowitt.lightning_sensor', 'value' => '1', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Station has lightning sensor'],
-            ['key' => 'ecowitt.air_quality_sensor', 'value' => '0', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Station has air quality sensor'],
-            ['key' => 'ecowitt.uv_sensor', 'value' => '1', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Station has UV sensor'],
-            ['key' => 'ecowitt.solar_sensor', 'value' => '1', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Station has solar radiation sensor'],
-            ['key' => 'ecowitt.soil_sensors', 'value' => '0', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Station has soil moisture/temp sensors'],
-            ['key' => 'ecowitt.extra_temp_sensors', 'value' => '0', 'type' => 'integer', 'group' => 'ecowitt', 'description' => 'Number of extra temperature sensors (0-8)'],
-            ['key' => 'ecowitt.pm25_sensors', 'value' => '0', 'type' => 'integer', 'group' => 'ecowitt', 'description' => 'Number of PM2.5 sensors (0-4)'],
-            ['key' => 'ecowitt.co2_sensor', 'value' => '0', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Station has CO2 sensor'],
-            ['key' => 'ecowitt.leak_sensors', 'value' => '0', 'type' => 'integer', 'group' => 'ecowitt', 'description' => 'Number of leak detection sensors (0-4)'],
+            ['key' => 'ecowitt.backfill_enabled', 'value' => '1', 'type' => 'boolean', 'group' => 'ecowitt', 'description' => 'Fill gaps in the readings from the Ecowitt cloud history'],
+            ['key' => 'ecowitt.backfill_days', 'value' => '7', 'type' => 'integer', 'group' => 'ecowitt', 'description' => 'How many days back to look for gaps (1 to 90)'],
             
             // Sensor labels for customization
             ['key' => 'ecowitt.temp1_label', 'value' => 'Extra Sensor 1', 'type' => 'string', 'group' => 'ecowitt', 'description' => 'Label for extra temperature sensor 1'],
@@ -294,6 +287,13 @@ class SettingsSeeder extends Seeder
             ['key' => 'ambient.api_key', 'value' => '', 'type' => 'encrypted', 'group' => 'ambient', 'description' => 'Ambient Weather API Key'],
             ['key' => 'ambient.application_key', 'value' => '', 'type' => 'encrypted', 'group' => 'ambient', 'description' => 'Ambient Weather Application Key'],
             ['key' => 'ambient.mac_address', 'value' => '', 'type' => 'string', 'group' => 'ambient', 'description' => 'Ambient Weather device MAC'],
+            ['key' => 'netatmo.client_id', 'value' => '', 'type' => 'string', 'group' => 'netatmo', 'description' => 'Client ID of your Netatmo app'],
+            ['key' => 'netatmo.client_secret', 'value' => '', 'type' => 'encrypted', 'group' => 'netatmo', 'description' => 'Client secret of your Netatmo app'],
+            ['key' => 'netatmo.refresh_token', 'value' => '', 'type' => 'encrypted', 'group' => 'netatmo', 'description' => 'Netatmo refresh token (changes on every refresh)'],
+            ['key' => 'netatmo.access_token', 'value' => '', 'type' => 'encrypted', 'group' => 'netatmo', 'description' => 'Netatmo access token'],
+            ['key' => 'netatmo.access_expires_at', 'value' => '', 'type' => 'string', 'group' => 'netatmo', 'description' => 'When the Netatmo access token expires (Unix time)'],
+            ['key' => 'netatmo.device_id', 'value' => '', 'type' => 'string', 'group' => 'netatmo', 'description' => 'Netatmo station to read (empty: the first one)'],
+            ['key' => 'netatmo.last_error', 'value' => '', 'type' => 'string', 'group' => 'netatmo', 'description' => 'Last Netatmo error'],
 
             // ===== Davis WeatherLink =====
             ['key' => 'weatherlink.enabled', 'value' => '0', 'type' => 'boolean', 'group' => 'weatherlink', 'description' => 'Enable Davis WeatherLink Cloud'],

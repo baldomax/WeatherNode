@@ -9,7 +9,7 @@
 @section('content')
 <!-- Telemetry Status Card (Prominent) -->
 <div class="mb-6">
-    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-4 md:p-6 text-white">
+    <div class="bg-gradient-to-r from-slate-800 to-sky-700 rounded-xl shadow-lg p-4 md:p-6 text-white">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div class="flex items-center space-x-4">
                 <div class="p-3 rounded-full bg-white/20 flex-shrink-0">
@@ -19,7 +19,7 @@
                 </div>
                 <div>
                     <h3 class="text-base md:text-lg font-semibold">{{ __('Community Telemetry') }}</h3>
-                    <p class="text-xs md:text-sm text-indigo-100">
+                    <p class="text-xs md:text-sm text-sky-100">
                         @if($telemetryEnabled)
                             {{ __('Your station is shared on the community map') }}
                         @else
@@ -37,7 +37,7 @@
                         <input type="hidden" name="github_file" value="{{ \App\Models\Setting::getValue('telemetry.github_file', 'stations.json') }}">
                         <button type="submit"
                                 @click="telemetryEnabled = !telemetryEnabled"
-                                :class="telemetryEnabled ? 'bg-white text-indigo-600' : 'bg-white/20 text-white border-2 border-white'"
+                                :class="telemetryEnabled ? 'bg-white text-sky-700' : 'bg-white/20 text-white border-2 border-white'"
                                 class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg font-medium transition-colors text-sm md:text-base">
                             <span x-text="telemetryEnabled ? labelDisable : labelEnable"></span>
                         </button>
@@ -56,7 +56,7 @@
         </div>
         @if($telemetryEnabled && $telemetryLastUpdated)
         <div class="mt-4 pt-4 border-t border-white/20">
-            <p class="text-xs md:text-sm text-indigo-100">
+            <p class="text-xs md:text-sm text-sky-100">
                 {{ __('Last updated') }}: {{ \Carbon\Carbon::parse($telemetryLastUpdated)->format('Y-m-d H:i:s') }}
             </p>
         </div>
@@ -190,38 +190,24 @@
         @if(count($batteryStatus) > 0)
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 @foreach($batteryStatus as $battery)
-                    <div class="flex items-center justify-between p-3 rounded-lg 
-                        @if($battery['state'] === 'good') bg-green-50 dark:bg-green-900/20
-                        @elseif($battery['state'] === 'medium') bg-yellow-50 dark:bg-yellow-900/20
-                        @else bg-red-50 dark:bg-red-900/20
-                        @endif">
-                        <div class="flex items-center">
-                            <div class="w-8 h-4 rounded border-2 relative
-                                @if($battery['state'] === 'good') border-green-500
-                                @elseif($battery['state'] === 'medium') border-yellow-500
-                                @else border-red-500
-                                @endif">
-                                <div class="absolute inset-0.5 rounded-sm 
-                                    @if($battery['state'] === 'good') bg-green-500
-                                    @elseif($battery['state'] === 'medium') bg-yellow-500
-                                    @else bg-red-500
-                                    @endif" 
-                                    style="width: {{ max(10, $battery['percentage'] - 10) }}%"></div>
-                                <div class="absolute -right-1 top-1/2 -translate-y-1/2 w-0.5 h-2 rounded-r
-                                    @if($battery['state'] === 'good') bg-green-500
-                                    @elseif($battery['state'] === 'medium') bg-yellow-500
-                                    @else bg-red-500
-                                    @endif"></div>
-                            </div>
-                            <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ $battery['name'] }}</span>
-                        </div>
-                        <span class="text-sm font-semibold 
-                            @if($battery['state'] === 'good') text-green-600 dark:text-green-400
-                            @elseif($battery['state'] === 'medium') text-yellow-600 dark:text-yellow-400
-                            @else text-red-600 dark:text-red-400
-                            @endif">
-                            {{ $battery['display'] }}
+                    @php
+                        $tone = match ($battery['state']) {
+                            'good' => ['bg-green-50 dark:bg-green-900/20', 'text-green-500', 'text-green-600 dark:text-green-400'],
+                            'medium' => ['bg-yellow-50 dark:bg-yellow-900/20', 'text-yellow-500', 'text-yellow-600 dark:text-yellow-400'],
+                            'unknown' => ['bg-gray-50 dark:bg-gray-700/30', 'text-gray-400', 'text-gray-500 dark:text-gray-400'],
+                            default => ['bg-red-50 dark:bg-red-900/20', 'text-red-500', 'text-red-600 dark:text-red-400'],
+                        };
+                    @endphp
+                    {{-- Name above, status below: the tiles are narrow, and long names
+                         (German, Greek, Polish) then wrap between words only. --}}
+                    <div class="flex items-center gap-3 p-3 rounded-lg {{ $tone[0] }}">
+                        <span class="shrink-0 {{ $tone[1] }}">
+                            <x-battery-icon :icon="$battery['icon']" :percentage="$battery['percentage']" class="w-6 h-6" />
                         </span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300 break-words">{{ $battery['name'] }}</p>
+                            <p class="text-sm font-semibold {{ $tone[2] }}">{{ $battery['display'] }}</p>
+                        </div>
                     </div>
                 @endforeach
             </div>
@@ -360,26 +346,60 @@
         </div>
     </div>
 
-    <!-- Ecowitt Endpoint Info -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+    <!-- Live Data Source -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6" data-live-source="{{ $liveSource['format'] }}">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">📥 {{ __('Live Data Source') }}</h2>
+        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">{{ $liveSource['name'] }}</p>
         @php
-            $ecowittSecureMode = (bool) \App\Models\Setting::getValue('ecowitt.secure_mode', false);
-            $ecowittSecureToken = trim((string) \App\Models\Setting::getValue('ecowitt.secure_token', ''));
-            $ecowittPath = '/api/ecowitt/receive' . (($ecowittSecureMode && $ecowittSecureToken !== '') ? '/' . $ecowittSecureToken : '');
+            $health = $liveSource['health'];
+            [$healthText, $healthClass, $healthDot] = match ($health['state']) {
+                'ok' => [__('Receiving data'), 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200', 'bg-green-500'],
+                'late' => [__('Data is late'), 'bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200', 'bg-amber-500'],
+                default => [__('No data coming in'), 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200', 'bg-red-500'],
+            };
         @endphp
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📥 {{ __('Ecowitt Data Endpoint') }}</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
-            {{ __('Configure your Ecowitt device to push data to:') }}
-        </p>
-        <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 font-mono text-sm break-all">
-            {{ url($ecowittPath) }}
+        <div class="mb-4 rounded-lg px-3 py-2 text-sm {{ $healthClass }}" data-live-health="{{ $health['state'] }}">
+            <p class="flex items-center gap-2 font-medium">
+                <span class="inline-block w-2 h-2 rounded-full flex-shrink-0 {{ $healthDot }}"></span>
+                {{ $healthText }}
+                <span class="font-normal opacity-80">
+                    · {{ $health['lastReading'] ? __('Last reading :time', ['time' => $health['lastReading']->diffForHumans()]) : __('No readings yet') }}
+                </span>
+            </p>
+            @if($health['error'])
+                <p class="mt-1 text-xs break-words" data-live-error>
+                    {{ __('Last error (:time):', ['time' => $health['error']['at']->diffForHumans()]) }}
+                    <span class="font-mono">{{ $health['error']['message'] }}</span>
+                </p>
+            @endif
         </div>
-        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
-            <strong>{{ __('Protocol') }}:</strong> Ecowitt (HTTP POST)<br>
-            <strong>{{ __('Path') }}:</strong> {{ $ecowittPath }}<br>
-            <strong>{{ __('Secure Mode') }}:</strong> {{ $ecowittSecureMode ? __('Enabled') : __('Disabled') }}<br>
-            <strong>{{ __('Interval') }}:</strong> {{ __('60 seconds recommended') }}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+            @if($liveSource['kind'] === 'push')
+                {{ __('Set your station to send its data to:') }}
+            @elseif($liveSource['kind'] === 'file')
+                {{ __('WeatherNode reads the live data from:') }}
+            @else
+                {{ __('WeatherNode fetches the live data from :source every minute.', ['source' => $liveSource['name']]) }}
+            @endif
         </p>
+        @if($liveSource['kind'] !== 'fetch')
+            <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 font-mono text-sm break-all">
+                {{ $liveSource['address'] !== '' ? $liveSource['address'] : __('Not set') }}
+            </div>
+        @endif
+        @if($liveSource['details'])
+            <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                @foreach($liveSource['details'] as $label => $value)
+                    <strong>{{ $label }}:</strong> <span class="break-all">{{ $value }}</span><br>
+                @endforeach
+            </p>
+        @endif
+        <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            @if($liveSource['settingsGroup'] !== 'livedata')
+                <a href="{{ route('admin.settings.group', $liveSource['settingsGroup']) }}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ __(':source settings', ['source' => $liveSource['name']]) }}</a>
+            @endif
+            <a href="{{ route('admin.settings.group', 'livedata') }}" class="text-blue-600 dark:text-blue-400 hover:underline">{{ __('Change live data source') }}</a>
+        </div>
     </div>
 </div>
 
@@ -388,7 +408,7 @@
     <h2 class="text-base md:text-lg font-semibold text-gray-900 dark:text-white mb-4">{{ __('Recent Weather Readings') }}</h2>
     
     @if($recentReadings->isEmpty())
-        <p class="text-gray-500 dark:text-gray-400">{{ __('No weather readings yet. Configure your Ecowitt API to start collecting data.') }}</p>
+        <p class="text-gray-500 dark:text-gray-400">{{ __('No weather readings yet. Set up your live data source to start collecting data.') }}</p>
     @else
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
