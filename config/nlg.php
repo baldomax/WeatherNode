@@ -34,6 +34,14 @@ return [
             'type' => 'compatible',
             'hint' => 'Paid API. Requires an OpenAI API key.',
         ],
+        'anthropic' => [
+            'label' => 'Anthropic (Claude)',
+            'base_url' => 'https://api.anthropic.com',
+            'default_model' => 'claude-haiku-4-5',
+            'requires_key' => true,
+            'type' => 'anthropic',
+            'hint' => 'Paid API. Requires a Claude API key from platform.claude.com. Uses the native Claude API. Haiku is cheap and plenty for rephrasing; enter claude-sonnet-5-5 for more polished text.',
+        ],
         'groq' => [
             'label' => 'Groq (Free)',
             'base_url' => 'https://api.groq.com/openai/v1',
@@ -97,6 +105,11 @@ return [
         // (finish_reason: length) before any content is produced. Sane internal default; the
         // operator never needs to touch it.
         'reasoning_headroom_tokens' => 2000,
+
+        // Same idea for Claude, which always gets it: Claude 5 models think by default, even at low
+        // effort, and 2000 was not enough for a 9-day batch (the thinking used the whole limit).
+        // Only tokens actually produced are billed, so the larger cap costs nothing extra.
+        'anthropic_thinking_headroom_tokens' => 8000,
     ],
 
     // Per-provider request budget defaults (rpm / rph / rpd = per minute / hour / day).
@@ -112,6 +125,8 @@ return [
         'groq' => ['rpm' => 30, 'rph' => null, 'rpd' => 1000],
         'openrouter' => ['rpm' => 20, 'rph' => null, 'rpd' => 50],
         'openai' => ['rpm' => null, 'rph' => null, 'rpd' => null],
+        // Anthropic tier 1 allows 50 requests per minute; higher tiers allow more.
+        'anthropic' => ['rpm' => 50, 'rph' => null, 'rpd' => null],
         'google' => ['rpm' => null, 'rph' => null, 'rpd' => null],
     ],
 ];

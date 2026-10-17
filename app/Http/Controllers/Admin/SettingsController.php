@@ -2068,6 +2068,54 @@ class SettingsController extends Controller
                         } else {
                             $result = ['success' => false, 'message' => $discovery['message'] ?? "Cannot reach Ollama at {$hostUrl}. Is it running?"];
                         }
+                    } elseif ($type === 'anthropic') {
+                        $baseUrl = $preset['base_url'] ?? '';
+                        $apiKey = Setting::getValue('nlg.api_key', '');
+                        $model = Setting::getValue('nlg.model', '') ?: ($preset['default_model'] ?? '');
+
+                        if (empty($apiKey)) {
+                            $result = ['success' => false, 'message' => 'No API key configured. Please save your API key first.'];
+                            break;
+                        }
+
+                        $discovery = $modelDiscovery->discover($type, $baseUrl, $apiKey);
+                        $modelDiscoveryMessage = '';
+                        if ($discovery['supported']) {
+                            $hasModel = $modelDiscovery->modelExists($discovery['models'], $model, $type);
+                            $modelDiscoveryMessage = ' ' . count($discovery['models']) . ' model(s) listed.'
+                                . ($hasModel ? " Model \"{$model}\" found." : " Warning: model \"{$model}\" not found in the provider list.");
+                        } elseif (is_string($discovery['message']) && $discovery['message'] !== '') {
+                            $modelDiscoveryMessage = ' ' . $discovery['message'];
+                        }
+
+                        // Claude 5 models think before answering and the thinking counts against
+                        // max_tokens, so leave room for it; no temperature (newer models reject it).
+                        try {
+                            $message = app(\App\Services\Nlg\AnthropicClientFactory::class)
+                                ->make($apiKey, $baseUrl, 30.0)
+                                ->messages->create(
+                                    maxTokens: 1024,
+                                    messages: [['role' => 'user', 'content' => 'Say "ok" and nothing else.']],
+                                    model: $model,
+                                );
+                            $reply = '';
+                            foreach ($message->content as $block) {
+                                if ($block->type === 'text') {
+                                    $reply = $block->text;
+                                    break;
+                                }
+                            }
+                            $result = [
+                                'success' => true,
+                                'message' => "Connection successful! Model: {$message->model}. Response: \"{$reply}\"{$modelDiscoveryMessage}",
+                            ];
+                        } catch (\Anthropic\Core\Exceptions\APIStatusException $e) {
+                            $errMsg = is_array($e->body) ? data_get($e->body, 'error.message', '') : '';
+                            $result = [
+                                'success' => false,
+                                'message' => "API returned HTTP {$e->status}: {$errMsg}{$modelDiscoveryMessage}",
+                            ];
+                        }
                     } else {
                         // OpenAI-compatible: send a minimal chat completion request
                         $baseUrl = Setting::getValue('nlg.base_url', '') ?: ($preset['base_url'] ?? '');

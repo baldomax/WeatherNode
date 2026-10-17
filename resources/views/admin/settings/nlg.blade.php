@@ -283,6 +283,7 @@
                             <option value="high" {{ $currentReasoningEffort === 'high' ? 'selected' : '' }}>{{ __('High') }}</option>
                         </select>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Standard chat models (OpenAI gpt-4o-mini, Google, llama, …): leave on Default — they reject this option.') }}</p>
+                        <p x-show="provider === 'anthropic'" x-cloak class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ __('Claude: this sets the effort level. Low is enough for rephrasing and costs the least. Disabled also uses Low, because newer Claude models always think a little. Leave on Default for Claude Haiku 4.5, which does not support effort.') }}</p>
                         <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">{{ __('Reasoning models (OpenAI o-series, and some Groq / OpenRouter / Cerebras models such as zai-glm / gpt-oss): rephrasing needs no thinking, so pick Disabled for Cerebras GLM/gpt-oss, or Low elsewhere. "Default" does NOT turn thinking off — it lets the model reason at full effort, which can use up the whole response on internal thinking and return no text.') }}</p>
                     </div>
                 </div>
