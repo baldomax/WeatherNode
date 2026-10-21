@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.10.3] - 2026-10-21
+
+- Security fix: the Docker image now runs PHP 8.4.27, which fixes PHP2Shell (CVE-2026-109618 and CVE-2026-109619). These critical bugs let an attacker run code on the server without logging in. Update now. If you install by hand, update PHP itself to 8.5.12, 8.4.27, 8.3.36 or 8.2.35 or newer
+- New AI rephrase provider: Anthropic (Claude), using the Claude API directly. The default model is Claude Haiku 4.5 (#163)
+- German translation updates, thanks to @Trashwarez (#162)
+- If you install by hand, run `composer install` after updating, because the Claude provider adds a package
+
 ## [2026.10.2] - 2026-10-16
 
 - New live data source: WeatherLink Live on your own network, read every minute. Set its IP address on the WeatherLink page and pick it on the Live Data page (#158)

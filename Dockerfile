@@ -26,7 +26,10 @@ COPY routes ./routes
 RUN npm run build
 
 # stage 2: PHP app with Nginx
-FROM php:8.4-fpm-bookworm AS app
+# Pinned to the patch release so a security fix can't be missed. The floating
+# 8.4 tag lagged behind the 8.4.27 fix for PHP2Shell (CVE-2026-109618 and
+# CVE-2026-109619). Bump this when PHP ships a new 8.4 patch.
+FROM php:8.4.27-fpm-bookworm AS app
 
 # PHP extensions and system deps
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
