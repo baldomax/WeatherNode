@@ -188,13 +188,15 @@ jobs:
             found { print }
           ' CHANGELOG.md | sed -e '/./,$!d' > changelog-section.md
 
+          if [ ! -s changelog-section.md ]; then
+            echo "::warning::No section for ${VERSION} found in CHANGELOG.md"
+          fi
+
           {
             printf 'SHA256: `%s`\n\n' "${SHA}"
             if [ -s changelog-section.md ]; then
               cat changelog-section.md
               printf '\n'
-            else
-              echo "::warning::No section for ${VERSION} found in CHANGELOG.md"
             fi
             printf 'See [CHANGELOG.md](%s) for details.\n' "${CHANGELOG_URL}"
           } > release-notes.md
