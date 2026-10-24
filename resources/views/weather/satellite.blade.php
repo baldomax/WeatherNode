@@ -141,20 +141,6 @@
         </div>
     @endif
 
-    @if(!$isInNetherlands)
-        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
-            <div class="flex items-start gap-3">
-                <span class="text-xl flex-shrink-0">⚠️</span>
-                <div>
-                    <p class="text-sm text-yellow-200 font-medium">{{ __('Location Notice') }}</p>
-                    <p class="text-xs text-yellow-300 mt-1">
-                        {{ __('The satellite imagery below uses KNMI data, which covers only the Netherlands region. Your station appears to be outside this area, so this imagery may not be relevant for your location. This does not affect the Solar Radiation Forecast above, which uses global Open-Meteo data.') }}
-                    </p>
-                </div>
-            </div>
-        </div>
-    @endif
-
     <!-- KNMI WMS Satellite Layers -->
     @php
         $wmsEnabled = \App\Models\Setting::getValue('satellite.wms_enabled', false);
