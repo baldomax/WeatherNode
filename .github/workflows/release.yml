@@ -169,14 +169,45 @@ jobs:
           printf '%s  weathernode-deploy.zip\n' "${SHA}" > weathernode-deploy.zip.sha256
           sha256sum -c weathernode-deploy.zip.sha256
 
+      # The release page and the in-app updater both show this text, so it carries
+      # the full changelog section for this version, not just the list of pull
+      # requests. Changes committed straight to main (such as a PHP base image
+      # bump) only show up here. Keep the SHA256 line first: the updater reads
+      # the checksum from the first sha256 in the text.
+      - name: Write release notes from CHANGELOG.md
+        env:
+          SHA: ${{ steps.checksum.outputs.sha }}
+          TAG: ${{ github.ref_name }}
+          CHANGELOG_URL: https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md
+        run: |
+          VERSION="${TAG#v}"
+          awk -v heading="## [${VERSION}]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found && /^---$/ { exit }
+            found { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > changelog-section.md
+
+          if [ ! -s changelog-section.md ]; then
+            echo "::warning::No section for ${VERSION} found in CHANGELOG.md"
+          fi
+
+          {
+            printf 'SHA256: `%s`\n\n' "${SHA}"
+            if [ -s changelog-section.md ]; then
+              cat changelog-section.md
+              printf '\n'
+            fi
+            printf 'See [CHANGELOG.md](%s) for details.\n' "${CHANGELOG_URL}"
+          } > release-notes.md
+
+          cat release-notes.md
+
       - name: Create GitHub Release and upload asset
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          body: |
-            SHA256: `${{ steps.checksum.outputs.sha }}`
-
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md) for details.
+          body_path: release-notes.md
           files: |
             weathernode-deploy.zip
             weathernode-deploy.zip.sha256

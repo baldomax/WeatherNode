@@ -25,6 +25,17 @@ final class LiveSource
 
     public const LAST_ERROR = 'livedata:last_error';
 
+    /**
+     * Cloud services hand back the station's last upload, which is often five
+     * to ten minutes old, so their readings get more room before counting as
+     * late (#156). Push and file sources send every minute.
+     */
+    private const CLOUD_FORMATS = ['wu', 'wf', 'AWapi', 'netatmo', 'DWL', 'DWL_v2api', 'DWL_v2api_demo'];
+
+    private const CLOUD_STALE_MINUTES = 20;
+
+    private const CLOUD_DOWN_MINUTES = 45;
+
     /** The name of each source and the settings page that holds its set-up. */
     private const SOURCES = [
         'ecoLcl' => ['Ecowitt Local (push)', 'ecowitt'],
@@ -34,6 +45,7 @@ final class LiveSource
         'DWL' => ['WeatherLink Cloud v1', 'weatherlink'],
         'DWL_v2api' => ['WeatherLink Cloud v2', 'weatherlink'],
         'DWL_v2api_demo' => ['WeatherLink Cloud v2 (Demo Mode)', 'weatherlink'],
+        'wll_local' => ['WeatherLink Live (local network)', 'weatherlink'],
         'wf' => ['WeatherFlow', 'weatherflow'],
         'AWapi' => ['Ambient Weather API', 'ambient'],
         'netatmo' => ['Netatmo', 'netatmo'],
@@ -124,6 +136,21 @@ final class LiveSource
     }
 
     /**
+     * When the newest reading counts as late (stale) and when nothing is
+     * coming in at all (down), in minutes, for a live data format.
+     *
+     * @return array{stale: int, down: int}
+     */
+    public static function limits(?string $format = null): array
+    {
+        $format ??= (string) Setting::getValue('livedata.format', 'ecoLcl');
+
+        return in_array($format, self::CLOUD_FORMATS, true)
+            ? ['stale' => self::CLOUD_STALE_MINUTES, 'down' => self::CLOUD_DOWN_MINUTES]
+            : ['stale' => self::OK_MINUTES, 'down' => self::LATE_MINUTES];
+    }
+
+    /**
      * Whether readings are coming in, judged by the age of the newest one,
      * plus the last error the fetch saw for this source.
      *
@@ -133,10 +160,11 @@ final class LiveSource
     {
         $lastReading = WeatherReading::mostRecent()?->recorded_at;
         $minutes = $lastReading?->diffInMinutes(now());
+        $limits = self::limits($format);
 
         $state = match (true) {
-            $minutes === null || $minutes >= self::LATE_MINUTES => 'down',
-            $minutes >= self::OK_MINUTES => 'late',
+            $minutes === null || $minutes >= $limits['down'] => 'down',
+            $minutes >= $limits['stale'] => 'late',
             default => 'ok',
         };
 

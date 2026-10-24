@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Contracts\Nlg\Narrator;
 use App\Contracts\Nlg\Rephraser;
+use App\Services\Nlg\AnthropicClientFactory;
 use App\Services\Nlg\ForecastNarrator;
+use App\Services\Nlg\Rephrasers\AnthropicRephraser;
 use App\Services\Nlg\Rephrasers\OllamaRephraser;
 use App\Services\Nlg\Rephrasers\OpenAiCompatibleRephraser;
 use App\Services\OpenData\AemetProvider;
@@ -54,6 +56,18 @@ class AppServiceProvider extends ServiceProvider
                     return new OllamaRephraser(
                         hostUrl: $baseUrl ?: 'http://localhost:11434',
                         model: $model ?: 'llama3',
+                    );
+                }
+
+                if (($preset['type'] ?? 'compatible') === 'anthropic') {
+                    return new AnthropicRephraser(
+                        client: app(AnthropicClientFactory::class)->make(
+                            (string) (Setting::getValue('nlg.api_key', '') ?: env('ANTHROPIC_API_KEY', '')),
+                            $baseUrl,
+                            90.0, // a 9-day batch that thinks first can take longer than 30s
+                        ),
+                        model: $model ?: 'claude-haiku-4-5',
+                        reasoningEffort: (string) Setting::getValue('nlg.reasoning_effort', ''),
                     );
                 }
 
@@ -172,6 +186,7 @@ class AppServiceProvider extends ServiceProvider
         // Implemented providers
         OpenDataProviderRegistry::register(new KnmiProvider());
         OpenDataProviderRegistry::register(new AemetProvider());
+        OpenDataProviderRegistry::register(new \App\Services\OpenData\KaurProvider());
 
         // Placeholder providers (coming soon)
         OpenDataProviderRegistry::register(new MetOfficeProvider());

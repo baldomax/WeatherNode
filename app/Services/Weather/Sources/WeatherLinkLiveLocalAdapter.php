@@ -49,12 +49,14 @@ class WeatherLinkLiveLocalAdapter implements WeatherSourceAdapter
 
         // Map WLL data to standard reading format
         $reading = [
+            'recorded_at' => isset($data['recorded_at']) ? \Carbon\Carbon::createFromTimestamp($data['recorded_at']) : null,
             'temperature' => $data['temperature'] ?? null,
             'humidity' => $data['humidity'] ?? null,
             'dew_point' => $data['dew_point'] ?? null,
             'wind_chill' => $data['wind_chill'] ?? null,
             'heat_index' => $data['heat_index'] ?? null,
             'pressure_rel' => $data['pressure_rel'] ?? null,
+            'pressure_abs' => $data['pressure_abs'] ?? null,
             'wind_speed' => $data['wind_speed'] ?? null,
             'wind_gust' => $data['wind_gust'] ?? null,
             'wind_direction' => $data['wind_direction'] ?? null,
@@ -69,6 +71,12 @@ class WeatherLinkLiveLocalAdapter implements WeatherSourceAdapter
             'indoor_temperature' => $data['indoor_temperature'] ?? null,
             'indoor_humidity' => $data['indoor_humidity'] ?? null,
         ];
+
+        // Extra temperature/humidity transmitters, on their own channel.
+        for ($i = 1; $i <= 8; $i++) {
+            $reading["temp_{$i}"] = $data["temp_{$i}"] ?? null;
+            $reading["humidity_{$i}"] = $data["humidity_{$i}"] ?? null;
+        }
 
         return array_filter($reading, static fn ($value) => $value !== null);
     }

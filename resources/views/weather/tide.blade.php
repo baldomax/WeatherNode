@@ -21,7 +21,7 @@
 
     // ── Unit system ───────────────────────────────────────────────────────────
     $isImperial    = ($activeUnits ?? 'metric') === 'imperial';
-    $datumLabel    = ($source ?? '') === 'rws' ? 'NAP' : 'MSL';
+    $datumLabel    = $tideData['datum'] ?? (($source ?? '') === 'rws' ? 'NAP' : 'MSL');
     $unitLabel     = $isImperial ? 'ft' : 'cm';
     $levelDecimals = $isImperial ? 2 : 0;
     $toUnit        = fn(?float $cm): ?float => $cm !== null
@@ -50,6 +50,7 @@
     $trendIcon          = match($trend) { 'rising' => '↑', 'falling' => '↓', default => '→' };
     $trendClass         = match($trend) { 'rising' => 'text-data-cyan-400', 'falling' => 'text-data-blue-400', default => 'text-ui-muted' };
     $nowMs              = now()->timestamp * 1000;
+    $hasForecast        = collect($tideData['series'] ?? [])->contains(fn($p) => $p['timestamp_unix'] > $nowMs);
 
     $upcoming = collect($tideData['tides'] ?? [])
         ->filter(fn($t) => $t['timestamp_unix'] >= $nowMs)
@@ -59,7 +60,7 @@
     $groupedTides = $upcoming->groupBy(fn($t) => Carbon::parse($t['timestamp'])->format('Y-m-d'))->take(3);
 
     $chartSeries = collect($tideData['series'] ?? [])
-        ->filter(fn($p) => $p['timestamp_unix'] >= ($nowMs - 12 * 3_600_000)
+        ->filter(fn($p) => $p['timestamp_unix'] >= ($nowMs - ($hasForecast ? 12 : 48) * 3_600_000)
                         && $p['timestamp_unix'] <= ($nowMs + 48 * 3_600_000))
         ->values()
         ->map(fn($p) => array_merge($p, ['value' => $toUnit($p['value'])]))
@@ -85,6 +86,13 @@
     $beaufortState = $waveData['beaufort_sea_state']          ?? 0;
     $beaufortKey   = $waveData['beaufort_label_key']          ?? 'wave_beaufort_0';
     $waveLoc       = $waveData['location']                    ?? '';
+    $sstLoc        = $waveData['sst_location']                ?? $waveLoc;
+    $hasSwell      = $waveData['has_swell']                   ?? true;
+    $waveSourceName = $waveData['wave_source_name'] ?? 'Open-Meteo Marine';
+    $waveSourceUrl  = $waveData['wave_source_url']  ?? 'https://open-meteo.com/en/docs/marine-weather-api';
+    $sstSourceName  = $waveData['sst_source_name']  ?? 'Open-Meteo Marine';
+    $sstSourceUrl   = $waveData['sst_source_url']   ?? 'https://open-meteo.com/en/docs/marine-weather-api';
+    $sstHasForecast = collect($waveData['sst_series'] ?? [])->contains(fn($p) => $p['timestamp_unix'] > $nowMs);
 
     $waveCardinal  = $waveDir !== null ? OpenMeteoWaveService::degreesToCardinal($waveDir) : '--';
     $swellCardinal = $swellDir !== null ? OpenMeteoWaveService::degreesToCardinal($swellDir) : '--';
@@ -97,7 +105,7 @@
         ->toArray();
 
     $sstSeries = collect($waveData['sst_series'] ?? [])
-        ->filter(fn($p) => $p['timestamp_unix'] >= ($nowMs - 12 * 3_600_000)
+        ->filter(fn($p) => $p['timestamp_unix'] >= ($nowMs - ($sstHasForecast ? 12 : 48) * 3_600_000)
                         && $p['timestamp_unix'] <= ($nowMs + 120 * 3_600_000))
         ->values()
         ->map(fn($p) => array_merge($p, ['value' => $toSstUnit($p['value'])]))
@@ -216,6 +224,7 @@
                 </div>
             </div>
 
+            @if($hasForecast)
             <div class="bg-weather-card rounded-2xl p-5 border border-ui-line/10">
                 <div class="text-xs text-ui-muted uppercase tracking-wider mb-2">{{ __('Next High Tide') }}</div>
                 @if($nextHigh)
@@ -263,6 +272,15 @@
                 </div>
                 <div class="text-xs text-ui-muted mt-2">{{ __('high minus low') }}</div>
             </div>
+            @elseif(($tideData['water_temp_c'] ?? null) !== null)
+            <div class="bg-weather-card rounded-2xl p-5 border border-ui-line/10">
+                <div class="text-xs text-ui-muted uppercase tracking-wider mb-2">{{ __('Water temperature') }}</div>
+                <div class="flex items-end gap-1">
+                    <span class="text-3xl font-bold text-ui-fg">{{ number_format($toSstUnit($tideData['water_temp_c']), $sstDecimals) }}</span>
+                    <span class="text-ui-muted mb-1 text-sm">{{ $sstUnit }}</span>
+                </div>
+            </div>
+            @endif
 
         </div>
 
@@ -275,6 +293,7 @@
         </div>
 
         {{-- 3-day tide table --}}
+        @if($hasForecast)
         <div class="bg-weather-card rounded-2xl p-5 border border-ui-line/10">
             <h2 class="font-semibold text-ui-fg mb-4">{{ __('Tide Forecast') }}</h2>
 
@@ -317,12 +336,16 @@
                 <p class="text-ui-muted">{{ __('No upcoming tide data available.') }}</p>
             @endforelse
         </div>
+        @endif
 
         {{-- Datum explanation + attribution --}}
         <div class="bg-ui-deep/40 rounded-2xl p-5 border border-ui-line/5 text-sm text-ui-muted">
             @if(($source ?? 'rws') === 'rws')
                 <h3 class="font-semibold text-ui-secondary mb-2">{{ __('About NAP') }}</h3>
                 <p class="mb-2">{{ __('nap_explanation') }}</p>
+            @elseif($datumLabel === 'EH2000')
+                <h3 class="font-semibold text-ui-secondary mb-2">{{ __('About EH2000') }}</h3>
+                <p class="mb-2">{{ __('EH2000 is the Estonian height system, referenced to Normaal Amsterdams Peil like other European height systems. Sea level is measured from its zero.') }}</p>
             @else
                 <h3 class="font-semibold text-ui-secondary mb-2">{{ __('About MSL') }}</h3>
                 <p class="mb-2">{{ __('msl_explanation') }}</p>
@@ -372,8 +395,8 @@
         </div>
         <div class="text-right text-sm text-ui-subtle">
             {{ __('Data source') }}:
-            <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener"
-               class="text-data-blue-400 hover:underline">Open-Meteo Marine</a>
+            <a href="{{ $waveSourceUrl }}" target="_blank" rel="noopener"
+               class="text-data-blue-400 hover:underline">{{ $waveSourceName }}</a>
         </div>
     </div>
 
@@ -412,7 +435,7 @@
                     </span>
                     <span class="text-ui-muted mb-1 text-sm">s</span>
                 </div>
-                <div class="mt-2 text-xs text-ui-subtle">{{ __('mean period') }}</div>
+                <div class="mt-2 text-xs text-ui-subtle">{{ __($waveData['wave_period_label'] ?? 'mean period') }}</div>
             </div>
 
             <div class="bg-weather-card rounded-2xl p-5 border border-ui-line/10">
@@ -432,6 +455,7 @@
                 </div>
             </div>
 
+            @if($hasSwell)
             <div class="bg-weather-card rounded-2xl p-5 border border-ui-line/10">
                 <div class="text-xs text-ui-muted uppercase tracking-wider mb-2">{{ __('Swell Height') }}</div>
                 <div class="flex items-end gap-1">
@@ -444,6 +468,7 @@
                     <div class="mt-2 text-xs text-ui-subtle">{{ number_format($swellPeriod, 0) }} s {{ __('period') }}</div>
                 @endif
             </div>
+            @endif
 
         </div>
 
@@ -456,6 +481,7 @@
         </div>
 
         {{-- Wind wave vs swell breakdown --}}
+        @if($hasSwell)
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             <div class="bg-blue-950/30 rounded-2xl p-5 border border-blue-900/30">
@@ -504,13 +530,14 @@
             </div>
 
         </div>
+        @endif
 
         {{-- Attribution --}}
         <div class="bg-ui-deep/40 rounded-2xl p-4 border border-ui-line/5 text-sm text-ui-muted">
             {{ __('Wave data provided by') }}
-            <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener"
-               class="text-data-blue-400 hover:underline">Open-Meteo Marine</a>
-            — {{ __('free, model-based, global coverage') }}.
+            <a href="{{ $waveSourceUrl }}" target="_blank" rel="noopener"
+               class="text-data-blue-400 hover:underline">{{ $waveSourceName }}</a>@if(! isset($waveData['wave_source_name']))
+            — {{ __('free, model-based, global coverage') }}@endif.
         </div>
 
         {{-- About waves (scientific) --}}
@@ -543,14 +570,14 @@
         <div>
             <h1 class="text-2xl md:text-3xl font-bold">🌡 {{ __('Sea Surface Temperature') }}</h1>
             <p class="text-ui-muted">
-                {{ $waveLoc }}
+                {{ $sstLoc }}
                 @if($waveData)· {{ __('Updated') }} {{ $waveUpdatedAt }}@endif
             </p>
         </div>
         <div class="text-right text-sm text-ui-subtle">
             {{ __('Data source') }}:
-            <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener"
-               class="text-data-blue-400 hover:underline">Open-Meteo Marine</a>
+            <a href="{{ $sstSourceUrl }}" target="_blank" rel="noopener"
+               class="text-data-blue-400 hover:underline">{{ $sstSourceName }}</a>
         </div>
     </div>
 
@@ -584,7 +611,7 @@
 
                 {{-- 5-day sparkline --}}
                 <div class="w-full sm:w-72 flex-shrink-0">
-                    <div class="text-xs text-ui-muted mb-2">{{ __('5-day trend') }}</div>
+                    <div class="text-xs text-ui-muted mb-2">{{ $sstHasForecast ? __('5-day trend') : __('Measured readings') }}</div>
                     <div id="sst-chart" style="min-height:140px;"></div>
                 </div>
             </div>
@@ -612,9 +639,9 @@
         {{-- Attribution --}}
         <div class="bg-ui-deep/40 rounded-2xl p-4 border border-ui-line/5 text-sm text-ui-muted">
             {{ __('Sea temperature data provided by') }}
-            <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener"
-               class="text-data-blue-400 hover:underline">Open-Meteo Marine</a>
-            — {{ __('free, model-based, global coverage') }}.
+            <a href="{{ $sstSourceUrl }}" target="_blank" rel="noopener"
+               class="text-data-blue-400 hover:underline">{{ $sstSourceName }}</a>@if(! isset($waveData['sst_source_name']))
+            — {{ __('free, model-based, global coverage') }}@endif.
         </div>
 
         {{-- About sea temperature (scientific) --}}
@@ -640,31 +667,23 @@
 {{-- TAB: RIVER LEVELS                                                          --}}
 {{-- ══════════════════════════════════════════════════════════════════════════ --}}
 @if($activeTab === 'rivers')
+@php
+    $riverSources = collect(\App\Services\River\RiverProviderRegistry::active())
+        ->filter(fn ($provider, $providerId) => (bool) \App\Services\River\RiverProviderRegistry::getSetting($providerId, 'enabled', false));
+@endphp
 <div class="space-y-6">
 
     {{-- Header --}}
-    @php
-        $activeRiverProviders = array_filter(
-            \App\Services\River\RiverProviderRegistry::active(),
-            fn ($p) => (bool) \App\Services\River\RiverProviderRegistry::getSetting($p['id'], 'enabled', false)
-        );
-    @endphp
     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
             <h1 class="text-2xl md:text-3xl font-bold">🏞 {{ __('River Levels') }}</h1>
-            <p class="text-ui-muted">
-                {{ __('Real-time gauge measurements') }}
-                @if(count($activeRiverProviders))
-                    · {{ implode(', ', array_column($activeRiverProviders, 'short')) }}
-                @endif
-            </p>
+            <p class="text-ui-muted">{{ __('Real-time gauge measurements') }} · {{ $riverSources->pluck('name')->implode(', ') }}</p>
         </div>
         <div class="text-right text-sm text-ui-subtle">
             {{ __('Data source') }}:
-            @foreach($activeRiverProviders as $index => $provider)
-                @if($index > 0) · @endif
-                <a href="{{ $provider['attribution_url'] }}" target="_blank" rel="noopener"
-                   class="text-data-blue-400 hover:underline">{{ $provider['attribution_name'] }}</a>
+            @foreach($riverSources as $riverSource)
+                <a href="{{ $riverSource['source_url'] }}" target="_blank" rel="noopener"
+                   class="text-data-blue-400 hover:underline">{{ $riverSource['name'] }}</a>@if(!$loop->last),@endif
             @endforeach
         </div>
     </div>
@@ -794,6 +813,11 @@
                             {{ $riverStatusLabel }}
                         </span>
                     </div>
+                    @if(($station['water_temp_c'] ?? null) !== null)
+                        <div class="mt-2 text-sm text-ui-secondary">
+                            {{ __('Water temperature') }}: {{ number_format($toSstUnit($station['water_temp_c']), $sstDecimals) }} {{ $sstUnit }}
+                        </div>
+                    @endif
                     @if($riverUpdatedAt)
                         <div class="mt-2 text-xs text-ui-subtle">{{ __('Updated') }} {{ $riverUpdatedAt }}</div>
                     @endif
@@ -804,9 +828,9 @@
         {{-- Attribution --}}
         <div class="bg-ui-deep/40 rounded-2xl p-4 border border-ui-line/5 text-sm text-ui-muted">
             {{ __('River level data provided by') }}
-            @foreach($activeRiverProviders as $provider)
-                <a href="{{ $provider['attribution_url'] ?? '#' }}" target="_blank" rel="noopener"
-                   class="text-data-blue-400 hover:underline">{{ $provider['attribution_name'] ?? $provider['name'] }}</a>{{ !$loop->last ? ', ' : '' }}
+            @foreach($riverSources as $riverSource)
+                <a href="{{ $riverSource['source_url'] }}" target="_blank" rel="noopener"
+                   class="text-data-blue-400 hover:underline">{{ $riverSource['name'] }}</a>@if(!$loop->last),@endif
             @endforeach
             — {{ __('real-time gauge measurements') }}.
         </div>

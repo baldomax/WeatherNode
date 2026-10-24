@@ -98,6 +98,7 @@
                         <option value="DWL" {{ $format === 'DWL' ? 'selected' : '' }}>{{ __('WeatherLink Cloud v1') }}</option>
                         <option value="DWL_v2api" {{ $format === 'DWL_v2api' ? 'selected' : '' }}>{{ __('WeatherLink Cloud v2') }}</option>
                         <option value="DWL_v2api_demo" {{ $format === 'DWL_v2api_demo' ? 'selected' : '' }}>{{ __('WeatherLink Cloud v2 (Demo Mode)') }}</option>
+                        <option value="wll_local" {{ $format === 'wll_local' ? 'selected' : '' }}>{{ __('WeatherLink Live (local network)') }}</option>
                         <option value="wf" {{ $format === 'wf' ? 'selected' : '' }}>{{ __('WeatherFlow') }}</option>
                         <option value="AWapi" {{ $format === 'AWapi' ? 'selected' : '' }}>{{ __('Ambient Weather API') }}</option>
                         <option value="netatmo" {{ $format === 'netatmo' ? 'selected' : '' }}>{{ __('Netatmo') }}</option>
@@ -186,6 +187,18 @@
                             </a>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            {{-- WeatherLink Live on the local network (#158) --}}
+            <div class="p-5" id="source-wll_local-config" style="display: {{ $format === 'wll_local' ? 'block' : 'none' }};">
+                <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                    <p class="font-semibold mb-1">{{ __('Configure WeatherLink Live (local network)') }}</p>
+                    <p class="mb-2">{{ __('WeatherNode reads your WeatherLink Live directly over your own network, with fresh data every minute. Set its IP address on the WeatherLink settings page, under WeatherLink Live (local).') }}</p>
+                    <a href="{{ route('admin.settings.group', 'weatherlink') }}" class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium">
+                        {{ __('Go to WeatherLink Settings') }}
+                        <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    </a>
                 </div>
             </div>
 
@@ -442,6 +455,7 @@
         'wu': document.getElementById('source-wu-config'),
         'DWL': document.getElementById('source-DWL-config'),
         'DWL_v2api': document.getElementById('source-DWL_v2api-config'),
+        'wll_local': document.getElementById('source-wll_local-config'),
         'DWL_v2api_demo': document.getElementById('source-DWL_v2api_demo-config'),
         'wf': document.getElementById('source-wf-config'),
         'AWapi': document.getElementById('source-AWapi-config'),
@@ -475,7 +489,7 @@
     }
     
     // Sources that only show info/link (no form fields)
-    const infoOnlySources = ['ecowittAPI', 'wu', 'DWL', 'DWL_v2api', 'wf', 'AWapi', 'netatmo'];
+    const infoOnlySources = ['ecowittAPI', 'wu', 'DWL', 'DWL_v2api', 'wll_local', 'wf', 'AWapi', 'netatmo'];
 
     function updateVisibility() {
         const format = formatSelect.value;

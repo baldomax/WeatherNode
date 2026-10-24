@@ -171,7 +171,12 @@ class WeatherLinkLiveLocalService
                     return null;
                 }
 
-                return $this->parseSensorData($data['data']['conditions']);
+                $parsed = $this->parseSensorData($data['data']['conditions']);
+                if (is_numeric($data['data']['ts'] ?? null)) {
+                    $parsed['recorded_at'] = (int) $data['data']['ts'];
+                }
+
+                return $parsed;
 
             } catch (\Exception $e) {
                 Log::error('WeatherLink Live Local API exception', [
@@ -214,11 +219,34 @@ class WeatherLinkLiveLocalService
             'indoor_humidity' => null,
         ];
 
+        // Every transmitter reports as an ISS record (type 1), extra
+        // temperature/humidity stations too. The station itself is the one
+        // with wind or rain; the others used to overwrite it whenever they
+        // came later in the list (#158), and are kept as extra sensors now.
+        $iss = array_values(array_filter($conditions, fn ($c) => ($c['data_structure_type'] ?? 0) === 1));
+        $station = null;
+        foreach ($iss as $condition) {
+            if (($condition['wind_speed_last'] ?? null) !== null || ($condition['rain_size'] ?? null) !== null) {
+                $station = $condition;
+                break;
+            }
+        }
+        $station ??= $iss[0] ?? null;
+
+        foreach ($iss as $condition) {
+            $txid = (int) ($condition['txid'] ?? 0);
+            if ($condition === $station || $txid < 1 || $txid > 8) {
+                continue;
+            }
+            $data["temp_{$txid}"] = $this->fahrenheitToCelsius($condition['temp'] ?? null);
+            $data["humidity_{$txid}"] = $condition['hum'] ?? null;
+        }
+
         foreach ($conditions as $condition) {
             $dataStructureType = $condition['data_structure_type'] ?? 0;
 
-            // Type 1: ISS Current Conditions
-            if ($dataStructureType === 1) {
+            // Type 1: ISS Current Conditions, the station only
+            if ($dataStructureType === 1 && $condition === $station) {
                 $data['temperature'] = $this->fahrenheitToCelsius($condition['temp'] ?? null);
                 $data['humidity'] = $condition['hum'] ?? null;
                 $data['dew_point'] = $this->fahrenheitToCelsius($condition['dew_point'] ?? null);
@@ -227,15 +255,15 @@ class WeatherLinkLiveLocalService
                 $data['wind_speed'] = $this->mphToKmh($condition['wind_speed_last'] ?? null);
                 $data['wind_gust'] = $this->mphToKmh($condition['wind_speed_hi_last_10_min'] ?? null);
                 $data['wind_direction'] = $condition['wind_dir_last'] ?? null;
-                
+
                 // Rain data - convert from counts to mm based on rain_size
-                $rainSize = $condition['rain_size'] ?? 2; // 2 = 0.2mm per count
+                $rainSize = (int) ($condition['rain_size'] ?? 2); // 2 = 0.2mm per count
                 $rainMultiplier = $this->getRainMultiplier($rainSize);
                 $data['rain_rate'] = $this->countsToMm($condition['rain_rate_last'] ?? null, $rainMultiplier);
                 $data['rain_daily'] = $this->countsToMm($condition['rainfall_daily'] ?? null, $rainMultiplier);
                 $data['rain_monthly'] = $this->countsToMm($condition['rainfall_monthly'] ?? null, $rainMultiplier);
                 $data['rain_yearly'] = $this->countsToMm($condition['rainfall_year'] ?? null, $rainMultiplier);
-                
+
                 $data['uv_index'] = $condition['uv_index'] ?? null;
                 $data['solar_radiation'] = $condition['solar_rad'] ?? null;
             }
@@ -243,6 +271,7 @@ class WeatherLinkLiveLocalService
             // Type 3: LSS BAR (Barometer)
             if ($dataStructureType === 3) {
                 $data['pressure_rel'] = $this->inhgToHpa($condition['bar_sea_level'] ?? null);
+                $data['pressure_abs'] = $this->inhgToHpa($condition['bar_absolute'] ?? null);
             }
 
             // Type 4: LSS Temp/Hum (Indoor)
@@ -275,13 +304,15 @@ class WeatherLinkLiveLocalService
     /**
      * Convert rain counts to millimeters
      * 
-     * @param int|null $counts Rain count
+     * @param int|float|null $counts Rain count
      * @param float $multiplier Multiplier (mm per count)
      * @return float|null Rain in mm
      */
-    private function countsToMm(?int $counts, float $multiplier): ?float
+    private function countsToMm(int|float|null $counts, float $multiplier): ?float
     {
-        return $counts !== null ? round($counts * $multiplier, 2) : null;
+        // JSON can write a count as 63.0; with strict types an int-only
+        // parameter turned that into a TypeError that stopped the fetch.
+        return $counts !== null ? round((float) $counts * $multiplier, 2) : null;
     }
 
     /**

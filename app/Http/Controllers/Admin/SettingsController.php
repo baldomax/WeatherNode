@@ -786,7 +786,7 @@ class SettingsController extends Controller
                 }
                 return redirect()
                     ->route('admin.settings.group', $group)
-                    ->with('success', 'Station list refreshed from RWS catalog.');
+                    ->with('success', 'Station list refreshed.');
             }
             $this->updateRiversSettings($request);
             $this->clearSettingsCache();
@@ -1908,6 +1908,14 @@ class SettingsController extends Controller
                         break;
                     }
 
+                    if ($format === 'wll_local') {
+                        $data = app(\App\Services\Weather\Sources\WeatherLinkLiveLocalAdapter::class)->fetch();
+                        $result = $data ?
+                            ['success' => true, 'message' => 'The WeatherLink Live sent data.'] :
+                            ['success' => false, 'message' => 'No data returned. Check the WeatherLink Live IP address on the WeatherLink settings page, and that it is on the same network.'];
+                        break;
+                    }
+
                     if ($format === 'DWL') {
                         $svc = app(\App\Services\Weather\Sources\WeatherLinkV1Adapter::class);
                         $data = $svc->fetch();
@@ -2059,6 +2067,54 @@ class SettingsController extends Controller
                             ];
                         } else {
                             $result = ['success' => false, 'message' => $discovery['message'] ?? "Cannot reach Ollama at {$hostUrl}. Is it running?"];
+                        }
+                    } elseif ($type === 'anthropic') {
+                        $baseUrl = $preset['base_url'] ?? '';
+                        $apiKey = Setting::getValue('nlg.api_key', '');
+                        $model = Setting::getValue('nlg.model', '') ?: ($preset['default_model'] ?? '');
+
+                        if (empty($apiKey)) {
+                            $result = ['success' => false, 'message' => 'No API key configured. Please save your API key first.'];
+                            break;
+                        }
+
+                        $discovery = $modelDiscovery->discover($type, $baseUrl, $apiKey);
+                        $modelDiscoveryMessage = '';
+                        if ($discovery['supported']) {
+                            $hasModel = $modelDiscovery->modelExists($discovery['models'], $model, $type);
+                            $modelDiscoveryMessage = ' ' . count($discovery['models']) . ' model(s) listed.'
+                                . ($hasModel ? " Model \"{$model}\" found." : " Warning: model \"{$model}\" not found in the provider list.");
+                        } elseif (is_string($discovery['message']) && $discovery['message'] !== '') {
+                            $modelDiscoveryMessage = ' ' . $discovery['message'];
+                        }
+
+                        // Claude 5 models think before answering and the thinking counts against
+                        // max_tokens, so leave room for it; no temperature (newer models reject it).
+                        try {
+                            $message = app(\App\Services\Nlg\AnthropicClientFactory::class)
+                                ->make($apiKey, $baseUrl, 30.0)
+                                ->messages->create(
+                                    maxTokens: 1024,
+                                    messages: [['role' => 'user', 'content' => 'Say "ok" and nothing else.']],
+                                    model: $model,
+                                );
+                            $reply = '';
+                            foreach ($message->content as $block) {
+                                if ($block->type === 'text') {
+                                    $reply = $block->text;
+                                    break;
+                                }
+                            }
+                            $result = [
+                                'success' => true,
+                                'message' => "Connection successful! Model: {$message->model}. Response: \"{$reply}\"{$modelDiscoveryMessage}",
+                            ];
+                        } catch (\Anthropic\Core\Exceptions\APIStatusException $e) {
+                            $errMsg = is_array($e->body) ? data_get($e->body, 'error.message', '') : '';
+                            $result = [
+                                'success' => false,
+                                'message' => "API returned HTTP {$e->status}: {$errMsg}{$modelDiscoveryMessage}",
+                            ];
                         }
                     } else {
                         // OpenAI-compatible: send a minimal chat completion request
@@ -2947,6 +3003,16 @@ class SettingsController extends Controller
             $value = trim((string) $request->input("marine_{$part}", ''));
             Setting::setValue("marine.{$part}", $value, 'string', 'marine');
         }
+
+        $source = (string) $request->input('waves_source', \App\Services\Wave\WaveServiceFactory::DEFAULT_SOURCE);
+        if (! isset(\App\Services\Wave\WaveServiceFactory::SOURCES[$source])) {
+            $source = \App\Services\Wave\WaveServiceFactory::DEFAULT_SOURCE;
+        }
+        Setting::setValue('waves.source', $source, 'string', 'waves');
+        if ($request->has('waves_kaur_station_code')) {
+            Setting::setValue('waves.kaur_station_code', trim((string) $request->input('waves_kaur_station_code')), 'string', 'waves');
+        }
+        Cache::forget('waves_'.round((float) Setting::latitude(), 2).'_'.round((float) Setting::longitude(), 2));
     }
 
     /**
@@ -2999,6 +3065,7 @@ class SettingsController extends Controller
                 ];
             }
             Setting::setValue("rivers.{$providerId}.custom_stations", json_encode($custom), 'string', 'rivers');
+            Cache::forget(\App\Services\River\RiverProviderRegistry::cacheKey($providerId));
         }
     }
 

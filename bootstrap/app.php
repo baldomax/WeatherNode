@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature.menu' => \App\Http\Middleware\FeatureMenuEnabledMiddleware::class,
             'setup.pending' => \App\Http\Middleware\RequireFirstRunSetup::class,
         ]);
+        // First, so every link built from the request keeps APP_URL's port.
+        $middleware->prepend(\App\Http\Middleware\KeepAppUrlPort::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\LocaleUnitsMiddleware::class);
         $middleware->appendToGroup('api', \App\Http\Middleware\LocaleUnitsMiddleware::class);
         $middleware->appendToGroup('api', \App\Http\Middleware\ApiKeyMiddleware::class);

@@ -206,7 +206,7 @@ function createRiverProviderState(catalogElementId, initialEnabled, initialStati
                 @if(isset($providerMeta['catalog_service']))
                 <div class="flex items-center justify-between gap-4 px-5 py-2.5 bg-gray-900/30">
                     <p class="text-xs text-gray-500">
-                        {{ count($ps['catalog']) }} {{ __('stations from RWS catalog') }}
+                        {{ count($ps['catalog']) }} {{ __('stations from :source catalog', ['source' => $providerMeta['short']]) }}
                         @if($ps['catalogAt'])
                             · {{ __('updated') }} {{ $ps['catalogAt']->diffForHumans() }}
                         @else
@@ -352,6 +352,7 @@ function createRiverProviderState(catalogElementId, initialEnabled, initialStati
             @endif
 
             {{-- ── Custom station codes ── --}}
+            @if($providerMeta['custom_stations'] ?? true)
             <div x-show="enabled" x-cloak class="border-t border-white/5 p-5">
                 <h3 class="font-medium text-white text-sm mb-1">{{ __('Custom station codes') }}</h3>
                 <p class="text-xs text-gray-400 mb-4">
@@ -415,6 +416,7 @@ function createRiverProviderState(catalogElementId, initialEnabled, initialStati
                     </div>
                 </div>
             </div>
+            @endif
 
             {{-- ── Hidden form inputs — one JSON field per setting per provider ── --}}
             <input type="hidden" name="providers[{{ $providerId }}][enabled]" :value="enabled ? '1' : '0'">

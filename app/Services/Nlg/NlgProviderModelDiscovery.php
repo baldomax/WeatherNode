@@ -2,18 +2,25 @@
 
 namespace App\Services\Nlg;
 
+use Anthropic\Core\Exceptions\APIStatusException;
 use Illuminate\Support\Facades\Http;
 
 class NlgProviderModelDiscovery
 {
+    public function __construct(
+        private ?AnthropicClientFactory $anthropicClients = null,
+    ) {}
+
     /**
      * @return array{supported: bool, models: array<int, string>, message: ?string}
      */
     public function discover(string $type, string $baseUrl, string $apiKey = ''): array
     {
-        return $type === 'ollama'
-            ? $this->discoverOllamaModels($baseUrl)
-            : $this->discoverCompatibleModels($baseUrl, $apiKey);
+        return match ($type) {
+            'ollama' => $this->discoverOllamaModels($baseUrl),
+            'anthropic' => $this->discoverAnthropicModels($baseUrl, $apiKey),
+            default => $this->discoverCompatibleModels($baseUrl, $apiKey),
+        };
     }
 
     public function modelExists(array $models, string $model, string $type = 'compatible'): bool
@@ -77,6 +84,44 @@ class NlgProviderModelDiscovery
                     $models[] = trim($name);
                 }
             }
+        }
+
+        return [
+            'supported' => $models !== [],
+            'models' => array_values(array_unique($models)),
+            'message' => $models !== [] ? null : 'Model listing returned no usable model ids.',
+        ];
+    }
+
+    /**
+     * The Claude API lists models at GET /v1/models, but authenticates with an x-api-key header
+     * rather than a Bearer token, so it goes through the SDK instead of the generic lister.
+     *
+     * @return array{supported: bool, models: array<int, string>, message: ?string}
+     */
+    private function discoverAnthropicModels(string $baseUrl, string $apiKey): array
+    {
+        try {
+            $client = ($this->anthropicClients ?? new AnthropicClientFactory())->make($apiKey, $baseUrl, 10.0);
+
+            $models = [];
+            foreach ($client->models->list(limit: 100)->pagingEachItem() as $model) {
+                $models[] = $model->id;
+            }
+        } catch (APIStatusException $e) {
+            $message = is_array($e->body) ? data_get($e->body, 'error.message') : null;
+
+            return [
+                'supported' => false,
+                'models' => [],
+                'message' => "Model listing failed with HTTP {$e->status}" . (is_string($message) ? ": {$message}" : '.'),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'supported' => false,
+                'models' => [],
+                'message' => 'Model listing failed: ' . $e->getMessage(),
+            ];
         }
 
         return [

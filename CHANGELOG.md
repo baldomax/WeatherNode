@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026.10.3] - 2026-10-21
+
+- Security fix: the Docker image now runs PHP 8.4.27, which fixes PHP2Shell (CVE-2026-109618 and CVE-2026-109619). These critical bugs let an attacker run code on the server without logging in. Update now. If you install by hand, update PHP itself to 8.5.12, 8.4.27, 8.3.36 or 8.2.35 or newer
+- New AI rephrase provider: Anthropic (Claude), using the Claude API directly. The default model is Claude Haiku 4.5 (#163)
+- German translation updates, thanks to @Trashwarez (#162)
+- If you install by hand, run `composer install` after updating, because the Claude provider adds a package
+
+## [2026.10.2] - 2026-10-16
+
+- New live data source: WeatherLink Live on your own network, read every minute. Set its IP address on the WeatherLink page and pick it on the Live Data page (#158)
+- Estonian river gauges, sea level, waves and sea temperature from Keskkonnaagentuur, thanks to @soend (#151, #153)
+- Fix stations on Weather Underground, the WeatherLink cloud, Ambient, WeatherFlow and Netatmo showing Offline while data came in. These upload every 5 to 10 minutes, so they now count as stale after 20 minutes (#156)
+- The same cloud upload is no longer stored again every minute, and cloud readings are saved in the right time zone on sites outside UTC
+- Fix the language and units menus sending you to port 80 behind a port mapping, such as Unraid's login page
+- Fix the Sun & Moon card going Offline every hour. The Docker scheduler now runs `schedule:work`, which no longer skips minutes, thanks to @soend (#150)
+- The satellite map keeps yesterday's image until today's is ready, thanks to @baldomax (#152)
+- German translation updates, thanks to @Trashwarez (#154, #155, #160)
+- If you install by hand, run `php artisan migrate` after updating. Docker and the built-in updater do this for you
+
 ## [2026.10.1] - 2026-10-07
 
 - New live data source: Netatmo. Read your own Netatmo station, or a public station you marked as favorite on weathermap.netatmo.com, so it works without Netatmo hardware too. Connect it on the new Netatmo settings page with a free app from dev.netatmo.com

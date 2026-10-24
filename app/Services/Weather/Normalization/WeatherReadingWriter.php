@@ -31,12 +31,12 @@ class WeatherReadingWriter
     {
         $appTz = config('app.timezone');
 
+        // A Carbon is a fixed moment, so convert it whatever zone it carries.
+        // Only "UTC" and "GMT" used to be converted, and a Unix timestamp
+        // comes back tagged "+00:00", so cloud readings were stored in UTC
+        // wall time and looked hours old or hours ahead (#156).
         if ($value instanceof CarbonInterface) {
-            $tzName = $value->getTimezone()->getName();
-            if (in_array($tzName, ['UTC', 'GMT'], true)) {
-                return $value->copy()->setTimezone($appTz);
-            }
-            return $value;
+            return $value->copy()->setTimezone($appTz);
         }
 
         if (is_string($value)) {
