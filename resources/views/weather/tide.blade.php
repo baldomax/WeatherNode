@@ -696,6 +696,150 @@
 
     @else
 
+        {{-- Hydrometric station map (CFR Toscana only -- fork-only feature) --}}
+        @if(!empty($riverMapStations))
+        @php
+            $riverMapLabels = [
+                'no_data'          => __('No data'),
+                'watch'            => __('Watch'),
+                'warning'          => __('Warning'),
+                'normal'           => __('Normal'),
+                'level'            => __('Level'),
+                'hydrometric_zero' => __('Hydrometric zero'),
+                'view_card'        => __('View station card'),
+                'show_rivers'      => __('Show rivers'),
+                'hide_rivers'      => __('Hide rivers'),
+            ];
+        @endphp
+        <div class="bg-weather-card rounded-2xl p-5 border border-ui-line/10">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-semibold">{{ __('Station map') }}</h2>
+                <button type="button" id="river-lines-toggle" class="text-xs px-3 py-1 rounded-full border border-ui-line/20 text-ui-muted hover:text-ui-fg hover:border-ui-line/40 transition">{{ __('Hide rivers') }}</button>
+            </div>
+            <div id="river-map" style="height: 420px; border-radius: 1rem; overflow: hidden;"></div>
+            <div class="mt-3 flex items-center gap-4 text-xs text-ui-muted">
+                <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#3b82f6"></span>{{ __('Normal') }}</span>
+                <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#facc15"></span>{{ __('Watch') }}</span>
+                <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#ef4444"></span>{{ __('Warning') }}</span>
+                <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:#9ca3af"></span>{{ __('No data') }}</span>
+            </div>
+        </div>
+        <script type="application/json" id="river-map-data">@json($riverMapStations)</script>
+        <script type="application/json" id="river-map-labels">@json($riverMapLabels)</script>
+        <script type="application/json" id="river-lines-data">@json($riverLinesGeoJson ?? ['type' => 'FeatureCollection', 'features' => []])</script>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+        (function () {
+            function initRiverMap() {
+                var el = document.getElementById('river-map');
+                var dataEl = document.getElementById('river-map-data');
+                var labelsEl = document.getElementById('river-map-labels');
+                if (!el || !dataEl || !labelsEl || typeof L === 'undefined') { return; }
+                if (el._leaflet_id) { return; }
+
+                var stations = JSON.parse(dataEl.textContent || '[]');
+                var labels = JSON.parse(labelsEl.textContent || '{}');
+                if (!stations.length) { return; }
+
+                var map = L.map('river-map', { scrollWheelZoom: false });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 18
+                }).addTo(map);
+
+                function colorFor(station) {
+                    if (station.level_cm === null || station.level_cm === undefined) { return '#9ca3af'; }
+                    if (station.status === 'warning') { return '#ef4444'; }
+                    if (station.status === 'watch') { return '#facc15'; }
+                    return '#3b82f6';
+                }
+
+                function dropletIcon(color) {
+                    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="34" viewBox="0 0 26 34">' +
+                        '<path d="M13 0C6 9 0 16.5 0 22a13 13 0 0026 0C26 16.5 20 9 13 0z" fill="' + color + '" stroke="#1f2937" stroke-width="1"/>' +
+                        '<circle cx="13" cy="22" r="5" fill="#ffffff" fill-opacity="0.35"/>' +
+                        '</svg>';
+                    return L.divIcon({
+                        html: svg,
+                        className: '',
+                        iconSize: [26, 34],
+                        iconAnchor: [13, 32],
+                        popupAnchor: [0, -30]
+                    });
+                }
+
+                var bounds = [];
+                stations.forEach(function (s) {
+                    var marker = L.marker([s.lat, s.lon], { icon: dropletIcon(colorFor(s)) }).addTo(map);
+                    bounds.push([s.lat, s.lon]);
+
+                    var levelLabel = (s.level_cm !== null && s.level_cm !== undefined)
+                        ? Math.round(s.level_cm) + ' cm s.z.i.'
+                        : labels.no_data;
+                    var t1 = (s.threshold_1_m !== null && s.threshold_1_m !== undefined) ? Math.round(s.threshold_1_m * 100) + ' cm' : '--';
+                    var t2 = (s.threshold_2_m !== null && s.threshold_2_m !== undefined) ? Math.round(s.threshold_2_m * 100) + ' cm' : '--';
+                    var zero = (s.zero_idrometrico !== null && s.zero_idrometrico !== undefined) ? s.zero_idrometrico + ' m' : '--';
+
+                    var html = '<div style="min-width:180px">' +
+                        '<div style="font-weight:600;margin-bottom:4px">' + s.name + ' (' + s.river + ')</div>' +
+                        '<div>' + labels.level + ': <strong>' + levelLabel + '</strong></div>' +
+                        '<div>' + labels.watch + ': ' + t1 + ' &middot; ' + labels.warning + ': ' + t2 + '</div>' +
+                        '<div style="color:#6b7280;font-size:11px">' + labels.hydrometric_zero + ': ' + zero + '</div>' +
+                        '<a href="#river-card-' + s.code + '" style="display:inline-block;margin-top:6px;color:#3b82f6;text-decoration:underline">' + labels.view_card + '</a>' +
+                        '</div>';
+
+                    marker.bindPopup(html);
+                });
+
+                var linesDataEl = document.getElementById('river-lines-data');
+                var toggleBtn = document.getElementById('river-lines-toggle');
+                if (linesDataEl) {
+                    var linesGeoJson = JSON.parse(linesDataEl.textContent || '{}');
+                    if (linesGeoJson.features && linesGeoJson.features.length) {
+                        var linesLayer = L.geoJSON(linesGeoJson, {
+                            style: { color: '#0878d7', weight: 3, opacity: 0.85, lineCap: 'round', lineJoin: 'round' },
+                            onEachFeature: function (feature, layer) {
+                                var riverName = feature.properties && feature.properties.name ? feature.properties.name : '';
+                                if (riverName) { layer.bindTooltip(riverName, { sticky: true }); }
+                            }
+                        }).addTo(map);
+
+                        if (toggleBtn) {
+                            toggleBtn.addEventListener('click', function () {
+                                var visible = map.hasLayer(linesLayer);
+                                if (visible) {
+                                    map.removeLayer(linesLayer);
+                                    toggleBtn.textContent = labels.show_rivers;
+                                } else {
+                                    map.addLayer(linesLayer);
+                                    toggleBtn.textContent = labels.hide_rivers;
+                                }
+                            });
+                        }
+                    } else if (toggleBtn) {
+                        toggleBtn.style.display = 'none';
+                    }
+                }
+
+                if (bounds.length) {
+                    map.fitBounds(bounds, { padding: [20, 20] });
+                } else {
+                    map.setView([43.5, 11], 8);
+                }
+
+                setTimeout(function () { map.invalidateSize(); }, 150);
+            }
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                setTimeout(initRiverMap, 0);
+            } else {
+                document.addEventListener('DOMContentLoaded', initRiverMap);
+            }
+        })();
+        </script>
+        @endif
+
         {{-- Station cards --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach($riverData as $code => $station)
@@ -754,7 +898,7 @@
                         default => null,
                     };
                 @endphp
-                <div class="bg-emerald-900/20 rounded-2xl p-5 border border-emerald-800/30">
+                <div id="river-card-{{ $code }}" class="bg-emerald-900/20 rounded-2xl p-5 border border-emerald-800/30">
                     <div class="flex items-center justify-between mb-3">
                         <div>
                             <div class="text-xs text-data-emerald-400 uppercase tracking-wider font-medium">

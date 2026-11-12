@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\River\CfrToscanaStationCoordinatesService;
+use App\Services\River\OsmRiverLinesService;
 use App\Models\Setting;
 use App\Support\WaterSections;
 use App\Services\TideService;
@@ -241,22 +243,98 @@ class WaterController extends Controller
             return $this->elsewhere();
         }
 
+        $riverData        = $this->loadRiverData();
+        $riverMapStations = $this->buildRiverMapStations($riverData);
+
         return view('weather.tide', [
-            'activeTab'     => 'rivers',
-            'waterTabs'     => WaterSections::enabled(),
+            'activeTab'         => 'rivers',
+            'waterTabs'         => WaterSections::enabled(),
             // River
-            'riverData'     => $this->loadRiverData(),
+            'riverData'         => $riverData,
+            'riverMapStations'  => $riverMapStations,
+            'riverLinesGeoJson' => $this->buildRiverLinesGeoJson($riverMapStations),
             // Unused on this tab
-            'tideEnabled'   => false,
-            'tideData'      => null,
-            'stationCode'   => null,
-            'stationName'   => null,
-            'stations'      => [],
-            'source'        => '',
-            'sourceLabel'   => '',
-            'sourceDocUrl'  => null,
-            'wavesEnabled'  => false,
-            'waveData'      => null,
+            'tideEnabled'       => false,
+            'tideData'          => null,
+            'stationCode'       => null,
+            'stationName'       => null,
+            'stations'          => [],
+            'source'            => '',
+            'sourceLabel'       => '',
+            'sourceDocUrl'      => null,
+            'wavesEnabled'      => false,
+            'waveData'          => null,
         ]);
+    }
+
+    /**
+     * Join the live river data with CFR Toscana's official geographic
+     * coordinates (from SIR Toscana's WFS service) to build the marker
+     * list for the /water/rivers hydrometric map. Stations with no match
+     * in the coordinates cache (RWS, KAUR -- outside Tuscany) are silently
+     * skipped; only CFR Toscana stations have coordinates.
+     *
+     * Tuscany/CFR-Toscana-specific -- fork only, not proposed upstream.
+     */
+    private function buildRiverMapStations(?array $riverData): array
+    {
+        if (empty($riverData)) {
+            return [];
+        }
+
+        try {
+            $coordinates = app(CfrToscanaStationCoordinatesService::class)->getCoordinates();
+        } catch (\Exception $e) {
+            Log::warning('WaterController: failed to load CFR Toscana station coordinates', ['error' => $e->getMessage()]);
+            return [];
+        }
+
+        $stations = [];
+        foreach ($riverData as $code => $station) {
+            $coord = $coordinates[$code] ?? null;
+            if (!$coord) {
+                continue;
+            }
+
+            $stations[] = [
+                'code'             => $code,
+                'lat'              => $coord['lat'],
+                'lon'              => $coord['lon'],
+                'name'             => $station['name'] ?? $coord['nome'],
+                'river'            => $station['river'] ?? '--',
+                'status'           => $station['status'] ?? 'normal',
+                'level_cm'         => $station['level_cm'] ?? null,
+                'threshold_1_m'    => $station['meta']['threshold_1_m'] ?? null,
+                'threshold_2_m'    => $station['meta']['threshold_2_m'] ?? null,
+                'zero_idrometrico' => $coord['zero_idrometrico'] ?? null,
+                'updated_at'       => $station['updated_at'] ?? null,
+            ];
+        }
+
+        return $stations;
+    }
+
+    /**
+     * Fetch (and cache, see OsmRiverLinesService) the actual river-course
+     * geometry from OpenStreetMap for every distinct river name among the
+     * CFR Toscana map stations, so the hydrometric map can draw the river
+     * lines themselves, not just the station markers.
+     *
+     * Tuscany/CFR-Toscana-specific -- fork only, not proposed upstream.
+     */
+    private function buildRiverLinesGeoJson(array $riverMapStations): array
+    {
+        if (empty($riverMapStations)) {
+            return ['type' => 'FeatureCollection', 'features' => []];
+        }
+
+        $riverNames = array_values(array_unique(array_column($riverMapStations, 'river')));
+
+        try {
+            return app(OsmRiverLinesService::class)->getRiverLines($riverNames);
+        } catch (\Exception $e) {
+            Log::warning('WaterController: failed to load OSM river lines', ['error' => $e->getMessage()]);
+            return ['type' => 'FeatureCollection', 'features' => []];
+        }
     }
 }
